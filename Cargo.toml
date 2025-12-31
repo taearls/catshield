@@ -3,9 +3,9 @@ name = "cat_shield"
 version = "0.1.0"
 edition = "2021"
 description = "A cat-proof screen overlay that keeps your machine awake and blocks input"
-authors = ["Your Name"]
+authors = ["Tyler Earls"]
 license = "MIT"
-repository = "https://github.com/YOUR_USERNAME/cat_shield"
+repository = "https://github.com/taearls/catshield"
 keywords = ["macos", "utility", "screen-lock", "input-blocking"]
 categories = ["command-line-utilities"]
 

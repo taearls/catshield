@@ -16,7 +16,7 @@ use cocoa::appkit::{
     NSApp, NSApplication, NSApplicationActivationPolicy, NSBackingStoreType, NSColor, NSScreen,
     NSWindow, NSWindowCollectionBehavior, NSWindowStyleMask,
 };
-use cocoa::base::{id, nil, NO};
+use cocoa::base::{nil, NO};
 use cocoa::foundation::{NSAutoreleasePool, NSRect, NSString};
 use core_foundation::base::TCFType;
 use core_foundation::runloop::{kCFRunLoopCommonModes, CFRunLoop};
@@ -25,7 +25,7 @@ use core_graphics::event::{CGEventTapLocation, CGEventTapOptions, CGEventTapPlac
 use objc::{msg_send, sel, sel_impl};
 use std::ffi::c_void;
 use std::process;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::Ordering;
 
 // IOKit power management bindings
 #[link(name = "IOKit", kind = "framework")]
@@ -72,8 +72,17 @@ const K_IOPM_ASSERTION_LEVEL_ON: u32 = 255;
 // Keycode for 'U' on macOS
 const KEY_U: i64 = 32;
 
-// Global flag for exit
-static SHOULD_EXIT: AtomicBool = AtomicBool::new(false);
+// CoreGraphics event constants
+const K_CG_KEYBOARD_EVENT_KEYCODE: u32 = 9;
+const K_CG_EVENT_FLAG_MASK_COMMAND: u64 = 0x100000;
+const K_CG_EVENT_FLAG_MASK_ALTERNATE: u64 = 0x80000;
+
+// Window levels from NSWindow.h
+const NS_SCREEN_SAVER_WINDOW_LEVEL: i64 = 1000;
+
+// Global pointer to the event tap for re-enabling from callback
+static EVENT_TAP: std::sync::atomic::AtomicPtr<c_void> =
+    std::sync::atomic::AtomicPtr::new(std::ptr::null_mut());
 
 /// Creates an IOKit assertion to prevent the system from sleeping
 fn prevent_sleep() -> Option<u32> {
@@ -116,15 +125,23 @@ extern "C" fn event_tap_callback(
     _user_info: *mut c_void,
 ) -> *mut c_void {
     // Handle tap disabled event (system can disable taps if they're too slow)
-    if event_type == CGEventType::TapDisabledByTimeout
-        || event_type == CGEventType::TapDisabledByUserInput
-    {
+    if matches!(
+        event_type,
+        CGEventType::TapDisabledByTimeout | CGEventType::TapDisabledByUserInput
+    ) {
         eprintln!("  ⚠️  Event tap was disabled, re-enabling...");
+        // Re-enable the tap using the stored pointer
+        let tap = EVENT_TAP.load(Ordering::SeqCst);
+        if !tap.is_null() {
+            unsafe {
+                CGEventTapEnable(tap, true);
+            }
+        }
         return event;
     }
 
     // Check for unlock combination: Cmd+Option+U
-    if event_type == CGEventType::KeyDown {
+    if matches!(event_type, CGEventType::KeyDown) {
         unsafe {
             // Get event flags and keycode using CoreGraphics functions
             #[link(name = "CoreGraphics", kind = "framework")]
@@ -134,15 +151,14 @@ extern "C" fn event_tap_callback(
             }
 
             let flags = CGEventGetFlags(event);
-            let keycode = CGEventGetIntegerValueField(event, 9); // 9 = kCGKeyboardEventKeycode
+            let keycode = CGEventGetIntegerValueField(event, K_CG_KEYBOARD_EVENT_KEYCODE);
 
-            // Check for Cmd (0x100000) + Option (0x80000) + U key
-            let cmd_pressed = (flags & 0x100000) != 0;
-            let option_pressed = (flags & 0x80000) != 0;
+            // Check for Cmd + Option + U key
+            let cmd_pressed = (flags & K_CG_EVENT_FLAG_MASK_COMMAND) != 0;
+            let option_pressed = (flags & K_CG_EVENT_FLAG_MASK_ALTERNATE) != 0;
 
             if cmd_pressed && option_pressed && keycode == KEY_U {
                 println!("\n  🔓 Unlock combination detected (Cmd+Option+U)!");
-                SHOULD_EXIT.store(true, Ordering::SeqCst);
 
                 // Stop the run loop to allow clean exit
                 CFRunLoop::get_current().stop();
@@ -214,10 +230,22 @@ fn setup_event_tap() -> bool {
             return false;
         }
 
+        // Store the tap pointer globally so we can re-enable it from the callback
+        EVENT_TAP.store(tap, Ordering::SeqCst);
+
         // Create a run loop source and add it to the current run loop
         let run_loop_source = CFMachPortCreateRunLoopSource(std::ptr::null(), tap, 0);
 
         if run_loop_source.is_null() {
+            // Clean up the tap to avoid resource leak
+            #[link(name = "CoreFoundation", kind = "framework")]
+            extern "C" {
+                fn CFMachPortInvalidate(port: *mut c_void);
+                fn CFRelease(cf: *mut c_void);
+            }
+            CFMachPortInvalidate(tap);
+            CFRelease(tap);
+            EVENT_TAP.store(std::ptr::null_mut(), Ordering::SeqCst);
             return false;
         }
 
@@ -293,8 +321,7 @@ fn main() {
         );
 
         // Configure window to be topmost
-        let screen_saver_level: i64 = 1000; // NSScreenSaverWindowLevel
-        let _: () = msg_send![window, setLevel: screen_saver_level];
+        let _: () = msg_send![window, setLevel: NS_SCREEN_SAVER_WINDOW_LEVEL];
 
         // Set window to appear on all spaces and stay visible
         window.setCollectionBehavior_(
@@ -347,7 +374,7 @@ fn main() {
         println!();
 
         // Run the event loop
-        CFRunLoop::get_current().run();
+        CFRunLoop::run_current();
 
         // Cleanup
         if let Some(id) = assertion_id {
