@@ -35,6 +35,14 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
   - Warning notification 1 minute before auto-exit
   - Clean exit when timer expires
   - Timer validation (1 minute minimum, 24 hours maximum)
+- [x] **Issue #7**: Add configurable keyboard shortcut for exit
+  - CLI argument: `--exit-key` / `-e` (e.g., "Cmd+Shift+Q", "Ctrl+Option+Escape")
+  - Config file support: `~/.config/catshield/config.toml` with `exit_key = "Cmd+Option+U"`
+  - Full key combination validation with descriptive error messages
+  - Support for common modifier keys (Cmd, Option, Shift, Ctrl) with aliases
+  - Support for letters (A-Z), numbers (0-9), function keys (F1-F12), and special keys
+  - CLI argument takes precedence over config file
+  - Default remains Cmd+Option+U for backwards compatibility
 
 ## Open Issues
 
@@ -44,7 +52,6 @@ Currently no open issues.
 
 Potential future enhancements (not yet tracked as issues):
 
-- Custom unlock key combinations
 - Configurable overlay opacity and color
 - Multi-monitor support improvements
 - System tray/menu bar integration
@@ -54,6 +61,12 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2025-12-31
+- Added configurable keyboard shortcut for exit (Issue #7)
+  - Use `--exit-key "Cmd+Shift+Q"` or `-e "Ctrl+Option+Escape"` for custom exit shortcut
+  - Config file support: `~/.config/catshield/config.toml` with `exit_key = "Cmd+Option+U"`
+  - CLI argument overrides config file setting
+  - Supports modifiers: Cmd, Option, Shift, Ctrl (and aliases like Command, Alt, Control)
+  - Supports keys: A-Z, 0-9, F1-F12, Escape, Return, Tab, Space, Delete, arrow keys
 - Added configurable timer-based auto-exit (Issue #6)
   - Use `--timer 30m` or `-t 2h` to set auto-exit duration
   - Visual progress bar shows remaining time on overlay
