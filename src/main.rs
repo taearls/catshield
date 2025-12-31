@@ -53,19 +53,35 @@ extern "C" {
     fn AXIsProcessTrusted() -> bool;
 }
 
-// CoreFoundation function for creating run loop source from mach port
+// CoreFoundation bindings
 #[link(name = "CoreFoundation", kind = "framework")]
 extern "C" {
+    // Run loop source management
     fn CFMachPortCreateRunLoopSource(
         allocator: *const c_void,
         port: *mut c_void,
         order: i64,
     ) -> *mut c_void;
     fn CFRunLoopAddSource(rl: *mut c_void, source: *mut c_void, mode: *const c_void);
-    fn CFRunLoopAddTimer(rl: *mut c_void, timer: *mut c_void, mode: *const c_void);
+
+    // Run loop control
     fn CFRunLoopGetCurrent() -> *mut c_void;
     fn CFRunLoopStop(rl: *mut c_void);
     fn CFRunLoopRun();
+
+    // Timer management
+    fn CFRunLoopAddTimer(rl: *mut c_void, timer: *mut c_void, mode: *const c_void);
+    fn CFRunLoopTimerCreate(
+        allocator: *const c_void,
+        fire_date: f64,
+        interval: f64,
+        flags: u32,
+        order: i64,
+        callout: unsafe extern "C" fn(*mut c_void, *mut c_void),
+        context: *const c_void,
+    ) -> *mut c_void;
+    fn CFRunLoopTimerInvalidate(timer: *mut c_void);
+    fn CFAbsoluteTimeGetCurrent() -> f64;
 }
 
 const K_IOPM_ASSERTION_LEVEL_ON: u32 = 255;
@@ -81,6 +97,32 @@ const TIMER_INTERVAL_SECS: f64 = 1.0 / 60.0; // 60 FPS for smooth animation
 
 // Window levels from NSWindow.h
 const NS_SCREEN_SAVER_WINDOW_LEVEL: isize = 1000;
+
+/// Calculate hold progress as a value from 0.0 to 1.0.
+///
+/// # Arguments
+/// * `elapsed_secs` - Time elapsed since mouse down in seconds
+/// * `hold_duration_secs` - Required hold duration in seconds
+///
+/// # Returns
+/// Progress value clamped to range [0.0, 1.0]
+#[inline]
+fn calculate_hold_progress(elapsed_secs: f64, hold_duration_secs: f64) -> f64 {
+    (elapsed_secs / hold_duration_secs).min(1.0)
+}
+
+/// Check if the hold duration has been met.
+///
+/// # Arguments
+/// * `elapsed_secs` - Time elapsed since mouse down in seconds
+/// * `hold_duration_secs` - Required hold duration in seconds
+///
+/// # Returns
+/// `true` if the hold duration has been met or exceeded
+#[inline]
+fn is_hold_complete(elapsed_secs: f64, hold_duration_secs: f64) -> bool {
+    elapsed_secs >= hold_duration_secs
+}
 
 // Global timer reference for cleanup
 static TIMER_REF: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
@@ -103,7 +145,7 @@ unsafe extern "C" fn timer_callback(_timer: *mut c_void, _info: *mut c_void) {
     let should_exit = MOUSE_DOWN_TIME.with(|time| {
         if let Some(start) = time.get() {
             let is_inside = IS_MOUSE_INSIDE.with(|inside| inside.get());
-            is_inside && start.elapsed().as_secs_f64() >= HOLD_DURATION_SECS
+            is_inside && is_hold_complete(start.elapsed().as_secs_f64(), HOLD_DURATION_SECS)
         } else {
             false
         }
@@ -120,22 +162,6 @@ unsafe extern "C" fn timer_callback(_timer: *mut c_void, _info: *mut c_void) {
         let view: &NSView = &*(view_ptr as *const NSView);
         view.setNeedsDisplay(true);
     }
-}
-
-// CoreFoundation timer bindings
-#[link(name = "CoreFoundation", kind = "framework")]
-extern "C" {
-    fn CFRunLoopTimerCreate(
-        allocator: *const c_void,
-        fire_date: f64,
-        interval: f64,
-        flags: u32,
-        order: i64,
-        callout: unsafe extern "C" fn(*mut c_void, *mut c_void),
-        context: *const c_void,
-    ) -> *mut c_void;
-    fn CFAbsoluteTimeGetCurrent() -> f64;
-    fn CFRunLoopTimerInvalidate(timer: *mut c_void);
 }
 
 /// Start the animation timer for the close button
@@ -257,8 +283,7 @@ fn draw_close_button(view: &NSView) {
     // Calculate progress (0.0 to 1.0)
     let progress = MOUSE_DOWN_TIME.with(|time| {
         if let Some(start) = time.get() {
-            let elapsed = start.elapsed().as_secs_f64();
-            (elapsed / HOLD_DURATION_SECS).min(1.0)
+            calculate_hold_progress(start.elapsed().as_secs_f64(), HOLD_DURATION_SECS)
         } else {
             0.0
         }
@@ -685,4 +710,47 @@ fn main() {
     println!();
     println!("  👋 Cat Shield deactivated. Goodbye!");
     println!();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_calculate_hold_progress_zero() {
+        assert_eq!(calculate_hold_progress(0.0, 3.0), 0.0);
+    }
+
+    #[test]
+    fn test_calculate_hold_progress_partial() {
+        let progress = calculate_hold_progress(1.5, 3.0);
+        assert!((progress - 0.5).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_calculate_hold_progress_complete() {
+        assert_eq!(calculate_hold_progress(3.0, 3.0), 1.0);
+    }
+
+    #[test]
+    fn test_calculate_hold_progress_exceeds() {
+        // Should clamp to 1.0 when elapsed exceeds duration
+        assert_eq!(calculate_hold_progress(5.0, 3.0), 1.0);
+    }
+
+    #[test]
+    fn test_is_hold_complete_false() {
+        assert!(!is_hold_complete(2.0, 3.0));
+        assert!(!is_hold_complete(2.999, 3.0));
+    }
+
+    #[test]
+    fn test_is_hold_complete_exact() {
+        assert!(is_hold_complete(3.0, 3.0));
+    }
+
+    #[test]
+    fn test_is_hold_complete_exceeds() {
+        assert!(is_hold_complete(5.0, 3.0));
+    }
 }
