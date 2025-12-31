@@ -1,0 +1,48 @@
+name: Claude Code Assistant
+
+# Trigger the workflow when @claude is mentioned in issues or pull requests
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+  issues:
+    types: [opened, assigned]
+  pull_request:
+    types: [opened, synchronize]
+
+concurrency:
+  group: claude-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  claude-response:
+    runs-on: ubuntu-latest
+
+    # Required permissions for Claude to interact with your repository
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+
+    steps:
+      - name: Run Claude Code Action
+        uses: anthropics/claude-code-action@v1
+        with:
+          # Required: Your Anthropic API key (stored as a repository secret)
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+
+          # Optional: Customize the trigger phrase (default is @claude)
+          # trigger_phrase: "@claude"
+
+          # Optional: Specify Claude model version
+          # claude_args: "--model sonnet"
+
+          # Optional: Custom system prompt for coding standards
+          # system_prompt: |
+          #   You are assisting with a Rust macOS application.
+          #   Follow Rust best practices and ensure code is well-documented.
