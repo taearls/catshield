@@ -12,7 +12,7 @@ categories = ["command-line-utilities"]
 [dependencies]
 objc2 = "0.6"
 objc2-foundation = "0.3"
-objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSColor", "NSGraphics", "NSResponder", "NSRunningApplication", "NSScreen", "NSView", "NSWindow"] }
+objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSColor", "NSScreen", "NSWindow"] }
 objc2-core-foundation = { version = "0.3", features = ["CFMachPort", "CFRunLoop", "CFString"] }
 objc2-core-graphics = { version = "0.3", features = ["CGEvent", "CGEventTypes", "CGRemoteOperation"] }
 

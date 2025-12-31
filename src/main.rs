@@ -235,7 +235,9 @@ fn setup_event_tap() -> bool {
         // Enable the tap
         CGEventTapEnable(tap_ptr, true);
 
-        // Leak the tap so it stays alive for the duration of the program
+        // Intentionally leak the CFRetained<CFMachPort> to keep the event tap alive
+        // for the entire program lifetime. The raw pointer in EVENT_TAP remains valid,
+        // and cleanup happens automatically on process exit.
         std::mem::forget(tap);
 
         true
