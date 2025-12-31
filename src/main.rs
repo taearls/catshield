@@ -12,20 +12,21 @@
 //! Go to System Preferences → Security & Privacy → Privacy → Accessibility
 //! and add this application.
 
-use cocoa::appkit::{
-    NSApp, NSApplication, NSApplicationActivationPolicy, NSBackingStoreType, NSColor, NSScreen,
-    NSWindow, NSWindowCollectionBehavior, NSWindowStyleMask,
+use objc2::MainThreadOnly;
+use objc2_app_kit::{
+    NSApplication, NSApplicationActivationPolicy, NSBackingStoreType, NSColor, NSScreen, NSWindow,
+    NSWindowCollectionBehavior, NSWindowStyleMask,
 };
-use cocoa::base::{nil, NO};
-use cocoa::foundation::{NSAutoreleasePool, NSRect, NSString};
-use core_foundation::base::TCFType;
-use core_foundation::runloop::{kCFRunLoopCommonModes, CFRunLoop};
-use core_foundation::string::CFString;
-use core_graphics::event::{CGEventTapLocation, CGEventTapOptions, CGEventTapPlacement, CGEventType};
-use objc::{msg_send, sel, sel_impl};
+use objc2_core_foundation::{kCFRunLoopCommonModes, CFMachPort, CFRetained, CFString};
+use objc2_core_graphics::{
+    CGEvent, CGEventField, CGEventFlags, CGEventMask, CGEventTapLocation, CGEventTapOptions,
+    CGEventTapPlacement, CGEventTapProxy, CGEventType,
+};
+use objc2_foundation::{ns_string, MainThreadMarker};
 use std::ffi::c_void;
 use std::process;
-use std::sync::atomic::Ordering;
+use std::ptr::NonNull;
+use std::sync::atomic::{AtomicPtr, Ordering};
 
 // IOKit power management bindings
 #[link(name = "IOKit", kind = "framework")]
@@ -39,32 +40,25 @@ extern "C" {
     fn IOPMAssertionRelease(assertion_id: u32) -> i32;
 }
 
-// CoreGraphics event tap bindings
+// Additional CoreGraphics functions not in objc2-core-graphics
 #[link(name = "CoreGraphics", kind = "framework")]
 extern "C" {
-    fn CGEventTapCreate(
-        tap: CGEventTapLocation,
-        place: CGEventTapPlacement,
-        options: CGEventTapOptions,
-        events_of_interest: u64,
-        callback: extern "C" fn(
-            proxy: *mut c_void,
-            event_type: CGEventType,
-            event: *mut c_void,
-            user_info: *mut c_void,
-        ) -> *mut c_void,
-        user_info: *mut c_void,
-    ) -> *mut c_void;
+    fn CGEventTapEnable(tap: *mut c_void, enable: bool);
+    fn AXIsProcessTrusted() -> bool;
+}
 
+// CoreFoundation function for creating run loop source from mach port
+#[link(name = "CoreFoundation", kind = "framework")]
+extern "C" {
     fn CFMachPortCreateRunLoopSource(
         allocator: *const c_void,
         port: *mut c_void,
         order: i64,
     ) -> *mut c_void;
-
-    fn CGEventTapEnable(tap: *mut c_void, enable: bool);
-
-    fn AXIsProcessTrusted() -> bool;
+    fn CFRunLoopAddSource(rl: *mut c_void, source: *mut c_void, mode: *const c_void);
+    fn CFRunLoopGetCurrent() -> *mut c_void;
+    fn CFRunLoopStop(rl: *mut c_void);
+    fn CFRunLoopRun();
 }
 
 const K_IOPM_ASSERTION_LEVEL_ON: u32 = 255;
@@ -72,30 +66,25 @@ const K_IOPM_ASSERTION_LEVEL_ON: u32 = 255;
 // Keycode for 'U' on macOS
 const KEY_U: i64 = 32;
 
-// CoreGraphics event constants
-const K_CG_KEYBOARD_EVENT_KEYCODE: u32 = 9;
-const K_CG_EVENT_FLAG_MASK_COMMAND: u64 = 0x100000;
-const K_CG_EVENT_FLAG_MASK_ALTERNATE: u64 = 0x80000;
-
 // Window levels from NSWindow.h
-const NS_SCREEN_SAVER_WINDOW_LEVEL: i64 = 1000;
+const NS_SCREEN_SAVER_WINDOW_LEVEL: isize = 1000;
 
 // Global pointer to the event tap for re-enabling from callback
-static EVENT_TAP: std::sync::atomic::AtomicPtr<c_void> =
-    std::sync::atomic::AtomicPtr::new(std::ptr::null_mut());
+static EVENT_TAP: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 
 /// Creates an IOKit assertion to prevent the system from sleeping
 fn prevent_sleep() -> Option<u32> {
-    let assertion_type = CFString::new("PreventUserIdleDisplaySleep");
-    let reason = CFString::new("Cat Shield is active - protecting your work from cats!");
+    let assertion_type = CFString::from_static_str("PreventUserIdleDisplaySleep");
+    let reason =
+        CFString::from_static_str("Cat Shield is active - protecting your work from cats!");
 
     let mut assertion_id: u32 = 0;
 
     let result = unsafe {
         IOPMAssertionCreateWithName(
-            assertion_type.as_concrete_TypeRef() as *const c_void,
+            CFRetained::as_ptr(&assertion_type).as_ptr() as *const c_void,
             K_IOPM_ASSERTION_LEVEL_ON,
-            reason.as_concrete_TypeRef() as *const c_void,
+            CFRetained::as_ptr(&reason).as_ptr() as *const c_void,
             &mut assertion_id,
         )
     };
@@ -118,78 +107,69 @@ fn allow_sleep(assertion_id: u32) {
 }
 
 /// Callback for the CGEventTap - intercepts and blocks events
-extern "C" fn event_tap_callback(
-    _proxy: *mut c_void,
+unsafe extern "C-unwind" fn event_tap_callback(
+    _proxy: CGEventTapProxy,
     event_type: CGEventType,
-    event: *mut c_void,
+    event: NonNull<CGEvent>,
     _user_info: *mut c_void,
-) -> *mut c_void {
+) -> *mut CGEvent {
     // Handle tap disabled event (system can disable taps if they're too slow)
-    if matches!(
-        event_type,
-        CGEventType::TapDisabledByTimeout | CGEventType::TapDisabledByUserInput
-    ) {
+    if event_type == CGEventType::TapDisabledByTimeout
+        || event_type == CGEventType::TapDisabledByUserInput
+    {
         eprintln!("  ⚠️  Event tap was disabled, re-enabling...");
         // Re-enable the tap using the stored pointer
         let tap = EVENT_TAP.load(Ordering::SeqCst);
         if !tap.is_null() {
-            unsafe {
-                CGEventTapEnable(tap, true);
-            }
+            CGEventTapEnable(tap, true);
         }
-        return event;
+        return event.as_ptr();
     }
 
     // Check for unlock combination: Cmd+Option+U
-    if matches!(event_type, CGEventType::KeyDown) {
-        unsafe {
-            // Get event flags and keycode using CoreGraphics functions
-            #[link(name = "CoreGraphics", kind = "framework")]
-            extern "C" {
-                fn CGEventGetFlags(event: *mut c_void) -> u64;
-                fn CGEventGetIntegerValueField(event: *mut c_void, field: u32) -> i64;
-            }
+    if event_type == CGEventType::KeyDown {
+        let cg_event = event.as_ref();
 
-            let flags = CGEventGetFlags(event);
-            let keycode = CGEventGetIntegerValueField(event, K_CG_KEYBOARD_EVENT_KEYCODE);
+        let flags = CGEvent::flags(Some(cg_event));
+        let keycode =
+            CGEvent::integer_value_field(Some(cg_event), CGEventField::KeyboardEventKeycode);
 
-            // Check for Cmd + Option + U key
-            let cmd_pressed = (flags & K_CG_EVENT_FLAG_MASK_COMMAND) != 0;
-            let option_pressed = (flags & K_CG_EVENT_FLAG_MASK_ALTERNATE) != 0;
+        // Check for Cmd + Option + U key
+        let cmd_pressed = flags.contains(CGEventFlags::MaskCommand);
+        let option_pressed = flags.contains(CGEventFlags::MaskAlternate);
 
-            if cmd_pressed && option_pressed && keycode == KEY_U {
-                println!("\n  🔓 Unlock combination detected (Cmd+Option+U)!");
+        if cmd_pressed && option_pressed && keycode == KEY_U {
+            println!("\n  🔓 Unlock combination detected (Cmd+Option+U)!");
 
-                // Stop the run loop to allow clean exit
-                CFRunLoop::get_current().stop();
+            // Stop the run loop to allow clean exit
+            CFRunLoopStop(CFRunLoopGetCurrent());
 
-                // Let this event through
-                return event;
-            }
+            // Let this event through
+            return event.as_ptr();
         }
     }
 
     // Block all keyboard and mouse events by returning NULL
-    match event_type {
-        CGEventType::KeyDown
-        | CGEventType::KeyUp
-        | CGEventType::FlagsChanged
-        | CGEventType::LeftMouseDown
-        | CGEventType::LeftMouseUp
-        | CGEventType::RightMouseDown
-        | CGEventType::RightMouseUp
-        | CGEventType::MouseMoved
-        | CGEventType::LeftMouseDragged
-        | CGEventType::RightMouseDragged
-        | CGEventType::ScrollWheel
-        | CGEventType::OtherMouseDown
-        | CGEventType::OtherMouseUp
-        | CGEventType::OtherMouseDragged => {
-            // Return NULL to block the event
-            std::ptr::null_mut()
-        }
-        _ => event,
+    if event_type == CGEventType::KeyDown
+        || event_type == CGEventType::KeyUp
+        || event_type == CGEventType::FlagsChanged
+        || event_type == CGEventType::LeftMouseDown
+        || event_type == CGEventType::LeftMouseUp
+        || event_type == CGEventType::RightMouseDown
+        || event_type == CGEventType::RightMouseUp
+        || event_type == CGEventType::MouseMoved
+        || event_type == CGEventType::LeftMouseDragged
+        || event_type == CGEventType::RightMouseDragged
+        || event_type == CGEventType::ScrollWheel
+        || event_type == CGEventType::OtherMouseDown
+        || event_type == CGEventType::OtherMouseUp
+        || event_type == CGEventType::OtherMouseDragged
+    {
+        // Return NULL to block the event
+        return std::ptr::null_mut();
     }
+
+    event.as_ptr()
 }
 
 /// Check if we have accessibility permissions
@@ -200,71 +180,67 @@ fn check_accessibility() -> bool {
 /// Create and enable the event tap
 fn setup_event_tap() -> bool {
     // Define event mask for all keyboard and mouse events
-    let event_mask: u64 = (1 << CGEventType::KeyDown as u64)
-        | (1 << CGEventType::KeyUp as u64)
-        | (1 << CGEventType::FlagsChanged as u64)
-        | (1 << CGEventType::LeftMouseDown as u64)
-        | (1 << CGEventType::LeftMouseUp as u64)
-        | (1 << CGEventType::RightMouseDown as u64)
-        | (1 << CGEventType::RightMouseUp as u64)
-        | (1 << CGEventType::MouseMoved as u64)
-        | (1 << CGEventType::LeftMouseDragged as u64)
-        | (1 << CGEventType::RightMouseDragged as u64)
-        | (1 << CGEventType::ScrollWheel as u64)
-        | (1 << CGEventType::OtherMouseDown as u64)
-        | (1 << CGEventType::OtherMouseUp as u64)
-        | (1 << CGEventType::OtherMouseDragged as u64);
+    let event_mask: CGEventMask = (1u64 << CGEventType::KeyDown.0)
+        | (1u64 << CGEventType::KeyUp.0)
+        | (1u64 << CGEventType::FlagsChanged.0)
+        | (1u64 << CGEventType::LeftMouseDown.0)
+        | (1u64 << CGEventType::LeftMouseUp.0)
+        | (1u64 << CGEventType::RightMouseDown.0)
+        | (1u64 << CGEventType::RightMouseUp.0)
+        | (1u64 << CGEventType::MouseMoved.0)
+        | (1u64 << CGEventType::LeftMouseDragged.0)
+        | (1u64 << CGEventType::RightMouseDragged.0)
+        | (1u64 << CGEventType::ScrollWheel.0)
+        | (1u64 << CGEventType::OtherMouseDown.0)
+        | (1u64 << CGEventType::OtherMouseUp.0)
+        | (1u64 << CGEventType::OtherMouseDragged.0);
 
     unsafe {
-        // Create the event tap
-        let tap = CGEventTapCreate(
-            CGEventTapLocation::HID, // Intercept at the HID level (earliest)
+        // Create the event tap using CGEvent::tap_create
+        let tap_opt = CGEvent::tap_create(
+            CGEventTapLocation::HIDEventTap, // Intercept at the HID level (earliest)
             CGEventTapPlacement::HeadInsertEventTap,
             CGEventTapOptions::Default, // Active tap that can modify/block events
             event_mask,
-            event_tap_callback,
+            Some(event_tap_callback),
             std::ptr::null_mut(),
         );
 
-        if tap.is_null() {
-            return false;
-        }
+        let tap: CFRetained<CFMachPort> = match tap_opt {
+            Some(t) => t,
+            None => return false,
+        };
+
+        // Get raw pointer for storing and run loop source creation
+        let tap_ptr = CFRetained::as_ptr(&tap).as_ptr() as *mut c_void;
 
         // Store the tap pointer globally so we can re-enable it from the callback
-        EVENT_TAP.store(tap, Ordering::SeqCst);
+        EVENT_TAP.store(tap_ptr, Ordering::SeqCst);
 
         // Create a run loop source and add it to the current run loop
-        let run_loop_source = CFMachPortCreateRunLoopSource(std::ptr::null(), tap, 0);
+        let run_loop_source = CFMachPortCreateRunLoopSource(std::ptr::null(), tap_ptr, 0);
 
         if run_loop_source.is_null() {
-            // Clean up the tap to avoid resource leak
-            #[link(name = "CoreFoundation", kind = "framework")]
-            extern "C" {
-                fn CFMachPortInvalidate(port: *mut c_void);
-                fn CFRelease(cf: *mut c_void);
-            }
-            CFMachPortInvalidate(tap);
-            CFRelease(tap);
             EVENT_TAP.store(std::ptr::null_mut(), Ordering::SeqCst);
             return false;
         }
 
         // Add to run loop
-        #[link(name = "CoreFoundation", kind = "framework")]
-        extern "C" {
-            fn CFRunLoopAddSource(rl: *mut c_void, source: *mut c_void, mode: *const c_void);
-            fn CFRunLoopGetCurrent() -> *mut c_void;
-        }
-
         let current_run_loop = CFRunLoopGetCurrent();
+        let run_loop_mode = kCFRunLoopCommonModes.expect("kCFRunLoopCommonModes should exist");
         CFRunLoopAddSource(
             current_run_loop,
             run_loop_source,
-            kCFRunLoopCommonModes as *const _ as *const c_void,
+            (run_loop_mode as *const CFString) as *const c_void,
         );
 
         // Enable the tap
-        CGEventTapEnable(tap, true);
+        CGEventTapEnable(tap_ptr, true);
+
+        // Intentionally leak the CFRetained<CFMachPort> to keep the event tap alive
+        // for the entire program lifetime. The raw pointer in EVENT_TAP remains valid,
+        // and cleanup happens automatically on process exit.
+        std::mem::forget(tap);
 
         true
     }
@@ -294,92 +270,101 @@ fn main() {
         eprintln!();
     }
 
-    unsafe {
-        // Create autorelease pool
-        let _pool = NSAutoreleasePool::new(nil);
+    // Get main thread marker - required for AppKit operations
+    let mtm = MainThreadMarker::new().expect("Must run on main thread");
 
-        // Initialize the application
-        let app = NSApp();
-        app.setActivationPolicy_(
-            NSApplicationActivationPolicy::NSApplicationActivationPolicyAccessory,
-        );
+    // Initialize the application
+    let app = NSApplication::sharedApplication(mtm);
+    app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
 
-        // Get the main screen dimensions
-        let screen = NSScreen::mainScreen(nil);
-        if screen == nil {
+    // Get the main screen dimensions
+    let screen = NSScreen::mainScreen(mtm);
+    let screen = match screen {
+        Some(s) => s,
+        None => {
             eprintln!("  ✗ Failed to get main screen");
             process::exit(1);
         }
-        let screen_frame: NSRect = msg_send![screen, frame];
+    };
+    let screen_frame = screen.frame();
 
-        // Create a fullscreen, borderless window
-        let window = NSWindow::alloc(nil).initWithContentRect_styleMask_backing_defer_(
+    // Create a fullscreen, borderless window
+    let window = unsafe {
+        let window = NSWindow::alloc(mtm);
+        NSWindow::initWithContentRect_styleMask_backing_defer(
+            window,
             screen_frame,
-            NSWindowStyleMask::NSBorderlessWindowMask,
-            NSBackingStoreType::NSBackingStoreBuffered,
-            NO,
-        );
+            NSWindowStyleMask::Borderless,
+            NSBackingStoreType::Buffered,
+            false,
+        )
+    };
 
-        // Configure window to be topmost
-        let _: () = msg_send![window, setLevel: NS_SCREEN_SAVER_WINDOW_LEVEL];
+    // Configure window to be topmost
+    window.setLevel(NS_SCREEN_SAVER_WINDOW_LEVEL);
 
-        // Set window to appear on all spaces and stay visible
-        window.setCollectionBehavior_(
-            NSWindowCollectionBehavior::NSWindowCollectionBehaviorCanJoinAllSpaces
-                | NSWindowCollectionBehavior::NSWindowCollectionBehaviorStationary
-                | NSWindowCollectionBehavior::NSWindowCollectionBehaviorIgnoresCycle,
-        );
+    // Set window to appear on all spaces and stay visible
+    window.setCollectionBehavior(
+        NSWindowCollectionBehavior::CanJoinAllSpaces
+            | NSWindowCollectionBehavior::Stationary
+            | NSWindowCollectionBehavior::IgnoresCycle,
+    );
 
-        // Make window semi-transparent (30% opacity)
-        window.setOpaque_(NO);
-        window.setAlphaValue_(0.3);
+    // Make window semi-transparent (30% opacity)
+    window.setOpaque(false);
+    window.setAlphaValue(0.3);
 
-        // Set a dark background color
-        let bg_color = NSColor::colorWithRed_green_blue_alpha_(nil, 0.1, 0.1, 0.15, 1.0);
-        window.setBackgroundColor_(bg_color);
+    // Set a dark background color
+    let bg_color = NSColor::colorWithRed_green_blue_alpha(0.1, 0.1, 0.15, 1.0);
+    window.setBackgroundColor(Some(&bg_color));
 
-        // Keep window visible
-        window.setHidesOnDeactivate_(NO);
+    // Keep window visible
+    window.setHidesOnDeactivate(false);
 
-        // Accept mouse events (needed for blocking)
-        window.setIgnoresMouseEvents_(NO);
+    // Accept mouse events (needed for blocking)
+    window.setIgnoresMouseEvents(false);
 
-        // Set title
-        let title = NSString::alloc(nil).init_str("Cat Shield");
-        window.setTitle_(title);
+    // Set title
+    window.setTitle(ns_string!("Cat Shield"));
 
-        // Show the window
-        window.makeKeyAndOrderFront_(nil);
+    // Required when creating NSWindow outside a window controller
+    unsafe {
+        window.setReleasedWhenClosed(false);
+    }
 
-        println!("  ✓ Overlay window active");
+    // Show the window
+    window.makeKeyAndOrderFront(None);
 
-        // Prevent sleep
-        let assertion_id = prevent_sleep();
+    println!("  ✓ Overlay window active");
 
-        // Set up event tap if we have permissions
-        if check_accessibility() {
-            if setup_event_tap() {
-                println!("  ✓ Input blocking active");
-            } else {
-                eprintln!("  ✗ Failed to create event tap");
-            }
+    // Prevent sleep
+    let assertion_id = prevent_sleep();
+
+    // Set up event tap if we have permissions
+    if check_accessibility() {
+        if setup_event_tap() {
+            println!("  ✓ Input blocking active");
+        } else {
+            eprintln!("  ✗ Failed to create event tap");
         }
+    }
 
-        println!();
-        println!("  ═══════════════════════════════════════");
-        println!("  🛡️  CAT SHIELD IS NOW ACTIVE!");
-        println!("  ═══════════════════════════════════════");
-        println!();
-        println!("  Press Cmd+Option+U to unlock and exit");
-        println!();
+    println!();
+    println!("  ═══════════════════════════════════════");
+    println!("  🛡️  CAT SHIELD IS NOW ACTIVE!");
+    println!("  ═══════════════════════════════════════");
+    println!();
+    println!("  Press Cmd+Option+U to unlock and exit");
+    println!();
 
-        // Run the event loop
-        CFRunLoop::run_current();
+    // Run the event loop using CoreFoundation run loop
+    unsafe {
+        CFRunLoopRun();
+    }
 
-        // Cleanup
-        if let Some(id) = assertion_id {
-            allow_sleep(id);
-        }
+    // Cleanup
+    if let Some(id) = assertion_id {
+        allow_sleep(id);
     }
 
     println!();
