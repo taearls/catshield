@@ -1,0 +1,20 @@
+[package]
+name = "cat_shield"
+version = "0.1.0"
+edition = "2021"
+description = "A cat-proof screen overlay that keeps your machine awake and blocks input"
+authors = ["Your Name"]
+license = "MIT"
+repository = "https://github.com/YOUR_USERNAME/cat_shield"
+keywords = ["macos", "utility", "screen-lock", "input-blocking"]
+categories = ["command-line-utilities"]
+
+[dependencies]
+cocoa = "0.26"
+core-graphics = "0.24"
+core-foundation = "0.10"
+objc = "0.2"
+
+[profile.release]
+opt-level = 3
+lto = true
