@@ -10,6 +10,7 @@ keywords = ["macos", "utility", "screen-lock", "input-blocking"]
 categories = ["command-line-utilities"]
 
 [dependencies]
+clap = { version = "4.5", features = ["derive"] }
 objc2 = "0.6"
 objc2-foundation = "0.3"
 objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSBezierPath", "NSColor", "NSEvent", "NSScreen", "NSView", "NSWindow"] }

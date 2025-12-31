@@ -29,6 +29,12 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
   - Visual progress ring indicator during hold
   - Works without Accessibility permissions
   - Provides reliable exit mechanism when keyboard shortcut not available
+- [x] **Issue #6**: Add configurable timer-based auto-exit
+  - CLI argument for timer duration: `--timer` / `-t` (supports minutes, hours, combined)
+  - Visual countdown progress bar on overlay (can be hidden with `--hide-timer`)
+  - Warning notification 1 minute before auto-exit
+  - Clean exit when timer expires
+  - Timer validation (1 minute minimum, 24 hours maximum)
 
 ## Open Issues
 
@@ -48,6 +54,11 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2025-12-31
+- Added configurable timer-based auto-exit (Issue #6)
+  - Use `--timer 30m` or `-t 2h` to set auto-exit duration
+  - Visual progress bar shows remaining time on overlay
+  - Warning shown 1 minute before auto-exit
+  - Duration range: 1 minute to 24 hours
 - Added click-and-hold close button in top-right corner (Issue #5)
   - 3-second hold requirement prevents accidental exits from cats
   - Visual progress ring indicator during hold
