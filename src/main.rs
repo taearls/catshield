@@ -62,6 +62,7 @@ extern "C" {
         order: i64,
     ) -> *mut c_void;
     fn CFRunLoopAddSource(rl: *mut c_void, source: *mut c_void, mode: *const c_void);
+    fn CFRunLoopAddTimer(rl: *mut c_void, timer: *mut c_void, mode: *const c_void);
     fn CFRunLoopGetCurrent() -> *mut c_void;
     fn CFRunLoopStop(rl: *mut c_void);
     fn CFRunLoopRun();
@@ -78,29 +79,14 @@ const CLOSE_BUTTON_MARGIN: CGFloat = 20.0;
 const HOLD_DURATION_SECS: f64 = 3.0;
 const TIMER_INTERVAL_SECS: f64 = 1.0 / 60.0; // 60 FPS for smooth animation
 
-// Global flag to signal exit from close button
-static mut SHOULD_EXIT: bool = false;
+// Window levels from NSWindow.h
+const NS_SCREEN_SAVER_WINDOW_LEVEL: isize = 1000;
 
 // Global timer reference for cleanup
 static TIMER_REF: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 
 // Global view reference for timer callback
 static CLOSE_BUTTON_VIEW: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
-
-// Timer callback to update progress and trigger redraw
-unsafe extern "C" fn timer_callback(
-    _timer: *mut c_void,
-    _info: *mut c_void,
-) {
-    let view_ptr = CLOSE_BUTTON_VIEW.load(Ordering::SeqCst);
-    if !view_ptr.is_null() {
-        let view: &NSView = &*(view_ptr as *const NSView);
-        view.setNeedsDisplay(true);
-    }
-}
-
-// Window levels from NSWindow.h
-const NS_SCREEN_SAVER_WINDOW_LEVEL: isize = 1000;
 
 // Global pointer to the event tap for re-enabling from callback
 static EVENT_TAP: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
@@ -109,6 +95,31 @@ static EVENT_TAP: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 thread_local! {
     static MOUSE_DOWN_TIME: Cell<Option<Instant>> = const { Cell::new(None) };
     static IS_MOUSE_INSIDE: Cell<bool> = const { Cell::new(false) };
+}
+
+// Timer callback to update progress, check for exit condition, and trigger redraw
+unsafe extern "C" fn timer_callback(_timer: *mut c_void, _info: *mut c_void) {
+    // Check if hold duration has been exceeded
+    let should_exit = MOUSE_DOWN_TIME.with(|time| {
+        if let Some(start) = time.get() {
+            let is_inside = IS_MOUSE_INSIDE.with(|inside| inside.get());
+            is_inside && start.elapsed().as_secs_f64() >= HOLD_DURATION_SECS
+        } else {
+            false
+        }
+    });
+
+    if should_exit {
+        CFRunLoopStop(CFRunLoopGetCurrent());
+        return;
+    }
+
+    // Trigger redraw
+    let view_ptr = CLOSE_BUTTON_VIEW.load(Ordering::SeqCst);
+    if !view_ptr.is_null() {
+        let view: &NSView = &*(view_ptr as *const NSView);
+        view.setNeedsDisplay(true);
+    }
 }
 
 // CoreFoundation timer bindings
@@ -143,7 +154,7 @@ fn start_close_button_timer() {
         if !timer.is_null() {
             let run_loop = CFRunLoopGetCurrent();
             let mode = kCFRunLoopCommonModes.expect("kCFRunLoopCommonModes should exist");
-            CFRunLoopAddSource(run_loop, timer, (mode as *const CFString) as *const c_void);
+            CFRunLoopAddTimer(run_loop, timer, (mode as *const CFString) as *const c_void);
             TIMER_REF.store(timer, Ordering::SeqCst);
         }
     }
@@ -225,19 +236,6 @@ define_class!(
 
             self.setNeedsDisplay(true);
         }
-
-        #[unsafe(method(mouseEntered:))]
-        unsafe fn mouse_entered(&self, _event: &NSEvent) {
-            IS_MOUSE_INSIDE.with(|inside| inside.set(true));
-            self.setNeedsDisplay(true);
-        }
-
-        #[unsafe(method(mouseExited:))]
-        unsafe fn mouse_exited(&self, _event: &NSEvent) {
-            IS_MOUSE_INSIDE.with(|inside| inside.set(false));
-            MOUSE_DOWN_TIME.with(|time| time.set(None));
-            self.setNeedsDisplay(true);
-        }
     }
 );
 
@@ -267,15 +265,6 @@ fn draw_close_button(view: &NSView) {
     });
 
     let is_inside = IS_MOUSE_INSIDE.with(|inside| inside.get());
-
-    // Check if we should exit
-    if progress >= 1.0 {
-        unsafe {
-            SHOULD_EXIT = true;
-            CFRunLoopStop(CFRunLoopGetCurrent());
-        }
-        return;
-    }
 
     // Background circle - semi-transparent
     let bg_color = if is_inside && progress > 0.0 {
@@ -638,7 +627,10 @@ fn main() {
 
     let close_button = CloseButtonView::new(mtm, close_button_frame);
 
-    // Store view reference for timer callback
+    // Store view reference for timer callback.
+    // Safety: The view remains valid because contentView retains it and
+    // CFRunLoopRun() blocks until we're ready to exit. The timer is stopped
+    // before cleanup begins.
     CLOSE_BUTTON_VIEW.store(
         Retained::as_ptr(&close_button) as *mut c_void,
         Ordering::SeqCst,
