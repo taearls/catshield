@@ -22,6 +22,14 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
   - Improved memory safety with modern Rust abstractions
   - Eliminated 50+ deprecation warnings from build
 
+### Phase 3: User Experience
+- [x] **Issue #5**: Add click-and-hold close button as default exit mechanism
+  - Added close button (X) in top-right corner of overlay
+  - Requires 3-second hold to activate (prevents accidental cat-triggered exits)
+  - Visual progress ring indicator during hold
+  - Works without Accessibility permissions
+  - Provides reliable exit mechanism when keyboard shortcut not available
+
 ## Open Issues
 
 Currently no open issues.
@@ -40,5 +48,9 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2025-12-31
+- Added click-and-hold close button in top-right corner (Issue #5)
+  - 3-second hold requirement prevents accidental exits from cats
+  - Visual progress ring indicator during hold
+  - Works without Accessibility permissions
 - Completed migration to objc2 ecosystem (Issue #3)
 - Improved code safety and maintainability

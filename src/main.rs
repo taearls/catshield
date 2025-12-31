@@ -3,30 +3,36 @@
 //! Creates a semi-transparent overlay that:
 //! - Blocks all keyboard and mouse input
 //! - Keeps the machine awake
-//! - Unlocks with Cmd+Option+U
+//! - Click and hold close button (3 seconds) to exit
+//! - Or unlock with Cmd+Option+U (requires Accessibility permissions)
 //!
 //! Usage: Run the application, and it will immediately activate the shield.
-//! Press Cmd+Option+U to unlock and exit.
+//! Click and hold the X button in the top-right corner for 3 seconds to exit.
 //!
-//! IMPORTANT: This app requires Accessibility permissions to block input.
+//! Optional: For keyboard shortcut exit (Cmd+Option+U), grant Accessibility permissions:
 //! Go to System Preferences → Security & Privacy → Privacy → Accessibility
 //! and add this application.
 
-use objc2::MainThreadOnly;
+use objc2::rc::Retained;
+use objc2::{define_class, msg_send, MainThreadOnly};
 use objc2_app_kit::{
-    NSApplication, NSApplicationActivationPolicy, NSBackingStoreType, NSColor, NSScreen, NSWindow,
-    NSWindowCollectionBehavior, NSWindowStyleMask,
+    NSApplication, NSApplicationActivationPolicy, NSBackingStoreType, NSBezierPath, NSColor,
+    NSEvent, NSScreen, NSView, NSWindow, NSWindowCollectionBehavior, NSWindowStyleMask,
 };
-use objc2_core_foundation::{kCFRunLoopCommonModes, CFMachPort, CFRetained, CFString};
+use objc2_core_foundation::{
+    kCFRunLoopCommonModes, CFMachPort, CFRetained, CFString, CGFloat, CGPoint, CGRect, CGSize,
+};
 use objc2_core_graphics::{
     CGEvent, CGEventField, CGEventFlags, CGEventMask, CGEventTapLocation, CGEventTapOptions,
     CGEventTapPlacement, CGEventTapProxy, CGEventType,
 };
 use objc2_foundation::{ns_string, MainThreadMarker};
+use std::cell::Cell;
 use std::ffi::c_void;
 use std::process;
 use std::ptr::NonNull;
 use std::sync::atomic::{AtomicPtr, Ordering};
+use std::time::Instant;
 
 // IOKit power management bindings
 #[link(name = "IOKit", kind = "framework")]
@@ -47,18 +53,33 @@ extern "C" {
     fn AXIsProcessTrusted() -> bool;
 }
 
-// CoreFoundation function for creating run loop source from mach port
+// CoreFoundation bindings
 #[link(name = "CoreFoundation", kind = "framework")]
 extern "C" {
+    // Run loop source management
     fn CFMachPortCreateRunLoopSource(
         allocator: *const c_void,
         port: *mut c_void,
         order: i64,
     ) -> *mut c_void;
     fn CFRunLoopAddSource(rl: *mut c_void, source: *mut c_void, mode: *const c_void);
+
+    // Run loop access
     fn CFRunLoopGetCurrent() -> *mut c_void;
-    fn CFRunLoopStop(rl: *mut c_void);
-    fn CFRunLoopRun();
+
+    // Timer management
+    fn CFRunLoopAddTimer(rl: *mut c_void, timer: *mut c_void, mode: *const c_void);
+    fn CFRunLoopTimerCreate(
+        allocator: *const c_void,
+        fire_date: f64,
+        interval: f64,
+        flags: u32,
+        order: i64,
+        callout: unsafe extern "C" fn(*mut c_void, *mut c_void),
+        context: *const c_void,
+    ) -> *mut c_void;
+    fn CFRunLoopTimerInvalidate(timer: *mut c_void);
+    fn CFAbsoluteTimeGetCurrent() -> f64;
 }
 
 const K_IOPM_ASSERTION_LEVEL_ON: u32 = 255;
@@ -66,11 +87,304 @@ const K_IOPM_ASSERTION_LEVEL_ON: u32 = 255;
 // Keycode for 'U' on macOS
 const KEY_U: i64 = 32;
 
+// Close button configuration
+const CLOSE_BUTTON_SIZE: CGFloat = 80.0; // Large, easy-to-see button
+const CLOSE_BUTTON_MARGIN: CGFloat = 30.0;
+const HOLD_DURATION_SECS: f64 = 3.0;
+const TIMER_INTERVAL_SECS: f64 = 1.0 / 60.0; // 60 FPS for smooth animation
+
 // Window levels from NSWindow.h
 const NS_SCREEN_SAVER_WINDOW_LEVEL: isize = 1000;
 
+/// Calculate hold progress as a value from 0.0 to 1.0.
+///
+/// # Arguments
+/// * `elapsed_secs` - Time elapsed since mouse down in seconds
+/// * `hold_duration_secs` - Required hold duration in seconds
+///
+/// # Returns
+/// Progress value clamped to range [0.0, 1.0]
+#[inline]
+fn calculate_hold_progress(elapsed_secs: f64, hold_duration_secs: f64) -> f64 {
+    (elapsed_secs / hold_duration_secs).min(1.0)
+}
+
+/// Check if the hold duration has been met.
+///
+/// # Arguments
+/// * `elapsed_secs` - Time elapsed since mouse down in seconds
+/// * `hold_duration_secs` - Required hold duration in seconds
+///
+/// # Returns
+/// `true` if the hold duration has been met or exceeded
+#[inline]
+fn is_hold_complete(elapsed_secs: f64, hold_duration_secs: f64) -> bool {
+    elapsed_secs >= hold_duration_secs
+}
+
+// Global timer reference for cleanup
+static TIMER_REF: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+
+// Global view reference for timer callback
+static CLOSE_BUTTON_VIEW: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+
 // Global pointer to the event tap for re-enabling from callback
 static EVENT_TAP: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+
+// Close button state stored in thread-local for the view
+thread_local! {
+    static MOUSE_DOWN_TIME: Cell<Option<Instant>> = const { Cell::new(None) };
+    static IS_MOUSE_INSIDE: Cell<bool> = const { Cell::new(false) };
+}
+
+// Timer callback to update progress, check for exit condition, and trigger redraw
+unsafe extern "C" fn timer_callback(_timer: *mut c_void, _info: *mut c_void) {
+    // Check if hold duration has been exceeded
+    let should_exit = MOUSE_DOWN_TIME.with(|time| {
+        if let Some(start) = time.get() {
+            let is_inside = IS_MOUSE_INSIDE.with(|inside| inside.get());
+            is_inside && is_hold_complete(start.elapsed().as_secs_f64(), HOLD_DURATION_SECS)
+        } else {
+            false
+        }
+    });
+
+    if should_exit {
+        // Use NSApplication terminate to properly exit the app run loop
+        if let Some(mtm) = MainThreadMarker::new() {
+            let app = NSApplication::sharedApplication(mtm);
+            app.terminate(None);
+        }
+        return;
+    }
+
+    // Trigger redraw
+    let view_ptr = CLOSE_BUTTON_VIEW.load(Ordering::SeqCst);
+    if !view_ptr.is_null() {
+        let view: &NSView = &*(view_ptr as *const NSView);
+        view.setNeedsDisplay(true);
+    }
+}
+
+/// Start the animation timer for the close button
+fn start_close_button_timer() {
+    unsafe {
+        let timer = CFRunLoopTimerCreate(
+            std::ptr::null(),
+            CFAbsoluteTimeGetCurrent() + TIMER_INTERVAL_SECS,
+            TIMER_INTERVAL_SECS,
+            0,
+            0,
+            timer_callback,
+            std::ptr::null(),
+        );
+
+        if !timer.is_null() {
+            let run_loop = CFRunLoopGetCurrent();
+            let mode = kCFRunLoopCommonModes.expect("kCFRunLoopCommonModes should exist");
+            CFRunLoopAddTimer(run_loop, timer, (mode as *const CFString) as *const c_void);
+            TIMER_REF.store(timer, Ordering::SeqCst);
+        }
+    }
+}
+
+/// Stop the animation timer
+fn stop_close_button_timer() {
+    unsafe {
+        let timer = TIMER_REF.swap(std::ptr::null_mut(), Ordering::SeqCst);
+        if !timer.is_null() {
+            CFRunLoopTimerInvalidate(timer);
+        }
+    }
+}
+
+/// Ivars for the CloseButtonView
+struct CloseButtonViewIvars {}
+
+define_class!(
+    #[unsafe(super(NSView))]
+    #[name = "CloseButtonView"]
+    #[ivars = CloseButtonViewIvars]
+    struct CloseButtonView;
+
+    impl CloseButtonView {
+        #[unsafe(method(drawRect:))]
+        unsafe fn draw_rect(&self, _dirty_rect: CGRect) {
+            draw_close_button(self);
+        }
+
+        #[unsafe(method(mouseDown:))]
+        unsafe fn mouse_down(&self, _event: &NSEvent) {
+            MOUSE_DOWN_TIME.with(|time| {
+                time.set(Some(Instant::now()));
+            });
+            IS_MOUSE_INSIDE.with(|inside| inside.set(true));
+            self.setNeedsDisplay(true);
+        }
+
+        #[unsafe(method(mouseUp:))]
+        unsafe fn mouse_up(&self, _event: &NSEvent) {
+            MOUSE_DOWN_TIME.with(|time| {
+                time.set(None);
+            });
+            self.setNeedsDisplay(true);
+        }
+
+        #[unsafe(method(mouseDragged:))]
+        unsafe fn mouse_dragged(&self, event: &NSEvent) {
+            // Check if mouse is still inside the button
+            let location = event.locationInWindow();
+            let bounds = self.bounds();
+
+            // Convert to view coordinates
+            let local_point = self.convertPoint_fromView(location, None);
+
+            let is_inside = local_point.x >= 0.0
+                && local_point.x <= bounds.size.width
+                && local_point.y >= 0.0
+                && local_point.y <= bounds.size.height;
+
+            let was_inside = IS_MOUSE_INSIDE.with(|inside| inside.get());
+
+            if is_inside != was_inside {
+                IS_MOUSE_INSIDE.with(|inside| inside.set(is_inside));
+
+                // Reset timer if mouse left the button
+                if !is_inside {
+                    MOUSE_DOWN_TIME.with(|time| {
+                        time.set(None);
+                    });
+                } else {
+                    // Restart timer if mouse re-entered
+                    MOUSE_DOWN_TIME.with(|time| {
+                        time.set(Some(Instant::now()));
+                    });
+                }
+            }
+
+            self.setNeedsDisplay(true);
+        }
+    }
+);
+
+impl CloseButtonView {
+    fn new(mtm: MainThreadMarker, frame: CGRect) -> Retained<Self> {
+        let this = mtm.alloc::<CloseButtonView>();
+        let this = this.set_ivars(CloseButtonViewIvars {});
+        unsafe { msg_send![super(this), initWithFrame: frame] }
+    }
+}
+
+/// Draw the close button with progress indicator
+fn draw_close_button(view: &NSView) {
+    let bounds = view.bounds();
+    let center_x = bounds.size.width / 2.0;
+    let center_y = bounds.size.height / 2.0;
+    let radius = (bounds.size.width.min(bounds.size.height) / 2.0) - 2.0;
+
+    // Calculate progress (0.0 to 1.0)
+    let progress = MOUSE_DOWN_TIME.with(|time| {
+        if let Some(start) = time.get() {
+            calculate_hold_progress(start.elapsed().as_secs_f64(), HOLD_DURATION_SECS)
+        } else {
+            0.0
+        }
+    });
+
+    let is_inside = IS_MOUSE_INSIDE.with(|inside| inside.get());
+
+    // Background circle - bright red for visibility
+    let bg_color = if is_inside && progress > 0.0 {
+        NSColor::colorWithRed_green_blue_alpha(0.9, 0.2, 0.2, 1.0) // Bright red when pressed
+    } else {
+        NSColor::colorWithRed_green_blue_alpha(0.8, 0.1, 0.1, 0.95) // Dark red normally
+    };
+
+    bg_color.set();
+
+    let bg_path = NSBezierPath::bezierPathWithOvalInRect(CGRect {
+        origin: CGPoint {
+            x: center_x - radius,
+            y: center_y - radius,
+        },
+        size: CGSize {
+            width: radius * 2.0,
+            height: radius * 2.0,
+        },
+    });
+    bg_path.fill();
+
+    // White border for extra visibility
+    let border_color = NSColor::colorWithRed_green_blue_alpha(1.0, 1.0, 1.0, 0.9);
+    border_color.set();
+    let border_path = NSBezierPath::bezierPathWithOvalInRect(CGRect {
+        origin: CGPoint {
+            x: center_x - radius,
+            y: center_y - radius,
+        },
+        size: CGSize {
+            width: radius * 2.0,
+            height: radius * 2.0,
+        },
+    });
+    border_path.setLineWidth(3.0);
+    border_path.stroke();
+
+    // Progress arc (if holding) - bright green
+    if progress > 0.0 && is_inside {
+        let progress_color = NSColor::colorWithRed_green_blue_alpha(0.2, 1.0, 0.2, 1.0);
+        progress_color.set();
+
+        // Draw arc from top, going clockwise
+        let start_angle = 90.0; // Top of circle
+        let end_angle = 90.0 - (progress * 360.0);
+
+        let arc_path = NSBezierPath::bezierPath();
+        arc_path.setLineWidth(6.0); // Thicker progress ring
+
+        arc_path.appendBezierPathWithArcWithCenter_radius_startAngle_endAngle_clockwise(
+            CGPoint {
+                x: center_x,
+                y: center_y,
+            },
+            radius - 5.0,
+            start_angle,
+            end_angle,
+            true, // clockwise
+        );
+        arc_path.stroke();
+    }
+
+    // Draw X - always white and bold
+    let x_color = NSColor::colorWithRed_green_blue_alpha(1.0, 1.0, 1.0, 1.0);
+    x_color.set();
+
+    let x_size = radius * 0.4;
+    let x_path = NSBezierPath::bezierPath();
+    x_path.setLineWidth(5.0); // Thicker X
+
+    // First line of X (top-left to bottom-right)
+    x_path.moveToPoint(CGPoint {
+        x: center_x - x_size,
+        y: center_y + x_size,
+    });
+    x_path.lineToPoint(CGPoint {
+        x: center_x + x_size,
+        y: center_y - x_size,
+    });
+
+    // Second line of X (top-right to bottom-left)
+    x_path.moveToPoint(CGPoint {
+        x: center_x + x_size,
+        y: center_y + x_size,
+    });
+    x_path.lineToPoint(CGPoint {
+        x: center_x - x_size,
+        y: center_y - x_size,
+    });
+
+    x_path.stroke();
+}
 
 /// Creates an IOKit assertion to prevent the system from sleeping
 fn prevent_sleep() -> Option<u32> {
@@ -141,8 +455,11 @@ unsafe extern "C-unwind" fn event_tap_callback(
         if cmd_pressed && option_pressed && keycode == KEY_U {
             println!("\n  🔓 Unlock combination detected (Cmd+Option+U)!");
 
-            // Stop the run loop to allow clean exit
-            CFRunLoopStop(CFRunLoopGetCurrent());
+            // Use NSApplication terminate to properly exit
+            if let Some(mtm) = MainThreadMarker::new() {
+                let app = NSApplication::sharedApplication(mtm);
+                app.terminate(None);
+            }
 
             // Let this event through
             return event.as_ptr();
@@ -310,9 +627,9 @@ fn main() {
             | NSWindowCollectionBehavior::IgnoresCycle,
     );
 
-    // Make window semi-transparent (30% opacity)
+    // Make window semi-transparent (50% opacity - visible but not fully blocking view)
     window.setOpaque(false);
-    window.setAlphaValue(0.3);
+    window.setAlphaValue(0.5);
 
     // Set a dark background color
     let bg_color = NSColor::colorWithRed_green_blue_alpha(0.1, 0.1, 0.15, 1.0);
@@ -337,11 +654,45 @@ fn main() {
 
     println!("  ✓ Overlay window active");
 
+    // Create and add the close button in top-right corner
+    let close_button_frame = CGRect {
+        origin: CGPoint {
+            x: screen_frame.size.width - CLOSE_BUTTON_SIZE - CLOSE_BUTTON_MARGIN,
+            y: screen_frame.size.height - CLOSE_BUTTON_SIZE - CLOSE_BUTTON_MARGIN,
+        },
+        size: CGSize {
+            width: CLOSE_BUTTON_SIZE,
+            height: CLOSE_BUTTON_SIZE,
+        },
+    };
+
+    let close_button = CloseButtonView::new(mtm, close_button_frame);
+
+    // Store view reference for timer callback.
+    // Safety: The view remains valid because contentView retains it and
+    // app.run() blocks until we're ready to exit. The timer is stopped
+    // before cleanup begins.
+    CLOSE_BUTTON_VIEW.store(
+        Retained::as_ptr(&close_button) as *mut c_void,
+        Ordering::SeqCst,
+    );
+
+    // Add close button to the window's content view
+    if let Some(content_view) = window.contentView() {
+        content_view.addSubview(&close_button);
+    }
+
+    // Start the animation timer
+    start_close_button_timer();
+
+    println!("  ✓ Close button active (hold 3s to exit)");
+
     // Prevent sleep
     let assertion_id = prevent_sleep();
 
     // Set up event tap if we have permissions
-    if check_accessibility() {
+    let has_accessibility = check_accessibility();
+    if has_accessibility {
         if setup_event_tap() {
             println!("  ✓ Input blocking active");
         } else {
@@ -354,15 +705,18 @@ fn main() {
     println!("  🛡️  CAT SHIELD IS NOW ACTIVE!");
     println!("  ═══════════════════════════════════════");
     println!();
-    println!("  Press Cmd+Option+U to unlock and exit");
+    println!("  Exit: Hold X button (top-right) for 3 seconds");
+    if has_accessibility {
+        println!("        Or press Cmd+Option+U");
+    }
     println!();
 
-    // Run the event loop using CoreFoundation run loop
-    unsafe {
-        CFRunLoopRun();
-    }
+    // Run the NSApplication event loop (required for AppKit event handling)
+    app.run();
 
     // Cleanup
+    stop_close_button_timer();
+
     if let Some(id) = assertion_id {
         allow_sleep(id);
     }
@@ -370,4 +724,47 @@ fn main() {
     println!();
     println!("  👋 Cat Shield deactivated. Goodbye!");
     println!();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_calculate_hold_progress_zero() {
+        assert_eq!(calculate_hold_progress(0.0, 3.0), 0.0);
+    }
+
+    #[test]
+    fn test_calculate_hold_progress_partial() {
+        let progress = calculate_hold_progress(1.5, 3.0);
+        assert!((progress - 0.5).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_calculate_hold_progress_complete() {
+        assert_eq!(calculate_hold_progress(3.0, 3.0), 1.0);
+    }
+
+    #[test]
+    fn test_calculate_hold_progress_exceeds() {
+        // Should clamp to 1.0 when elapsed exceeds duration
+        assert_eq!(calculate_hold_progress(5.0, 3.0), 1.0);
+    }
+
+    #[test]
+    fn test_is_hold_complete_false() {
+        assert!(!is_hold_complete(2.0, 3.0));
+        assert!(!is_hold_complete(2.999, 3.0));
+    }
+
+    #[test]
+    fn test_is_hold_complete_exact() {
+        assert!(is_hold_complete(3.0, 3.0));
+    }
+
+    #[test]
+    fn test_is_hold_complete_exceeds() {
+        assert!(is_hold_complete(5.0, 3.0));
+    }
 }
