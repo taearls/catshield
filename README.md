@@ -33,3 +33,38 @@ This project aims to create a simple macOS utility written in Rust that:
   - CoreGraphics (event interception)
   - IOKit (power management)
   - CoreFoundation (run loop)
+
+## GitHub Actions Integration
+
+This repository uses the official [Anthropic Claude Code GitHub Action](https://github.com/anthropics/claude-code-action) to provide AI-powered assistance on issues and pull requests.
+
+### How to Use
+
+Simply mention `@claude` in any issue comment, pull request comment, or pull request review to get Claude's assistance. For example:
+
+- `@claude can you review this PR for potential bugs?`
+- `@claude help me understand how the event tap works`
+- `@claude implement error handling for the power assertion`
+
+### Setup Requirements
+
+To enable this feature, a repository administrator needs to:
+
+1. Get an Anthropic API key from [console.anthropic.com](https://console.anthropic.com/)
+2. Add it as a repository secret named `ANTHROPIC_API_KEY`:
+   - Go to repository Settings → Secrets and variables → Actions
+   - Click "New repository secret"
+   - Name: `ANTHROPIC_API_KEY`
+   - Value: Your Anthropic API key
+3. The workflow file is already configured at `.github/workflows/claude.yml`
+
+### Features
+
+The Claude Code action can:
+- Answer questions about the codebase
+- Review pull requests for bugs and improvements
+- Implement features and bug fixes
+- Explain complex code sections
+- Suggest architectural improvements
+
+For more information, see the [Claude Code GitHub Actions documentation](https://github.com/anthropics/claude-code-action).
