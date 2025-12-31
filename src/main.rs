@@ -64,10 +64,8 @@ extern "C" {
     ) -> *mut c_void;
     fn CFRunLoopAddSource(rl: *mut c_void, source: *mut c_void, mode: *const c_void);
 
-    // Run loop control
+    // Run loop access
     fn CFRunLoopGetCurrent() -> *mut c_void;
-    fn CFRunLoopStop(rl: *mut c_void);
-    fn CFRunLoopRun();
 
     // Timer management
     fn CFRunLoopAddTimer(rl: *mut c_void, timer: *mut c_void, mode: *const c_void);
@@ -90,8 +88,8 @@ const K_IOPM_ASSERTION_LEVEL_ON: u32 = 255;
 const KEY_U: i64 = 32;
 
 // Close button configuration
-const CLOSE_BUTTON_SIZE: CGFloat = 44.0;
-const CLOSE_BUTTON_MARGIN: CGFloat = 20.0;
+const CLOSE_BUTTON_SIZE: CGFloat = 80.0; // Large, easy-to-see button
+const CLOSE_BUTTON_MARGIN: CGFloat = 30.0;
 const HOLD_DURATION_SECS: f64 = 3.0;
 const TIMER_INTERVAL_SECS: f64 = 1.0 / 60.0; // 60 FPS for smooth animation
 
@@ -152,7 +150,11 @@ unsafe extern "C" fn timer_callback(_timer: *mut c_void, _info: *mut c_void) {
     });
 
     if should_exit {
-        CFRunLoopStop(CFRunLoopGetCurrent());
+        // Use NSApplication terminate to properly exit the app run loop
+        if let Some(mtm) = MainThreadMarker::new() {
+            let app = NSApplication::sharedApplication(mtm);
+            app.terminate(None);
+        }
         return;
     }
 
@@ -291,11 +293,11 @@ fn draw_close_button(view: &NSView) {
 
     let is_inside = IS_MOUSE_INSIDE.with(|inside| inside.get());
 
-    // Background circle - semi-transparent
+    // Background circle - bright red for visibility
     let bg_color = if is_inside && progress > 0.0 {
-        NSColor::colorWithRed_green_blue_alpha(0.3, 0.3, 0.3, 0.9)
+        NSColor::colorWithRed_green_blue_alpha(0.9, 0.2, 0.2, 1.0) // Bright red when pressed
     } else {
-        NSColor::colorWithRed_green_blue_alpha(0.2, 0.2, 0.2, 0.7)
+        NSColor::colorWithRed_green_blue_alpha(0.8, 0.1, 0.1, 0.95) // Dark red normally
     };
 
     bg_color.set();
@@ -312,9 +314,25 @@ fn draw_close_button(view: &NSView) {
     });
     bg_path.fill();
 
-    // Progress arc (if holding)
+    // White border for extra visibility
+    let border_color = NSColor::colorWithRed_green_blue_alpha(1.0, 1.0, 1.0, 0.9);
+    border_color.set();
+    let border_path = NSBezierPath::bezierPathWithOvalInRect(CGRect {
+        origin: CGPoint {
+            x: center_x - radius,
+            y: center_y - radius,
+        },
+        size: CGSize {
+            width: radius * 2.0,
+            height: radius * 2.0,
+        },
+    });
+    border_path.setLineWidth(3.0);
+    border_path.stroke();
+
+    // Progress arc (if holding) - bright green
     if progress > 0.0 && is_inside {
-        let progress_color = NSColor::colorWithRed_green_blue_alpha(0.4, 0.8, 0.4, 1.0);
+        let progress_color = NSColor::colorWithRed_green_blue_alpha(0.2, 1.0, 0.2, 1.0);
         progress_color.set();
 
         // Draw arc from top, going clockwise
@@ -322,14 +340,14 @@ fn draw_close_button(view: &NSView) {
         let end_angle = 90.0 - (progress * 360.0);
 
         let arc_path = NSBezierPath::bezierPath();
-        arc_path.setLineWidth(4.0);
+        arc_path.setLineWidth(6.0); // Thicker progress ring
 
         arc_path.appendBezierPathWithArcWithCenter_radius_startAngle_endAngle_clockwise(
             CGPoint {
                 x: center_x,
                 y: center_y,
             },
-            radius - 3.0,
+            radius - 5.0,
             start_angle,
             end_angle,
             true, // clockwise
@@ -337,18 +355,13 @@ fn draw_close_button(view: &NSView) {
         arc_path.stroke();
     }
 
-    // Draw X
-    let x_color = if is_inside {
-        NSColor::colorWithRed_green_blue_alpha(1.0, 1.0, 1.0, 1.0)
-    } else {
-        NSColor::colorWithRed_green_blue_alpha(0.8, 0.8, 0.8, 0.8)
-    };
-
+    // Draw X - always white and bold
+    let x_color = NSColor::colorWithRed_green_blue_alpha(1.0, 1.0, 1.0, 1.0);
     x_color.set();
 
-    let x_size = radius * 0.5;
+    let x_size = radius * 0.4;
     let x_path = NSBezierPath::bezierPath();
-    x_path.setLineWidth(3.0);
+    x_path.setLineWidth(5.0); // Thicker X
 
     // First line of X (top-left to bottom-right)
     x_path.moveToPoint(CGPoint {
@@ -442,8 +455,11 @@ unsafe extern "C-unwind" fn event_tap_callback(
         if cmd_pressed && option_pressed && keycode == KEY_U {
             println!("\n  🔓 Unlock combination detected (Cmd+Option+U)!");
 
-            // Stop the run loop to allow clean exit
-            CFRunLoopStop(CFRunLoopGetCurrent());
+            // Use NSApplication terminate to properly exit
+            if let Some(mtm) = MainThreadMarker::new() {
+                let app = NSApplication::sharedApplication(mtm);
+                app.terminate(None);
+            }
 
             // Let this event through
             return event.as_ptr();
@@ -611,9 +627,9 @@ fn main() {
             | NSWindowCollectionBehavior::IgnoresCycle,
     );
 
-    // Make window semi-transparent (30% opacity)
+    // Make window semi-transparent (50% opacity - visible but not fully blocking view)
     window.setOpaque(false);
-    window.setAlphaValue(0.3);
+    window.setAlphaValue(0.5);
 
     // Set a dark background color
     let bg_color = NSColor::colorWithRed_green_blue_alpha(0.1, 0.1, 0.15, 1.0);
@@ -654,7 +670,7 @@ fn main() {
 
     // Store view reference for timer callback.
     // Safety: The view remains valid because contentView retains it and
-    // CFRunLoopRun() blocks until we're ready to exit. The timer is stopped
+    // app.run() blocks until we're ready to exit. The timer is stopped
     // before cleanup begins.
     CLOSE_BUTTON_VIEW.store(
         Retained::as_ptr(&close_button) as *mut c_void,
@@ -695,10 +711,8 @@ fn main() {
     }
     println!();
 
-    // Run the event loop using CoreFoundation run loop
-    unsafe {
-        CFRunLoopRun();
-    }
+    // Run the NSApplication event loop (required for AppKit event handling)
+    app.run();
 
     // Cleanup
     stop_close_button_timer();
