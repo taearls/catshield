@@ -52,14 +52,14 @@ Mention `@claude` in any issue comment, pull request comment, or pull request re
 
 To enable this feature, a repository administrator needs to:
 
-1. Get an Anthropic API key from [console.anthropic.com](https://console.anthropic.com/)
+1. Get an Anthropic API key from [platform.claude.com](https://platform.claude.com/)
 2. Add it as a repository secret named `ANTHROPIC_API_KEY`:
    - Go to repository Settings → Secrets and variables → Actions
    - Click "New repository secret"
    - Name: `ANTHROPIC_API_KEY`
    - Value: Your Anthropic API key
 3. The workflow file is already configured at `.github/workflows/claude.yml`
-4. **Note**: Using this integration will consume Anthropic API credits. Monitor your usage at [console.anthropic.com](https://console.anthropic.com/) to track costs.
+4. **Note**: Using this integration will consume Anthropic API credits. Monitor your usage at [platform.claude.com](https://platform.claude.com/) to track costs.
 
 ### Features
 
