@@ -75,7 +75,8 @@ static EVENT_TAP: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 /// Creates an IOKit assertion to prevent the system from sleeping
 fn prevent_sleep() -> Option<u32> {
     let assertion_type = CFString::from_static_str("PreventUserIdleDisplaySleep");
-    let reason = CFString::from_static_str("Cat Shield is active - protecting your work from cats!");
+    let reason =
+        CFString::from_static_str("Cat Shield is active - protecting your work from cats!");
 
     let mut assertion_id: u32 = 0;
 
@@ -130,7 +131,8 @@ unsafe extern "C-unwind" fn event_tap_callback(
         let cg_event = event.as_ref();
 
         let flags = CGEvent::flags(Some(cg_event));
-        let keycode = CGEvent::integer_value_field(Some(cg_event), CGEventField::KeyboardEventKeycode);
+        let keycode =
+            CGEvent::integer_value_field(Some(cg_event), CGEventField::KeyboardEventKeycode);
 
         // Check for Cmd + Option + U key
         let cmd_pressed = flags.contains(CGEventFlags::MaskCommand);
