@@ -558,11 +558,6 @@ static CLOSE_BUTTON_VIEW: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut(
 // Global pointer to the event tap for re-enabling from callback
 static EVENT_TAP: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 
-// Permission polling state
-static PERMISSION_GRANTED: AtomicBool = AtomicBool::new(false);
-static PERMISSION_POLL_TIMER: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
-const PERMISSION_POLL_INTERVAL_SECS: f64 = 2.0;
-
 // Global timer state for auto-exit feature
 static AUTO_EXIT_ENABLED: AtomicBool = AtomicBool::new(false);
 static AUTO_EXIT_START_TIME: AtomicU64 = AtomicU64::new(0);
@@ -1173,148 +1168,6 @@ fn open_accessibility_settings() -> bool {
     false
 }
 
-/// Timer callback to poll for accessibility permission changes
-unsafe extern "C" fn permission_poll_callback(_timer: *mut c_void, _info: *mut c_void) {
-    // Already have permissions, nothing to do
-    if PERMISSION_GRANTED.load(Ordering::SeqCst) {
-        return;
-    }
-
-    // Check if permissions have been granted
-    if check_accessibility() {
-        PERMISSION_GRANTED.store(true, Ordering::SeqCst);
-
-        println!();
-        println!("  ✓ Accessibility permissions granted!");
-
-        // Try to setup event tap now that we have permissions
-        if setup_event_tap() {
-            println!("  ✓ Input blocking now active");
-
-            // Get the configured exit key display name
-            let display_name = format_exit_key_from_atomics();
-            println!("  ✓ Exit key ({}) now available", display_name);
-        } else {
-            eprintln!("  ✗ Failed to enable input blocking");
-        }
-        println!();
-
-        // Stop the polling timer
-        stop_permission_poll_timer();
-    }
-}
-
-/// Format exit key from stored atomic values for display
-fn format_exit_key_from_atomics() -> String {
-    let mut parts = Vec::new();
-
-    if EXIT_KEY_REQUIRES_CMD.load(Ordering::SeqCst) {
-        parts.push("Cmd".to_string());
-    }
-    if EXIT_KEY_REQUIRES_CTRL.load(Ordering::SeqCst) {
-        parts.push("Ctrl".to_string());
-    }
-    if EXIT_KEY_REQUIRES_OPTION.load(Ordering::SeqCst) {
-        parts.push("Option".to_string());
-    }
-    if EXIT_KEY_REQUIRES_SHIFT.load(Ordering::SeqCst) {
-        parts.push("Shift".to_string());
-    }
-
-    // Find key name from keycode
-    let keycode = EXIT_KEY_KEYCODE.load(Ordering::SeqCst);
-    let key_name = keyname_from_code(keycode).unwrap_or_else(|| format!("Key{}", keycode));
-    parts.push(key_name);
-
-    parts.join("+")
-}
-
-/// Get key name from keycode (reverse of keycode_from_name)
-fn keyname_from_code(keycode: i64) -> Option<String> {
-    match keycode {
-        0 => Some("A".to_string()),
-        1 => Some("S".to_string()),
-        2 => Some("D".to_string()),
-        3 => Some("F".to_string()),
-        4 => Some("H".to_string()),
-        5 => Some("G".to_string()),
-        6 => Some("Z".to_string()),
-        7 => Some("X".to_string()),
-        8 => Some("C".to_string()),
-        9 => Some("V".to_string()),
-        11 => Some("B".to_string()),
-        12 => Some("Q".to_string()),
-        13 => Some("W".to_string()),
-        14 => Some("E".to_string()),
-        15 => Some("R".to_string()),
-        16 => Some("Y".to_string()),
-        17 => Some("T".to_string()),
-        31 => Some("O".to_string()),
-        32 => Some("U".to_string()),
-        34 => Some("I".to_string()),
-        35 => Some("P".to_string()),
-        37 => Some("L".to_string()),
-        38 => Some("J".to_string()),
-        40 => Some("K".to_string()),
-        45 => Some("N".to_string()),
-        46 => Some("M".to_string()),
-        53 => Some("Escape".to_string()),
-        36 => Some("Return".to_string()),
-        48 => Some("Tab".to_string()),
-        49 => Some("Space".to_string()),
-        51 => Some("Delete".to_string()),
-        122 => Some("F1".to_string()),
-        120 => Some("F2".to_string()),
-        99 => Some("F3".to_string()),
-        118 => Some("F4".to_string()),
-        96 => Some("F5".to_string()),
-        97 => Some("F6".to_string()),
-        98 => Some("F7".to_string()),
-        100 => Some("F8".to_string()),
-        101 => Some("F9".to_string()),
-        109 => Some("F10".to_string()),
-        103 => Some("F11".to_string()),
-        111 => Some("F12".to_string()),
-        123 => Some("Left".to_string()),
-        124 => Some("Right".to_string()),
-        125 => Some("Down".to_string()),
-        126 => Some("Up".to_string()),
-        _ => None,
-    }
-}
-
-/// Start polling for accessibility permission changes
-fn start_permission_poll_timer() {
-    unsafe {
-        let timer = CFRunLoopTimerCreate(
-            std::ptr::null(),
-            CFAbsoluteTimeGetCurrent() + PERMISSION_POLL_INTERVAL_SECS,
-            PERMISSION_POLL_INTERVAL_SECS,
-            0,
-            0,
-            permission_poll_callback,
-            std::ptr::null(),
-        );
-
-        if !timer.is_null() {
-            let run_loop = CFRunLoopGetCurrent();
-            let mode = kCFRunLoopCommonModes.expect("kCFRunLoopCommonModes should exist");
-            CFRunLoopAddTimer(run_loop, timer, (mode as *const CFString).cast());
-            PERMISSION_POLL_TIMER.store(timer, Ordering::SeqCst);
-        }
-    }
-}
-
-/// Stop the permission polling timer
-fn stop_permission_poll_timer() {
-    unsafe {
-        let timer = PERMISSION_POLL_TIMER.swap(std::ptr::null_mut(), Ordering::SeqCst);
-        if !timer.is_null() {
-            CFRunLoopTimerInvalidate(timer);
-        }
-    }
-}
-
 /// Create and enable the event tap
 fn setup_event_tap() -> bool {
     // Define event mask for all keyboard and mouse events
@@ -1444,35 +1297,13 @@ fn main() {
             }
             eprintln!();
             eprintln!("  Please add Cat Shield to the Accessibility list,");
-            eprintln!("  then press ENTER to continue...");
+            eprintln!("  then restart the app.");
             eprintln!();
 
-            // Wait for user to press Enter after granting permissions
-            let mut input = String::new();
-            let _ = std::io::stdin().read_line(&mut input);
-
-            // Check again after user pressed Enter
-            has_accessibility = check_accessibility();
-            if has_accessibility {
-                println!("  ✓ Permissions granted!");
-                println!();
-            } else {
-                eprintln!("  ⚠️  Permissions still not granted.");
-                eprintln!("  Running in LIMITED MODE...");
-                eprintln!("  (overlay + sleep prevention + close button only)");
-                eprintln!();
-                eprintln!("  The app will automatically detect when permissions");
-                eprintln!("  are granted and enable full input blocking.");
-                eprintln!();
-
-                // Start polling for permission changes
-                start_permission_poll_timer();
-            }
+            // Exit - user must grant permissions and restart
+            process::exit(1);
         }
     }
-
-    // Store permission state
-    PERMISSION_GRANTED.store(has_accessibility, Ordering::SeqCst);
 
     println!();
     println!("  🐱 CAT SHIELD 🛡️");
@@ -1622,14 +1453,11 @@ fn main() {
     // Prevent sleep
     let assertion_id = prevent_sleep();
 
-    // Set up event tap if we have permissions (use the stored state from earlier check)
-    let has_accessibility = PERMISSION_GRANTED.load(Ordering::SeqCst);
-    if has_accessibility {
-        if setup_event_tap() {
-            println!("  ✓ Input blocking active");
-        } else {
-            eprintln!("  ✗ Failed to create event tap");
-        }
+    // Set up event tap (we always have permissions at this point)
+    if setup_event_tap() {
+        println!("  ✓ Input blocking active");
+    } else {
+        eprintln!("  ✗ Failed to create event tap");
     }
 
     println!();
@@ -1638,9 +1466,7 @@ fn main() {
     println!("  ═══════════════════════════════════════");
     println!();
     println!("  Exit: Hold X button (top-right) for 3 seconds");
-    if has_accessibility {
-        println!("        Or press {}", exit_key.display_name);
-    }
+    println!("        Or press {}", exit_key.display_name);
     if args.timer.is_some() {
         println!(
             "        Or wait for timer ({} remaining)",
