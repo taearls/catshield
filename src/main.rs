@@ -1296,12 +1296,20 @@ fn main() {
                 eprintln!("  ✓ System Settings opened");
             }
             eprintln!();
-            eprintln!("  Please add Cat Shield to the Accessibility list,");
-            eprintln!("  then restart the app.");
+            eprintln!("  Please add Cat Shield to the Accessibility list.");
+            eprintln!("  Waiting for permissions...");
             eprintln!();
 
-            // Exit - user must grant permissions and restart
-            process::exit(1);
+            // Poll for permissions every 1 second
+            const POLL_INTERVAL: std::time::Duration = std::time::Duration::from_secs(1);
+            loop {
+                std::thread::sleep(POLL_INTERVAL);
+                if check_accessibility() {
+                    println!("  ✓ Permissions granted! Starting Cat Shield...");
+                    println!();
+                    break;
+                }
+            }
         }
     }
 
