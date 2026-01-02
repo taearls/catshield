@@ -36,7 +36,8 @@ use objc2_app_kit::{
     NSWorkspace,
 };
 use objc2_core_foundation::{
-    kCFRunLoopCommonModes, CFMachPort, CFRetained, CFString, CGFloat, CGPoint, CGRect, CGSize,
+    kCFRunLoopCommonModes, kCFRunLoopDefaultMode, CFMachPort, CFRetained, CFString, CGFloat,
+    CGPoint, CGRect, CGSize,
 };
 use objc2_core_graphics::{
     CGEvent, CGEventField, CGEventFlags, CGEventMask, CGEventTapLocation, CGEventTapOptions,
@@ -105,6 +106,9 @@ extern "C" {
     ) -> *mut c_void;
     fn CFRunLoopTimerInvalidate(timer: *mut c_void);
     fn CFAbsoluteTimeGetCurrent() -> f64;
+
+    // Run loop execution (for polling with event processing)
+    fn CFRunLoopRunInMode(mode: *const c_void, seconds: f64, return_after_source_handled: bool) -> i32;
 
     // Dictionary creation for accessibility options
     static kCFBooleanTrue: *const c_void;
@@ -1104,21 +1108,12 @@ unsafe extern "C-unwind" fn event_tap_callback(
         }
     }
 
-    // Block all keyboard and mouse events by returning NULL
+    // Block keyboard events by returning NULL
+    // Mouse events are allowed through so our close button can work
+    // (our topmost window captures all mouse events anyway)
     if event_type == CGEventType::KeyDown
         || event_type == CGEventType::KeyUp
         || event_type == CGEventType::FlagsChanged
-        || event_type == CGEventType::LeftMouseDown
-        || event_type == CGEventType::LeftMouseUp
-        || event_type == CGEventType::RightMouseDown
-        || event_type == CGEventType::RightMouseUp
-        || event_type == CGEventType::MouseMoved
-        || event_type == CGEventType::LeftMouseDragged
-        || event_type == CGEventType::RightMouseDragged
-        || event_type == CGEventType::ScrollWheel
-        || event_type == CGEventType::OtherMouseDown
-        || event_type == CGEventType::OtherMouseUp
-        || event_type == CGEventType::OtherMouseDragged
     {
         // Return NULL to block the event
         return std::ptr::null_mut();
@@ -1170,21 +1165,12 @@ fn open_accessibility_settings() -> bool {
 
 /// Create and enable the event tap
 fn setup_event_tap() -> bool {
-    // Define event mask for all keyboard and mouse events
+    // Define event mask for keyboard events only
+    // Mouse events are NOT blocked - our topmost fullscreen window captures them,
+    // and we need mouse events to reach our close button
     let event_mask: CGEventMask = (1u64 << CGEventType::KeyDown.0)
         | (1u64 << CGEventType::KeyUp.0)
-        | (1u64 << CGEventType::FlagsChanged.0)
-        | (1u64 << CGEventType::LeftMouseDown.0)
-        | (1u64 << CGEventType::LeftMouseUp.0)
-        | (1u64 << CGEventType::RightMouseDown.0)
-        | (1u64 << CGEventType::RightMouseUp.0)
-        | (1u64 << CGEventType::MouseMoved.0)
-        | (1u64 << CGEventType::LeftMouseDragged.0)
-        | (1u64 << CGEventType::RightMouseDragged.0)
-        | (1u64 << CGEventType::ScrollWheel.0)
-        | (1u64 << CGEventType::OtherMouseDown.0)
-        | (1u64 << CGEventType::OtherMouseUp.0)
-        | (1u64 << CGEventType::OtherMouseDragged.0);
+        | (1u64 << CGEventType::FlagsChanged.0);
 
     unsafe {
         // Create the event tap using CGEvent::tap_create
@@ -1300,10 +1286,15 @@ fn main() {
             eprintln!("  Waiting for permissions...");
             eprintln!();
 
-            // Poll for permissions every 1 second
-            const POLL_INTERVAL: std::time::Duration = std::time::Duration::from_secs(1);
+            // Poll for permissions every 1 second using CFRunLoopRunInMode
+            // This allows the run loop to process events while waiting,
+            // which is necessary for macOS to update accessibility permission state
+            const POLL_INTERVAL_SECS: f64 = 1.0;
             loop {
-                std::thread::sleep(POLL_INTERVAL);
+                unsafe {
+                    let mode = kCFRunLoopDefaultMode.expect("kCFRunLoopDefaultMode should exist");
+                    CFRunLoopRunInMode((mode as *const CFString).cast(), POLL_INTERVAL_SECS, false);
+                }
                 if check_accessibility() {
                     println!("  ✓ Permissions granted! Starting Cat Shield...");
                     println!();
