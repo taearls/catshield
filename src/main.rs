@@ -108,7 +108,11 @@ extern "C" {
     fn CFAbsoluteTimeGetCurrent() -> f64;
 
     // Run loop execution (for polling with event processing)
-    fn CFRunLoopRunInMode(mode: *const c_void, seconds: f64, return_after_source_handled: bool) -> i32;
+    fn CFRunLoopRunInMode(
+        mode: *const c_void,
+        seconds: f64,
+        return_after_source_handled: bool,
+    ) -> i32;
 
     // Dictionary creation for accessibility options
     static kCFBooleanTrue: *const c_void;
@@ -268,11 +272,10 @@ impl ExitKey {
                 "shift" | "⇧" => requires_shift = true,
                 "ctrl" | "control" | "⌃" => requires_ctrl = true,
                 _ => {
-                    if key_name.is_some() {
+                    if let Some(existing) = key_name {
                         return Err(format!(
                             "Multiple keys specified: '{}' and '{}'",
-                            key_name.unwrap(),
-                            part
+                            existing, part
                         ));
                     }
                     key_name = Some(part);
@@ -300,7 +303,6 @@ impl ExitKey {
             display_name: input.to_string(),
         })
     }
-
 }
 
 // Global storage for exit key configuration (atomic for thread safety)
@@ -369,18 +371,12 @@ impl Config {
             Ok(contents) => match toml::from_str(&contents) {
                 Ok(config) => config,
                 Err(e) => {
-                    eprintln!(
-                        "  ⚠️  Warning: Failed to parse config file: {}",
-                        e
-                    );
+                    eprintln!("  ⚠️  Warning: Failed to parse config file: {}", e);
                     Self::default()
                 }
             },
             Err(e) => {
-                eprintln!(
-                    "  ⚠️  Warning: Failed to read config file: {}",
-                    e
-                );
+                eprintln!("  ⚠️  Warning: Failed to read config file: {}", e);
                 Self::default()
             }
         }
@@ -1161,7 +1157,8 @@ fn check_accessibility_with_prompt() -> bool {
 
 /// Open System Settings to the Accessibility privacy pane
 fn open_accessibility_settings() -> bool {
-    let url_string = ns_string!("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility");
+    let url_string =
+        ns_string!("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility");
 
     if let Some(url) = NSURL::URLWithString(url_string) {
         let workspace = NSWorkspace::sharedWorkspace();
@@ -1390,7 +1387,10 @@ fn main() {
         eprintln!("  ⚠️  ACCESSIBILITY PERMISSION REQUIRED");
         eprintln!();
         eprintln!("  To block keyboard/mouse input and use the exit");
-        eprintln!("  shortcut ({}), this app needs Accessibility permissions.", exit_key.display_name);
+        eprintln!(
+            "  shortcut ({}), this app needs Accessibility permissions.",
+            exit_key.display_name
+        );
         eprintln!();
 
         // Try to prompt user with native dialog
@@ -1835,5 +1835,57 @@ mod tests {
         assert!(!key.requires_shift);
         assert!(!key.requires_ctrl);
         assert_eq!(key.display_name, "Cmd+Option+U");
+    }
+
+    // Menu bar mode tests
+    #[test]
+    fn test_has_immediate_start_args_none() {
+        let args = Args {
+            timer: None,
+            hide_timer: false,
+            exit_key: None,
+        };
+        assert!(!has_immediate_start_args(&args));
+    }
+
+    #[test]
+    fn test_has_immediate_start_args_with_timer() {
+        let args = Args {
+            timer: Some(60),
+            hide_timer: false,
+            exit_key: None,
+        };
+        assert!(has_immediate_start_args(&args));
+    }
+
+    #[test]
+    fn test_has_immediate_start_args_with_exit_key() {
+        let args = Args {
+            timer: None,
+            hide_timer: false,
+            exit_key: Some(ExitKey::default()),
+        };
+        assert!(has_immediate_start_args(&args));
+    }
+
+    #[test]
+    fn test_has_immediate_start_args_with_both() {
+        let args = Args {
+            timer: Some(120),
+            hide_timer: true,
+            exit_key: Some(ExitKey::default()),
+        };
+        assert!(has_immediate_start_args(&args));
+    }
+
+    #[test]
+    fn test_has_immediate_start_args_hide_timer_alone_is_menu_mode() {
+        // hide_timer alone should NOT trigger immediate mode
+        let args = Args {
+            timer: None,
+            hide_timer: true,
+            exit_key: None,
+        };
+        assert!(!has_immediate_start_args(&args));
     }
 }
