@@ -4,7 +4,7 @@
 //! - Blocks all keyboard and mouse input
 //! - Keeps the machine awake
 //! - Click and hold close button (3 seconds) to exit
-//! - Or unlock with Cmd+Option+U (requires Accessibility permissions)
+//! - Or unlock with configurable keyboard shortcut (default: Cmd+Option+U)
 //! - Optional timer-based auto-exit
 //!
 //! Usage: Run the application, and it will immediately activate the shield.
@@ -15,7 +15,15 @@
 //!   cat_shield --timer 2h       # Exit after 2 hours
 //!   cat_shield -t 45m           # Short form
 //!
-//! Optional: For keyboard shortcut exit (Cmd+Option+U), grant Accessibility permissions:
+//! Exit Key: Use --exit-key or -e to set custom exit shortcut:
+//!   cat_shield --exit-key "Cmd+Shift+Q"
+//!   cat_shield --exit-key "Ctrl+Option+Escape"
+//!   cat_shield -e "Cmd+Shift+X"
+//!
+//! Config File: Persistent settings can be stored in ~/.config/catshield/config.toml:
+//!   exit_key = "Cmd+Option+U"
+//!
+//! Note: Keyboard shortcuts require Accessibility permissions.
 //! Go to System Preferences → Security & Privacy → Privacy → Accessibility
 //! and add this application.
 
@@ -25,20 +33,25 @@ use objc2::{define_class, msg_send, MainThreadOnly};
 use objc2_app_kit::{
     NSApplication, NSApplicationActivationPolicy, NSBackingStoreType, NSBezierPath, NSColor,
     NSEvent, NSScreen, NSView, NSWindow, NSWindowCollectionBehavior, NSWindowStyleMask,
+    NSWorkspace,
 };
 use objc2_core_foundation::{
-    kCFRunLoopCommonModes, CFMachPort, CFRetained, CFString, CGFloat, CGPoint, CGRect, CGSize,
+    kCFRunLoopCommonModes, kCFRunLoopDefaultMode, CFMachPort, CFRetained, CFString, CGFloat,
+    CGPoint, CGRect, CGSize,
 };
 use objc2_core_graphics::{
     CGEvent, CGEventField, CGEventFlags, CGEventMask, CGEventTapLocation, CGEventTapOptions,
     CGEventTapPlacement, CGEventTapProxy, CGEventType,
 };
-use objc2_foundation::{ns_string, MainThreadMarker};
+use objc2_foundation::{ns_string, MainThreadMarker, NSURL};
+use serde::Deserialize;
 use std::cell::Cell;
 use std::ffi::c_void;
+use std::fs;
+use std::path::PathBuf;
 use std::process;
 use std::ptr::NonNull;
-use std::sync::atomic::{AtomicBool, AtomicPtr, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI64, AtomicPtr, AtomicU64, Ordering};
 use std::time::Instant;
 
 // IOKit power management bindings
@@ -58,6 +71,12 @@ extern "C" {
 extern "C" {
     fn CGEventTapEnable(tap: *mut c_void, enable: bool);
     fn AXIsProcessTrusted() -> bool;
+}
+
+// ApplicationServices framework for accessibility permission prompting
+#[link(name = "ApplicationServices", kind = "framework")]
+extern "C" {
+    fn AXIsProcessTrustedWithOptions(options: *const c_void) -> bool;
 }
 
 // CoreFoundation bindings
@@ -87,12 +106,286 @@ extern "C" {
     ) -> *mut c_void;
     fn CFRunLoopTimerInvalidate(timer: *mut c_void);
     fn CFAbsoluteTimeGetCurrent() -> f64;
+
+    // Run loop execution (for polling with event processing)
+    fn CFRunLoopRunInMode(mode: *const c_void, seconds: f64, return_after_source_handled: bool) -> i32;
+
+    // Dictionary creation for accessibility options
+    static kCFBooleanTrue: *const c_void;
+    fn CFDictionaryCreate(
+        allocator: *const c_void,
+        keys: *const *const c_void,
+        values: *const *const c_void,
+        num_values: isize,
+        key_callbacks: *const c_void,
+        value_callbacks: *const c_void,
+    ) -> *mut c_void;
+    fn CFRelease(cf: *const c_void);
+}
+
+// Accessibility options key
+#[link(name = "ApplicationServices", kind = "framework")]
+extern "C" {
+    static kAXTrustedCheckOptionPrompt: *const c_void;
 }
 
 const K_IOPM_ASSERTION_LEVEL_ON: u32 = 255;
 
-// Keycode for 'U' on macOS
-const KEY_U: i64 = 32;
+// Default exit key configuration
+const DEFAULT_EXIT_KEY: &str = "Cmd+Option+U";
+
+// macOS virtual key codes
+// See: https://developer.apple.com/documentation/coregraphics/cgkeycode
+fn keycode_from_name(name: &str) -> Option<i64> {
+    match name.to_lowercase().as_str() {
+        // Letters
+        "a" => Some(0),
+        "s" => Some(1),
+        "d" => Some(2),
+        "f" => Some(3),
+        "h" => Some(4),
+        "g" => Some(5),
+        "z" => Some(6),
+        "x" => Some(7),
+        "c" => Some(8),
+        "v" => Some(9),
+        "b" => Some(11),
+        "q" => Some(12),
+        "w" => Some(13),
+        "e" => Some(14),
+        "r" => Some(15),
+        "y" => Some(16),
+        "t" => Some(17),
+        "1" | "!" => Some(18),
+        "2" | "@" => Some(19),
+        "3" | "#" => Some(20),
+        "4" | "$" => Some(21),
+        "6" | "^" => Some(22),
+        "5" | "%" => Some(23),
+        "=" | "+" => Some(24),
+        "9" | "(" => Some(25),
+        "7" | "&" => Some(26),
+        "-" | "_" => Some(27),
+        "8" | "*" => Some(28),
+        "0" | ")" => Some(29),
+        "]" | "}" => Some(30),
+        "o" => Some(31),
+        "u" => Some(32),
+        "[" | "{" => Some(33),
+        "i" => Some(34),
+        "p" => Some(35),
+        "l" => Some(37),
+        "j" => Some(38),
+        "'" | "\"" => Some(39),
+        "k" => Some(40),
+        ";" | ":" => Some(41),
+        "\\" | "|" => Some(42),
+        "," | "<" => Some(43),
+        "/" | "?" => Some(44),
+        "n" => Some(45),
+        "m" => Some(46),
+        "." | ">" => Some(47),
+        "`" | "~" => Some(50),
+        // Special keys
+        "return" | "enter" => Some(36),
+        "tab" => Some(48),
+        "space" => Some(49),
+        "delete" | "backspace" => Some(51),
+        "escape" | "esc" => Some(53),
+        "f1" => Some(122),
+        "f2" => Some(120),
+        "f3" => Some(99),
+        "f4" => Some(118),
+        "f5" => Some(96),
+        "f6" => Some(97),
+        "f7" => Some(98),
+        "f8" => Some(100),
+        "f9" => Some(101),
+        "f10" => Some(109),
+        "f11" => Some(103),
+        "f12" => Some(111),
+        "home" => Some(115),
+        "end" => Some(119),
+        "pageup" => Some(116),
+        "pagedown" => Some(121),
+        "left" | "leftarrow" => Some(123),
+        "right" | "rightarrow" => Some(124),
+        "down" | "downarrow" => Some(125),
+        "up" | "uparrow" => Some(126),
+        _ => None,
+    }
+}
+
+/// Represents a parsed exit key combination
+#[derive(Debug, Clone)]
+struct ExitKey {
+    keycode: i64,
+    requires_cmd: bool,
+    requires_option: bool,
+    requires_shift: bool,
+    requires_ctrl: bool,
+    display_name: String,
+}
+
+impl Default for ExitKey {
+    fn default() -> Self {
+        // Default: Cmd+Option+U
+        ExitKey {
+            keycode: 32, // U
+            requires_cmd: true,
+            requires_option: true,
+            requires_shift: false,
+            requires_ctrl: false,
+            display_name: DEFAULT_EXIT_KEY.to_string(),
+        }
+    }
+}
+
+impl ExitKey {
+    /// Parse a key combination string like "Cmd+Option+U" or "Ctrl+Shift+Escape"
+    fn parse(input: &str) -> Result<Self, String> {
+        let input = input.trim();
+        if input.is_empty() {
+            return Err("Exit key cannot be empty".to_string());
+        }
+
+        let parts: Vec<&str> = input.split('+').map(|s| s.trim()).collect();
+        if parts.is_empty() {
+            return Err("Invalid key combination format".to_string());
+        }
+
+        let mut requires_cmd = false;
+        let mut requires_option = false;
+        let mut requires_shift = false;
+        let mut requires_ctrl = false;
+        let mut key_name: Option<&str> = None;
+
+        for part in &parts {
+            let lower = part.to_lowercase();
+            match lower.as_str() {
+                "cmd" | "command" | "⌘" => requires_cmd = true,
+                "opt" | "option" | "alt" | "⌥" => requires_option = true,
+                "shift" | "⇧" => requires_shift = true,
+                "ctrl" | "control" | "⌃" => requires_ctrl = true,
+                _ => {
+                    if key_name.is_some() {
+                        return Err(format!(
+                            "Multiple keys specified: '{}' and '{}'",
+                            key_name.unwrap(),
+                            part
+                        ));
+                    }
+                    key_name = Some(part);
+                }
+            }
+        }
+
+        let key_name = key_name.ok_or("No key specified in combination")?;
+        let keycode = keycode_from_name(key_name)
+            .ok_or_else(|| format!("Unknown key: '{}'. Valid keys include: A-Z, 0-9, F1-F12, Escape, Return, Tab, Space, Delete, Arrow keys", key_name))?;
+
+        // Require at least one modifier
+        if !requires_cmd && !requires_option && !requires_shift && !requires_ctrl {
+            return Err(
+                "At least one modifier key required (Cmd, Option, Shift, or Ctrl)".to_string(),
+            );
+        }
+
+        Ok(ExitKey {
+            keycode,
+            requires_cmd,
+            requires_option,
+            requires_shift,
+            requires_ctrl,
+            display_name: input.to_string(),
+        })
+    }
+
+}
+
+// Global storage for exit key configuration (atomic for thread safety)
+static EXIT_KEY_KEYCODE: AtomicI64 = AtomicI64::new(32); // Default: U
+static EXIT_KEY_REQUIRES_CMD: AtomicBool = AtomicBool::new(true);
+static EXIT_KEY_REQUIRES_OPTION: AtomicBool = AtomicBool::new(true);
+static EXIT_KEY_REQUIRES_SHIFT: AtomicBool = AtomicBool::new(false);
+static EXIT_KEY_REQUIRES_CTRL: AtomicBool = AtomicBool::new(false);
+
+/// Set the global exit key configuration
+fn set_exit_key(key: &ExitKey) {
+    EXIT_KEY_KEYCODE.store(key.keycode, Ordering::SeqCst);
+    EXIT_KEY_REQUIRES_CMD.store(key.requires_cmd, Ordering::SeqCst);
+    EXIT_KEY_REQUIRES_OPTION.store(key.requires_option, Ordering::SeqCst);
+    EXIT_KEY_REQUIRES_SHIFT.store(key.requires_shift, Ordering::SeqCst);
+    EXIT_KEY_REQUIRES_CTRL.store(key.requires_ctrl, Ordering::SeqCst);
+}
+
+/// Check if the given key event matches the configured exit key
+fn check_exit_key(keycode: i64, flags: CGEventFlags) -> bool {
+    let expected_keycode = EXIT_KEY_KEYCODE.load(Ordering::SeqCst);
+    if keycode != expected_keycode {
+        return false;
+    }
+
+    let has_cmd = flags.contains(CGEventFlags::MaskCommand);
+    let has_option = flags.contains(CGEventFlags::MaskAlternate);
+    let has_shift = flags.contains(CGEventFlags::MaskShift);
+    let has_ctrl = flags.contains(CGEventFlags::MaskControl);
+
+    let requires_cmd = EXIT_KEY_REQUIRES_CMD.load(Ordering::SeqCst);
+    let requires_option = EXIT_KEY_REQUIRES_OPTION.load(Ordering::SeqCst);
+    let requires_shift = EXIT_KEY_REQUIRES_SHIFT.load(Ordering::SeqCst);
+    let requires_ctrl = EXIT_KEY_REQUIRES_CTRL.load(Ordering::SeqCst);
+
+    requires_cmd == has_cmd
+        && requires_option == has_option
+        && requires_shift == has_shift
+        && requires_ctrl == has_ctrl
+}
+
+/// Configuration file structure for persistent settings
+#[derive(Debug, Deserialize, Default)]
+struct Config {
+    /// Custom exit key combination (e.g., "Cmd+Option+U")
+    exit_key: Option<String>,
+}
+
+impl Config {
+    /// Get the path to the config file (~/.config/catshield/config.toml)
+    fn config_path() -> Option<PathBuf> {
+        dirs::config_dir().map(|p| p.join("catshield").join("config.toml"))
+    }
+
+    /// Load configuration from the config file, if it exists
+    fn load() -> Self {
+        let Some(path) = Self::config_path() else {
+            return Self::default();
+        };
+
+        if !path.exists() {
+            return Self::default();
+        }
+
+        match fs::read_to_string(&path) {
+            Ok(contents) => match toml::from_str(&contents) {
+                Ok(config) => config,
+                Err(e) => {
+                    eprintln!(
+                        "  ⚠️  Warning: Failed to parse config file: {}",
+                        e
+                    );
+                    Self::default()
+                }
+            },
+            Err(e) => {
+                eprintln!(
+                    "  ⚠️  Warning: Failed to read config file: {}",
+                    e
+                );
+                Self::default()
+            }
+        }
+    }
+}
 
 // Close button configuration
 const CLOSE_BUTTON_SIZE: CGFloat = 80.0; // Large, easy-to-see button
@@ -119,6 +412,26 @@ const TIMER_DISPLAY_MARGIN: CGFloat = 30.0;
 #[command(author = "Tyler Earls")]
 #[command(version)]
 #[command(about = "A cat-proof screen overlay that keeps your machine awake and blocks input")]
+#[command(after_help = "EXAMPLES:
+    cat_shield                          # Use default exit key (Cmd+Option+U)
+    cat_shield --exit-key \"Cmd+Shift+Q\" # Custom exit shortcut
+    cat_shield --timer 30m              # Auto-exit after 30 minutes
+    cat_shield -e \"Ctrl+Option+X\" -t 2h # Custom key + timer
+
+CONFIG FILE:
+    Settings can be persisted in ~/.config/catshield/config.toml:
+
+    exit_key = \"Cmd+Shift+Escape\"
+
+SUPPORTED KEYS:
+    Letters: A-Z
+    Numbers: 0-9
+    Function keys: F1-F12
+    Special: Escape, Return, Tab, Space, Delete
+    Arrow keys: Left, Right, Up, Down, Home, End, PageUp, PageDown
+
+MODIFIERS:
+    Cmd (Command), Option (Alt), Shift, Ctrl (Control)")]
 struct Args {
     /// Auto-exit after specified duration (e.g., 30m, 2h, 1h30m)
     #[arg(short, long, value_parser = parse_duration)]
@@ -127,6 +440,17 @@ struct Args {
     /// Hide the countdown timer display
     #[arg(long)]
     hide_timer: bool,
+
+    /// Custom exit keyboard shortcut (e.g., "Cmd+Shift+Q", "Ctrl+Option+Escape")
+    /// Requires at least one modifier key (Cmd, Option, Shift, or Ctrl).
+    /// CLI argument overrides config file setting.
+    #[arg(short = 'e', long = "exit-key", value_parser = parse_exit_key)]
+    exit_key: Option<ExitKey>,
+}
+
+/// Parse exit key string into ExitKey struct (for clap value_parser)
+fn parse_exit_key(s: &str) -> Result<ExitKey, String> {
+    ExitKey::parse(s)
 }
 
 /// Parse duration string like "30m", "2h", "1h30m" into seconds
@@ -761,7 +1085,7 @@ unsafe extern "C-unwind" fn event_tap_callback(
         return event.as_ptr();
     }
 
-    // Check for unlock combination: Cmd+Option+U
+    // Check for configured exit key combination
     if event_type == CGEventType::KeyDown {
         let cg_event = event.as_ref();
 
@@ -769,12 +1093,9 @@ unsafe extern "C-unwind" fn event_tap_callback(
         let keycode =
             CGEvent::integer_value_field(Some(cg_event), CGEventField::KeyboardEventKeycode);
 
-        // Check for Cmd + Option + U key
-        let cmd_pressed = flags.contains(CGEventFlags::MaskCommand);
-        let option_pressed = flags.contains(CGEventFlags::MaskAlternate);
-
-        if cmd_pressed && option_pressed && keycode == KEY_U {
-            println!("\n  🔓 Unlock combination detected (Cmd+Option+U)!");
+        // Check if the key combination matches the configured exit key
+        if check_exit_key(keycode, flags) {
+            println!("\n  🔓 Exit key combination detected!");
 
             // Use NSApplication terminate to properly exit
             if let Some(mtm) = MainThreadMarker::new() {
@@ -787,21 +1108,12 @@ unsafe extern "C-unwind" fn event_tap_callback(
         }
     }
 
-    // Block all keyboard and mouse events by returning NULL
+    // Block keyboard events by returning NULL
+    // Mouse events are allowed through so our close button can work
+    // (our topmost window captures all mouse events anyway)
     if event_type == CGEventType::KeyDown
         || event_type == CGEventType::KeyUp
         || event_type == CGEventType::FlagsChanged
-        || event_type == CGEventType::LeftMouseDown
-        || event_type == CGEventType::LeftMouseUp
-        || event_type == CGEventType::RightMouseDown
-        || event_type == CGEventType::RightMouseUp
-        || event_type == CGEventType::MouseMoved
-        || event_type == CGEventType::LeftMouseDragged
-        || event_type == CGEventType::RightMouseDragged
-        || event_type == CGEventType::ScrollWheel
-        || event_type == CGEventType::OtherMouseDown
-        || event_type == CGEventType::OtherMouseUp
-        || event_type == CGEventType::OtherMouseDragged
     {
         // Return NULL to block the event
         return std::ptr::null_mut();
@@ -815,23 +1127,50 @@ fn check_accessibility() -> bool {
     unsafe { AXIsProcessTrusted() }
 }
 
+/// Check accessibility permissions and prompt user with native dialog if not granted
+fn check_accessibility_with_prompt() -> bool {
+    unsafe {
+        let keys = [kAXTrustedCheckOptionPrompt];
+        let values = [kCFBooleanTrue];
+
+        let dict = CFDictionaryCreate(
+            std::ptr::null(),
+            keys.as_ptr(),
+            values.as_ptr(),
+            1,
+            std::ptr::null(),
+            std::ptr::null(),
+        );
+
+        let result = AXIsProcessTrustedWithOptions(dict);
+
+        if !dict.is_null() {
+            CFRelease(dict);
+        }
+
+        result
+    }
+}
+
+/// Open System Settings to the Accessibility privacy pane
+fn open_accessibility_settings() -> bool {
+    let url_string = ns_string!("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility");
+
+    if let Some(url) = NSURL::URLWithString(url_string) {
+        let workspace = NSWorkspace::sharedWorkspace();
+        return workspace.openURL(&url);
+    }
+    false
+}
+
 /// Create and enable the event tap
 fn setup_event_tap() -> bool {
-    // Define event mask for all keyboard and mouse events
+    // Define event mask for keyboard events only
+    // Mouse events are NOT blocked - our topmost fullscreen window captures them,
+    // and we need mouse events to reach our close button
     let event_mask: CGEventMask = (1u64 << CGEventType::KeyDown.0)
         | (1u64 << CGEventType::KeyUp.0)
-        | (1u64 << CGEventType::FlagsChanged.0)
-        | (1u64 << CGEventType::LeftMouseDown.0)
-        | (1u64 << CGEventType::LeftMouseUp.0)
-        | (1u64 << CGEventType::RightMouseDown.0)
-        | (1u64 << CGEventType::RightMouseUp.0)
-        | (1u64 << CGEventType::MouseMoved.0)
-        | (1u64 << CGEventType::LeftMouseDragged.0)
-        | (1u64 << CGEventType::RightMouseDragged.0)
-        | (1u64 << CGEventType::ScrollWheel.0)
-        | (1u64 << CGEventType::OtherMouseDown.0)
-        | (1u64 << CGEventType::OtherMouseUp.0)
-        | (1u64 << CGEventType::OtherMouseDragged.0);
+        | (1u64 << CGEventType::FlagsChanged.0);
 
     unsafe {
         // Create the event tap using CGEvent::tap_create
@@ -888,28 +1227,88 @@ fn main() {
     // Parse command line arguments
     let args = Args::parse();
 
+    // Load config file
+    let config = Config::load();
+
+    // Determine exit key: CLI arg > config file > default
+    let exit_key = if let Some(ref key) = args.exit_key {
+        key.clone()
+    } else if let Some(ref key_str) = config.exit_key {
+        match ExitKey::parse(key_str) {
+            Ok(key) => key,
+            Err(e) => {
+                eprintln!("  ⚠️  Invalid exit_key in config file: {}", e);
+                eprintln!("      Using default: {}", DEFAULT_EXIT_KEY);
+                ExitKey::default()
+            }
+        }
+    } else {
+        ExitKey::default()
+    };
+
+    // Set the global exit key configuration
+    set_exit_key(&exit_key);
+
+    // Check accessibility permissions FIRST, before any UI
+    let mut has_accessibility = check_accessibility();
+
+    if !has_accessibility {
+        println!();
+        println!("  🐱 CAT SHIELD 🛡️");
+        println!("  ════════════════════════════════════════");
+        println!();
+        eprintln!("  ⚠️  ACCESSIBILITY PERMISSION REQUIRED");
+        eprintln!();
+        eprintln!("  To block keyboard/mouse input and use the exit");
+        eprintln!("  shortcut ({}), this app needs Accessibility permissions.", exit_key.display_name);
+        eprintln!();
+
+        // Try to prompt user with native dialog
+        println!("  Requesting accessibility permissions...");
+        has_accessibility = check_accessibility_with_prompt();
+
+        if has_accessibility {
+            println!("  ✓ Permissions granted!");
+            println!();
+        } else {
+            eprintln!();
+            eprintln!("  Opening System Settings → Accessibility...");
+
+            // Need to briefly initialize NSApplication for NSWorkspace to work
+            let mtm = MainThreadMarker::new().expect("Must run on main thread");
+            let _ = NSApplication::sharedApplication(mtm);
+
+            if open_accessibility_settings() {
+                eprintln!("  ✓ System Settings opened");
+            }
+            eprintln!();
+            eprintln!("  Please add Cat Shield to the Accessibility list.");
+            eprintln!("  Waiting for permissions...");
+            eprintln!();
+
+            // Poll for permissions every 1 second using CFRunLoopRunInMode
+            // This allows the run loop to process events while waiting,
+            // which is necessary for macOS to update accessibility permission state
+            const POLL_INTERVAL_SECS: f64 = 1.0;
+            loop {
+                unsafe {
+                    let mode = kCFRunLoopDefaultMode.expect("kCFRunLoopDefaultMode should exist");
+                    CFRunLoopRunInMode((mode as *const CFString).cast(), POLL_INTERVAL_SECS, false);
+                }
+                if check_accessibility() {
+                    println!("  ✓ Permissions granted! Starting Cat Shield...");
+                    println!();
+                    break;
+                }
+            }
+        }
+    }
+
     println!();
     println!("  🐱 CAT SHIELD 🛡️");
     println!("  ════════════════════════════════════════");
     println!("  Protecting your work from curious cats!");
     println!();
-
-    // Check accessibility permissions first
-    if !check_accessibility() {
-        eprintln!("  ⚠️  ACCESSIBILITY PERMISSION REQUIRED");
-        eprintln!();
-        eprintln!("  To block keyboard/mouse input, this app needs");
-        eprintln!("  Accessibility permissions:");
-        eprintln!();
-        eprintln!("  1. Open System Settings");
-        eprintln!("  2. Go to Privacy & Security → Accessibility");
-        eprintln!("  3. Click '+' and add this application");
-        eprintln!("  4. Restart Cat Shield");
-        eprintln!();
-        eprintln!("  The app will now run in LIMITED MODE");
-        eprintln!("  (overlay + sleep prevention only)");
-        eprintln!();
-    }
 
     // Get main thread marker - required for AppKit operations
     let mtm = MainThreadMarker::new().expect("Must run on main thread");
@@ -1010,6 +1409,7 @@ fn main() {
     start_close_button_timer();
 
     println!("  ✓ Close button active (hold 3s to exit)");
+    println!("  ✓ Exit key: {}", exit_key.display_name);
 
     // Set up auto-exit timer if specified
     if let Some(duration_secs) = args.timer {
@@ -1052,14 +1452,11 @@ fn main() {
     // Prevent sleep
     let assertion_id = prevent_sleep();
 
-    // Set up event tap if we have permissions
-    let has_accessibility = check_accessibility();
-    if has_accessibility {
-        if setup_event_tap() {
-            println!("  ✓ Input blocking active");
-        } else {
-            eprintln!("  ✗ Failed to create event tap");
-        }
+    // Set up event tap (we always have permissions at this point)
+    if setup_event_tap() {
+        println!("  ✓ Input blocking active");
+    } else {
+        eprintln!("  ✗ Failed to create event tap");
     }
 
     println!();
@@ -1068,9 +1465,7 @@ fn main() {
     println!("  ═══════════════════════════════════════");
     println!();
     println!("  Exit: Hold X button (top-right) for 3 seconds");
-    if has_accessibility {
-        println!("        Or press Cmd+Option+U");
-    }
+    println!("        Or press {}", exit_key.display_name);
     if args.timer.is_some() {
         println!(
             "        Or wait for timer ({} remaining)",
@@ -1202,5 +1597,124 @@ mod tests {
         assert_eq!(format_duration(3600), "1h 00m 00s");
         assert_eq!(format_duration(3661), "1h 01m 01s");
         assert_eq!(format_duration(7200 + 1800 + 45), "2h 30m 45s");
+    }
+
+    // Exit key parsing tests
+    #[test]
+    fn test_keycode_from_name_letters() {
+        assert_eq!(keycode_from_name("a"), Some(0));
+        assert_eq!(keycode_from_name("u"), Some(32));
+        assert_eq!(keycode_from_name("q"), Some(12));
+        assert_eq!(keycode_from_name("U"), Some(32)); // Case insensitive
+    }
+
+    #[test]
+    fn test_keycode_from_name_special() {
+        assert_eq!(keycode_from_name("escape"), Some(53));
+        assert_eq!(keycode_from_name("Escape"), Some(53));
+        assert_eq!(keycode_from_name("esc"), Some(53));
+        assert_eq!(keycode_from_name("return"), Some(36));
+        assert_eq!(keycode_from_name("enter"), Some(36));
+        assert_eq!(keycode_from_name("space"), Some(49));
+        assert_eq!(keycode_from_name("tab"), Some(48));
+    }
+
+    #[test]
+    fn test_keycode_from_name_function_keys() {
+        assert_eq!(keycode_from_name("f1"), Some(122));
+        assert_eq!(keycode_from_name("F12"), Some(111));
+    }
+
+    #[test]
+    fn test_keycode_from_name_unknown() {
+        assert_eq!(keycode_from_name("unknown"), None);
+        assert_eq!(keycode_from_name(""), None);
+    }
+
+    #[test]
+    fn test_exit_key_parse_default() {
+        let key = ExitKey::parse("Cmd+Option+U").unwrap();
+        assert_eq!(key.keycode, 32);
+        assert!(key.requires_cmd);
+        assert!(key.requires_option);
+        assert!(!key.requires_shift);
+        assert!(!key.requires_ctrl);
+    }
+
+    #[test]
+    fn test_exit_key_parse_cmd_shift_q() {
+        let key = ExitKey::parse("Cmd+Shift+Q").unwrap();
+        assert_eq!(key.keycode, 12);
+        assert!(key.requires_cmd);
+        assert!(!key.requires_option);
+        assert!(key.requires_shift);
+        assert!(!key.requires_ctrl);
+    }
+
+    #[test]
+    fn test_exit_key_parse_ctrl_option_escape() {
+        let key = ExitKey::parse("Ctrl+Option+Escape").unwrap();
+        assert_eq!(key.keycode, 53);
+        assert!(!key.requires_cmd);
+        assert!(key.requires_option);
+        assert!(!key.requires_shift);
+        assert!(key.requires_ctrl);
+    }
+
+    #[test]
+    fn test_exit_key_parse_case_insensitive() {
+        let key1 = ExitKey::parse("CMD+OPTION+U").unwrap();
+        let key2 = ExitKey::parse("cmd+option+u").unwrap();
+        assert_eq!(key1.keycode, key2.keycode);
+        assert_eq!(key1.requires_cmd, key2.requires_cmd);
+        assert_eq!(key1.requires_option, key2.requires_option);
+    }
+
+    #[test]
+    fn test_exit_key_parse_alternative_modifier_names() {
+        let key = ExitKey::parse("Command+Alt+U").unwrap();
+        assert!(key.requires_cmd);
+        assert!(key.requires_option);
+
+        let key2 = ExitKey::parse("Control+Opt+X").unwrap();
+        assert!(key2.requires_ctrl);
+        assert!(key2.requires_option);
+    }
+
+    #[test]
+    fn test_exit_key_parse_with_spaces() {
+        let key = ExitKey::parse(" Cmd + Option + U ").unwrap();
+        assert_eq!(key.keycode, 32);
+        assert!(key.requires_cmd);
+        assert!(key.requires_option);
+    }
+
+    #[test]
+    fn test_exit_key_parse_errors() {
+        // No modifier
+        assert!(ExitKey::parse("U").is_err());
+
+        // Unknown key
+        assert!(ExitKey::parse("Cmd+Option+Unknown").is_err());
+
+        // Empty
+        assert!(ExitKey::parse("").is_err());
+
+        // No key, only modifiers
+        assert!(ExitKey::parse("Cmd+Option").is_err());
+
+        // Multiple keys
+        assert!(ExitKey::parse("Cmd+A+B").is_err());
+    }
+
+    #[test]
+    fn test_exit_key_default() {
+        let key = ExitKey::default();
+        assert_eq!(key.keycode, 32);
+        assert!(key.requires_cmd);
+        assert!(key.requires_option);
+        assert!(!key.requires_shift);
+        assert!(!key.requires_ctrl);
+        assert_eq!(key.display_name, "Cmd+Option+U");
     }
 }
