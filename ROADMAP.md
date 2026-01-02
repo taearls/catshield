@@ -46,19 +46,99 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 
 ## Open Issues
 
-Currently no open issues.
+### Phase 4: Menu-Based Application Interface
+
+**Epic #13**: Transform Cat Shield from an immediate-launch utility into a menu bar application.
+
+| Priority | Issue | Title | Dependencies | Effort |
+|----------|-------|-------|--------------|--------|
+| 🔴 Critical | #14 | Create Menu Bar Infrastructure (NSStatusItem) | None | ~1 day |
+| 🔴 Critical | #17 | Refactor Overlay to On-Demand Activation | #14 | ~2 days |
+| 🟡 High | #15 | Create Main Dropdown Menu | #14 | ~1 day |
+| 🟡 High | #18 | Extend Config for New Settings | None | ~1 day |
+| 🟢 Medium | #16 | Create Settings Window | #15, #18 | ~3 days |
+| 🔵 Low | #19 | Add About Panel | #15 | ~0.5 day |
+
+**Implementation Order:**
+```
+#14: Menu Bar Infrastructure
+    ├── #17: Refactor Overlay (parallel with #15)
+    └── #15: Dropdown Menu
+            ├── #18: Extend Config (parallel)
+            └── #16: Settings Window
+                    └── #19: About Panel (optional)
+```
+
+### Other Open Issues
+
+| Priority | Issue | Title | Effort |
+|----------|-------|-------|--------|
+| 🟢 Medium | #10 | Add informative labels to overlay UI elements | ~1 day |
+| 🔵 Low | #11 | Add install script for easy CLI access | ~0.5 day |
+
+## Issue Summary
+
+| Status | Count | Issues |
+|--------|-------|--------|
+| Open | 9 | #10, #11, #13, #14, #15, #16, #17, #18, #19 |
+| Closed | 4 | #3, #5, #6, #7 |
+
+### By Priority
+- 🔴 Critical: 2 (#14, #17)
+- 🟡 High: 2 (#15, #18)
+- 🟢 Medium: 2 (#10, #16)
+- 🔵 Low: 2 (#11, #19)
+- Epic: 1 (#13)
+
+## Recommended Implementation Order
+
+### Current Sprint: Phase 4 Foundation
+1. **#14** - Menu Bar Infrastructure (foundation for all menu features)
+2. **#17** - Refactor Overlay (can parallel with #15 after #14)
+3. **#15** - Main Dropdown Menu (depends on #14)
+4. **#18** - Extend Config (can parallel with menu work)
+
+### Next Up
+5. **#16** - Settings Window (biggest effort, depends on #15 + #18)
+6. **#19** - About Panel (polish, low priority)
+7. **#10** - UI Labels (can be done anytime)
+8. **#11** - Install Script (can be done anytime)
+
+## Critical Path
+
+```
+Foundation:     #14 (Menu Bar) ──┬── #17 (Refactor Overlay)
+                                 │
+                                 └── #15 (Dropdown Menu) ── #16 (Settings) ── #19 (About)
+                                              │
+Parallel:       #18 (Config) ────────────────┘
+
+Independent:    #10 (UI Labels), #11 (Install Script)
+```
 
 ## Future Considerations
 
 Potential future enhancements (not yet tracked as issues):
 
-- Configurable overlay opacity and color
 - Multi-monitor support improvements
-- System tray/menu bar integration
 - Auto-start on login option
 - Activity logging
+- Sound effects/feedback
+- Custom overlay themes
 
 ## Changelog
+
+### 2026-01-02
+- Added Phase 4: Menu-Based Application Interface (Epic #13)
+  - #14: Create Menu Bar Infrastructure (NSStatusItem)
+  - #15: Create Main Dropdown Menu
+  - #16: Create Settings Window
+  - #17: Refactor Overlay to On-Demand Activation
+  - #18: Extend Config for New Settings (timer, opacity)
+  - #19: Add About Panel
+- Updated roadmap with 9 open issues
+- Defined critical path for Phase 4 implementation
+- Moved completed items (opacity, menu bar) from Future Considerations to active issues
 
 ### 2025-12-31
 - Added configurable keyboard shortcut for exit (Issue #7)
