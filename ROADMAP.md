@@ -44,6 +44,15 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
   - CLI argument takes precedence over config file
   - Default remains Cmd+Option+U for backwards compatibility
 
+### Phase 4: Menu-Based Application Interface (In Progress)
+- [x] **Issue #14**: Create Menu Bar Infrastructure (NSStatusItem)
+  - Added NSStatusItem with cat emoji (🐱) in menu bar
+  - App enters menu bar mode when launched without CLI arguments
+  - Tooltip shows "Cat Shield" on hover
+  - Basic dropdown menu with branding and Quit option
+  - CLI arguments (--timer, --exit-key) bypass menu bar and start shield immediately
+  - Foundation for subsequent menu features (#15, #16, #17)
+
 ## Open Issues
 
 ### Phase 4: Menu-Based Application Interface
@@ -52,9 +61,9 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 
 | Priority | Issue | Title | Dependencies | Effort |
 |----------|-------|-------|--------------|--------|
-| 🔴 Critical | #14 | Create Menu Bar Infrastructure (NSStatusItem) | None | ~1 day |
-| 🔴 Critical | #17 | Refactor Overlay to On-Demand Activation | #14 | ~2 days |
-| 🟡 High | #15 | Create Main Dropdown Menu | #14 | ~1 day |
+| ✅ Done | #14 | Create Menu Bar Infrastructure (NSStatusItem) | None | ~1 day |
+| 🔴 Critical | #17 | Refactor Overlay to On-Demand Activation | ✅ #14 | ~2 days |
+| 🟡 High | #15 | Create Main Dropdown Menu | ✅ #14 | ~1 day |
 | 🟡 High | #18 | Extend Config for New Settings | None | ~1 day |
 | 🟢 Medium | #16 | Create Settings Window | #15, #18 | ~3 days |
 | 🔵 Low | #19 | Add About Panel | #15 | ~0.5 day |
@@ -80,11 +89,11 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 9 | #10, #11, #13, #14, #15, #16, #17, #18, #19 |
-| Closed | 4 | #3, #5, #6, #7 |
+| Open | 8 | #10, #11, #13, #15, #16, #17, #18, #19 |
+| Closed | 5 | #3, #5, #6, #7, #14 |
 
 ### By Priority
-- 🔴 Critical: 2 (#14, #17)
+- 🔴 Critical: 1 (#17)
 - 🟡 High: 2 (#15, #18)
 - 🟢 Medium: 2 (#10, #16)
 - 🔵 Low: 2 (#11, #19)
@@ -93,9 +102,9 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 ## Recommended Implementation Order
 
 ### Current Sprint: Phase 4 Foundation
-1. **#14** - Menu Bar Infrastructure (foundation for all menu features)
-2. **#17** - Refactor Overlay (can parallel with #15 after #14)
-3. **#15** - Main Dropdown Menu (depends on #14)
+1. ~~**#14** - Menu Bar Infrastructure~~ ✅ COMPLETED
+2. **#17** - Refactor Overlay (can parallel with #15)
+3. **#15** - Main Dropdown Menu (unblocked by #14)
 4. **#18** - Extend Config (can parallel with menu work)
 
 ### Next Up
@@ -107,11 +116,11 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 ## Critical Path
 
 ```
-Foundation:     #14 (Menu Bar) ──┬── #17 (Refactor Overlay)
-                                 │
-                                 └── #15 (Dropdown Menu) ── #16 (Settings) ── #19 (About)
-                                              │
-Parallel:       #18 (Config) ────────────────┘
+Foundation:     #14 (Menu Bar) ✅ ──┬── #17 (Refactor Overlay)
+                                    │
+                                    └── #15 (Dropdown Menu) ── #16 (Settings) ── #19 (About)
+                                                 │
+Parallel:       #18 (Config) ───────────────────┘
 
 Independent:    #10 (UI Labels), #11 (Install Script)
 ```
@@ -129,6 +138,13 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-02
+- Completed Issue #14: Create Menu Bar Infrastructure (NSStatusItem)
+  - Cat emoji (🐱) appears in menu bar when app launches without CLI args
+  - App stays running in background in menu bar mode
+  - Tooltip shows "Cat Shield" on hover
+  - Basic dropdown menu with branding, placeholder items, and Quit
+  - CLI args (--timer, --exit-key) bypass menu and start shield immediately
+  - Unblocks #15, #17 for continued Phase 4 development
 - Added Phase 4: Menu-Based Application Interface (Epic #13)
   - #14: Create Menu Bar Infrastructure (NSStatusItem)
   - #15: Create Main Dropdown Menu

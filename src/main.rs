@@ -32,8 +32,8 @@ use objc2::rc::Retained;
 use objc2::{define_class, msg_send, MainThreadOnly};
 use objc2_app_kit::{
     NSApplication, NSApplicationActivationPolicy, NSBackingStoreType, NSBezierPath, NSColor,
-    NSEvent, NSScreen, NSView, NSWindow, NSWindowCollectionBehavior, NSWindowStyleMask,
-    NSWorkspace,
+    NSEvent, NSMenu, NSMenuItem, NSScreen, NSStatusBar, NSStatusItem, NSView, NSWindow,
+    NSWindowCollectionBehavior, NSWindowStyleMask, NSWorkspace,
 };
 use objc2_core_foundation::{
     kCFRunLoopCommonModes, kCFRunLoopDefaultMode, CFMachPort, CFRetained, CFString, CGFloat,
@@ -570,6 +570,13 @@ static WARNING_SHOWN: AtomicBool = AtomicBool::new(false);
 
 // Global reference to the timer display view for updates
 static TIMER_DISPLAY_VIEW: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+
+// Global reference to the status bar item (menu bar icon)
+// Using AtomicPtr to store the Retained<NSStatusItem> pointer
+static STATUS_ITEM: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+
+// Track whether we're in menu bar mode (no immediate shield activation)
+static MENU_BAR_MODE: AtomicBool = AtomicBool::new(false);
 
 // Close button state stored in thread-local for the view
 thread_local! {
@@ -1223,6 +1230,91 @@ fn setup_event_tap() -> bool {
     }
 }
 
+/// Set up the menu bar status item with cat emoji icon
+///
+/// Creates an NSStatusItem in the system menu bar with:
+/// - Cat emoji (🐱) as the icon
+/// - "Cat Shield" tooltip on hover
+/// - Basic menu with Start Protection and Quit options
+///
+/// Returns the Retained<NSStatusItem> which must be kept alive for the duration
+/// of the app to prevent the status item from being deallocated.
+fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
+    // Get the system status bar
+    let status_bar = NSStatusBar::systemStatusBar();
+
+    // Create a status item with variable length (adjusts to content)
+    // NSVariableStatusItemLength = -1.0
+    let status_item = status_bar.statusItemWithLength(-1.0);
+
+    // Configure the button (the clickable part of the status item)
+    if let Some(button) = status_item.button(mtm) {
+        // Set the cat emoji as the title
+        button.setTitle(ns_string!("🐱"));
+
+        // Set tooltip for accessibility
+        button.setToolTip(Some(ns_string!("Cat Shield")));
+    }
+
+    // Create a simple menu for now (will be expanded in Issue #15)
+    let menu = NSMenu::new(mtm);
+
+    // Add "Cat Shield" title (disabled, just for branding)
+    let title_item = NSMenuItem::new(mtm);
+    title_item.setTitle(ns_string!("🐱 Cat Shield"));
+    title_item.setEnabled(false);
+    menu.addItem(&title_item);
+
+    // Add separator
+    menu.addItem(&NSMenuItem::separatorItem(mtm));
+
+    // Add "Start Protection" item (placeholder - will be functional in Issue #17)
+    let start_item = NSMenuItem::new(mtm);
+    start_item.setTitle(ns_string!("Start Protection"));
+    start_item.setEnabled(false); // Disabled until Issue #17 implements on-demand activation
+    menu.addItem(&start_item);
+
+    // Add "Settings..." item (placeholder - will be functional in Issue #16)
+    let settings_item = NSMenuItem::new(mtm);
+    settings_item.setTitle(ns_string!("Settings..."));
+    settings_item.setEnabled(false); // Disabled until Issue #16 implements settings window
+    menu.addItem(&settings_item);
+
+    // Add separator
+    menu.addItem(&NSMenuItem::separatorItem(mtm));
+
+    // Add "Quit Cat Shield" item
+    // Note: This uses the standard terminate: action which NSApplication handles
+    let quit_item = NSMenuItem::new(mtm);
+    quit_item.setTitle(ns_string!("Quit Cat Shield"));
+    unsafe {
+        quit_item.setAction(Some(objc2::sel!(terminate:)));
+    }
+    // Set keyboard shortcut Cmd+Q
+    quit_item.setKeyEquivalent(ns_string!("q"));
+    menu.addItem(&quit_item);
+
+    // Attach menu to status item
+    status_item.setMenu(Some(&menu));
+
+    // Store the status item pointer globally to keep it alive
+    // The Retained<NSStatusItem> will be returned and kept in main()
+    STATUS_ITEM.store(
+        Retained::as_ptr(&status_item) as *mut c_void,
+        Ordering::SeqCst,
+    );
+
+    println!("  ✓ Menu bar icon active (🐱)");
+
+    status_item
+}
+
+/// Check if the app was launched with arguments that should trigger immediate shield activation
+fn has_immediate_start_args(args: &Args) -> bool {
+    // If timer or exit-key CLI args are provided, start shield immediately
+    args.timer.is_some() || args.exit_key.is_some()
+}
+
 fn main() {
     // Parse command line arguments
     let args = Args::parse();
@@ -1249,6 +1341,44 @@ fn main() {
     // Set the global exit key configuration
     set_exit_key(&exit_key);
 
+    // Get main thread marker - required for AppKit operations
+    let mtm = MainThreadMarker::new().expect("Must run on main thread");
+
+    // Initialize the application
+    let app = NSApplication::sharedApplication(mtm);
+    app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
+
+    // Check if we should enter menu bar mode (no CLI args that trigger immediate start)
+    if !has_immediate_start_args(&args) {
+        // Menu bar mode: show icon in menu bar and wait for user interaction
+        MENU_BAR_MODE.store(true, Ordering::SeqCst);
+
+        println!();
+        println!("  🐱 CAT SHIELD 🛡️");
+        println!("  ════════════════════════════════════════");
+        println!("  Menu bar mode active");
+        println!();
+
+        // Set up menu bar icon
+        let _status_item = setup_menu_bar(mtm);
+
+        println!();
+        println!("  Click the 🐱 icon in your menu bar to access Cat Shield.");
+        println!("  Use 'Start Protection' to activate the shield.");
+        println!("  Or run with --timer or --exit-key to start immediately.");
+        println!();
+
+        // Run the NSApplication event loop
+        // The status item keeps the app alive in the menu bar
+        app.run();
+
+        println!();
+        println!("  👋 Cat Shield closed. Goodbye!");
+        println!();
+        return;
+    }
+
+    // Immediate shield mode: CLI args provided, start protection now
     // Check accessibility permissions FIRST, before any UI
     let mut has_accessibility = check_accessibility();
 
@@ -1273,10 +1403,6 @@ fn main() {
         } else {
             eprintln!();
             eprintln!("  Opening System Settings → Accessibility...");
-
-            // Need to briefly initialize NSApplication for NSWorkspace to work
-            let mtm = MainThreadMarker::new().expect("Must run on main thread");
-            let _ = NSApplication::sharedApplication(mtm);
 
             if open_accessibility_settings() {
                 eprintln!("  ✓ System Settings opened");
@@ -1309,13 +1435,6 @@ fn main() {
     println!("  ════════════════════════════════════════");
     println!("  Protecting your work from curious cats!");
     println!();
-
-    // Get main thread marker - required for AppKit operations
-    let mtm = MainThreadMarker::new().expect("Must run on main thread");
-
-    // Initialize the application
-    let app = NSApplication::sharedApplication(mtm);
-    app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
 
     // Get the main screen dimensions
     let screen = NSScreen::mainScreen(mtm);

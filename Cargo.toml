@@ -16,7 +16,7 @@ toml = "0.9"
 serde = { version = "1.0", features = ["derive"] }
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", features = ["NSURL"] }
-objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSBezierPath", "NSColor", "NSEvent", "NSScreen", "NSView", "NSWindow", "NSWorkspace"] }
+objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSBezierPath", "NSButton", "NSColor", "NSEvent", "NSMenu", "NSMenuItem", "NSScreen", "NSStatusBar", "NSStatusItem", "NSView", "NSWindow", "NSWorkspace"] }
 objc2-core-foundation = { version = "0.3", features = ["CFMachPort", "CFRunLoop", "CFString"] }
 objc2-core-graphics = { version = "0.3", features = ["CGEvent", "CGEventTypes", "CGRemoteOperation"] }
 
