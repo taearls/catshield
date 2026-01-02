@@ -32,8 +32,8 @@ use objc2::rc::Retained;
 use objc2::{define_class, msg_send, MainThreadOnly};
 use objc2_app_kit::{
     NSApplication, NSApplicationActivationPolicy, NSBackingStoreType, NSBezierPath, NSColor,
-    NSEvent, NSScreen, NSView, NSWindow, NSWindowCollectionBehavior, NSWindowStyleMask,
-    NSWorkspace,
+    NSEvent, NSMenu, NSMenuItem, NSScreen, NSStatusBar, NSStatusItem, NSView, NSWindow,
+    NSWindowCollectionBehavior, NSWindowStyleMask, NSWorkspace,
 };
 use objc2_core_foundation::{
     kCFRunLoopCommonModes, kCFRunLoopDefaultMode, CFMachPort, CFRetained, CFString, CGFloat,
@@ -108,7 +108,11 @@ extern "C" {
     fn CFAbsoluteTimeGetCurrent() -> f64;
 
     // Run loop execution (for polling with event processing)
-    fn CFRunLoopRunInMode(mode: *const c_void, seconds: f64, return_after_source_handled: bool) -> i32;
+    fn CFRunLoopRunInMode(
+        mode: *const c_void,
+        seconds: f64,
+        return_after_source_handled: bool,
+    ) -> i32;
 
     // Dictionary creation for accessibility options
     static kCFBooleanTrue: *const c_void;
@@ -268,11 +272,10 @@ impl ExitKey {
                 "shift" | "⇧" => requires_shift = true,
                 "ctrl" | "control" | "⌃" => requires_ctrl = true,
                 _ => {
-                    if key_name.is_some() {
+                    if let Some(existing) = key_name {
                         return Err(format!(
                             "Multiple keys specified: '{}' and '{}'",
-                            key_name.unwrap(),
-                            part
+                            existing, part
                         ));
                     }
                     key_name = Some(part);
@@ -300,7 +303,6 @@ impl ExitKey {
             display_name: input.to_string(),
         })
     }
-
 }
 
 // Global storage for exit key configuration (atomic for thread safety)
@@ -369,18 +371,12 @@ impl Config {
             Ok(contents) => match toml::from_str(&contents) {
                 Ok(config) => config,
                 Err(e) => {
-                    eprintln!(
-                        "  ⚠️  Warning: Failed to parse config file: {}",
-                        e
-                    );
+                    eprintln!("  ⚠️  Warning: Failed to parse config file: {}", e);
                     Self::default()
                 }
             },
             Err(e) => {
-                eprintln!(
-                    "  ⚠️  Warning: Failed to read config file: {}",
-                    e
-                );
+                eprintln!("  ⚠️  Warning: Failed to read config file: {}", e);
                 Self::default()
             }
         }
@@ -1154,7 +1150,8 @@ fn check_accessibility_with_prompt() -> bool {
 
 /// Open System Settings to the Accessibility privacy pane
 fn open_accessibility_settings() -> bool {
-    let url_string = ns_string!("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility");
+    let url_string =
+        ns_string!("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility");
 
     if let Some(url) = NSURL::URLWithString(url_string) {
         let workspace = NSWorkspace::sharedWorkspace();
@@ -1223,6 +1220,84 @@ fn setup_event_tap() -> bool {
     }
 }
 
+/// Set up the menu bar status item with cat emoji icon
+///
+/// Creates an NSStatusItem in the system menu bar with:
+/// - Cat emoji (🐱) as the icon
+/// - "Cat Shield" tooltip on hover
+/// - Basic menu with Start Protection and Quit options
+///
+/// Returns the Retained<NSStatusItem> which must be kept alive for the duration
+/// of the app to prevent the status item from being deallocated.
+fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
+    // Get the system status bar
+    let status_bar = NSStatusBar::systemStatusBar();
+
+    // Create a status item with variable length (adjusts to content)
+    // NSVariableStatusItemLength = -1.0
+    let status_item = status_bar.statusItemWithLength(-1.0);
+
+    // Configure the button (the clickable part of the status item)
+    if let Some(button) = status_item.button(mtm) {
+        // Set the cat emoji as the title
+        button.setTitle(ns_string!("🐱"));
+
+        // Set tooltip for accessibility
+        button.setToolTip(Some(ns_string!("Cat Shield")));
+    }
+
+    // Create a simple menu for now (will be expanded in Issue #15)
+    let menu = NSMenu::new(mtm);
+
+    // Add "Cat Shield" title (disabled, just for branding)
+    let title_item = NSMenuItem::new(mtm);
+    title_item.setTitle(ns_string!("🐱 Cat Shield"));
+    title_item.setEnabled(false);
+    menu.addItem(&title_item);
+
+    // Add separator
+    menu.addItem(&NSMenuItem::separatorItem(mtm));
+
+    // Add "Start Protection" item (placeholder - will be functional in Issue #17)
+    let start_item = NSMenuItem::new(mtm);
+    start_item.setTitle(ns_string!("Start Protection"));
+    start_item.setEnabled(false); // Disabled until Issue #17 implements on-demand activation
+    menu.addItem(&start_item);
+
+    // Add "Settings..." item (placeholder - will be functional in Issue #16)
+    let settings_item = NSMenuItem::new(mtm);
+    settings_item.setTitle(ns_string!("Settings..."));
+    settings_item.setEnabled(false); // Disabled until Issue #16 implements settings window
+    menu.addItem(&settings_item);
+
+    // Add separator
+    menu.addItem(&NSMenuItem::separatorItem(mtm));
+
+    // Add "Quit Cat Shield" item
+    // Note: This uses the standard terminate: action which NSApplication handles
+    let quit_item = NSMenuItem::new(mtm);
+    quit_item.setTitle(ns_string!("Quit Cat Shield"));
+    unsafe {
+        quit_item.setAction(Some(objc2::sel!(terminate:)));
+    }
+    // Set keyboard shortcut Cmd+Q
+    quit_item.setKeyEquivalent(ns_string!("q"));
+    menu.addItem(&quit_item);
+
+    // Attach menu to status item
+    status_item.setMenu(Some(&menu));
+
+    println!("  ✓ Menu bar icon active (🐱)");
+
+    status_item
+}
+
+/// Check if the app was launched with arguments that should trigger immediate shield activation
+fn has_immediate_start_args(args: &Args) -> bool {
+    // If timer or exit-key CLI args are provided, start shield immediately
+    args.timer.is_some() || args.exit_key.is_some()
+}
+
 fn main() {
     // Parse command line arguments
     let args = Args::parse();
@@ -1249,6 +1324,45 @@ fn main() {
     // Set the global exit key configuration
     set_exit_key(&exit_key);
 
+    // Get main thread marker - required for AppKit operations
+    let mtm = MainThreadMarker::new().expect("Must run on main thread");
+
+    // Initialize the application
+    let app = NSApplication::sharedApplication(mtm);
+    app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
+
+    // Check if we should enter menu bar mode (no CLI args that trigger immediate start)
+    if !has_immediate_start_args(&args) {
+        // Menu bar mode: show icon in menu bar and wait for user interaction
+        println!();
+        println!("  🐱 CAT SHIELD 🛡️");
+        println!("  ════════════════════════════════════════");
+        println!("  Menu bar mode active");
+        println!();
+
+        // Set up menu bar icon
+        let _status_item = setup_menu_bar(mtm);
+
+        println!();
+        println!("  Click the 🐱 icon in your menu bar to access Cat Shield.");
+        println!("  Use 'Start Protection' to activate the shield.");
+        println!("  Or run with --timer or --exit-key to start immediately.");
+        println!();
+
+        // Finish launching the application (required for menu bar apps)
+        app.finishLaunching();
+
+        // Run the NSApplication event loop
+        // The status item keeps the app alive in the menu bar
+        app.run();
+
+        println!();
+        println!("  👋 Cat Shield closed. Goodbye!");
+        println!();
+        return;
+    }
+
+    // Immediate shield mode: CLI args provided, start protection now
     // Check accessibility permissions FIRST, before any UI
     let mut has_accessibility = check_accessibility();
 
@@ -1260,7 +1374,10 @@ fn main() {
         eprintln!("  ⚠️  ACCESSIBILITY PERMISSION REQUIRED");
         eprintln!();
         eprintln!("  To block keyboard/mouse input and use the exit");
-        eprintln!("  shortcut ({}), this app needs Accessibility permissions.", exit_key.display_name);
+        eprintln!(
+            "  shortcut ({}), this app needs Accessibility permissions.",
+            exit_key.display_name
+        );
         eprintln!();
 
         // Try to prompt user with native dialog
@@ -1273,10 +1390,6 @@ fn main() {
         } else {
             eprintln!();
             eprintln!("  Opening System Settings → Accessibility...");
-
-            // Need to briefly initialize NSApplication for NSWorkspace to work
-            let mtm = MainThreadMarker::new().expect("Must run on main thread");
-            let _ = NSApplication::sharedApplication(mtm);
 
             if open_accessibility_settings() {
                 eprintln!("  ✓ System Settings opened");
@@ -1309,13 +1422,6 @@ fn main() {
     println!("  ════════════════════════════════════════");
     println!("  Protecting your work from curious cats!");
     println!();
-
-    // Get main thread marker - required for AppKit operations
-    let mtm = MainThreadMarker::new().expect("Must run on main thread");
-
-    // Initialize the application
-    let app = NSApplication::sharedApplication(mtm);
-    app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
 
     // Get the main screen dimensions
     let screen = NSScreen::mainScreen(mtm);
@@ -1716,5 +1822,57 @@ mod tests {
         assert!(!key.requires_shift);
         assert!(!key.requires_ctrl);
         assert_eq!(key.display_name, "Cmd+Option+U");
+    }
+
+    // Menu bar mode tests
+    #[test]
+    fn test_has_immediate_start_args_none() {
+        let args = Args {
+            timer: None,
+            hide_timer: false,
+            exit_key: None,
+        };
+        assert!(!has_immediate_start_args(&args));
+    }
+
+    #[test]
+    fn test_has_immediate_start_args_with_timer() {
+        let args = Args {
+            timer: Some(60),
+            hide_timer: false,
+            exit_key: None,
+        };
+        assert!(has_immediate_start_args(&args));
+    }
+
+    #[test]
+    fn test_has_immediate_start_args_with_exit_key() {
+        let args = Args {
+            timer: None,
+            hide_timer: false,
+            exit_key: Some(ExitKey::default()),
+        };
+        assert!(has_immediate_start_args(&args));
+    }
+
+    #[test]
+    fn test_has_immediate_start_args_with_both() {
+        let args = Args {
+            timer: Some(120),
+            hide_timer: true,
+            exit_key: Some(ExitKey::default()),
+        };
+        assert!(has_immediate_start_args(&args));
+    }
+
+    #[test]
+    fn test_has_immediate_start_args_hide_timer_alone_is_menu_mode() {
+        // hide_timer alone should NOT trigger immediate mode
+        let args = Args {
+            timer: None,
+            hide_timer: true,
+            exit_key: None,
+        };
+        assert!(!has_immediate_start_args(&args));
     }
 }
