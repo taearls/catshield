@@ -1349,6 +1349,9 @@ fn main() {
         println!("  Or run with --timer or --exit-key to start immediately.");
         println!();
 
+        // Finish launching the application (required for menu bar apps)
+        app.finishLaunching();
+
         // Run the NSApplication event loop
         // The status item keeps the app alive in the menu bar
         app.run();
