@@ -567,13 +567,6 @@ static WARNING_SHOWN: AtomicBool = AtomicBool::new(false);
 // Global reference to the timer display view for updates
 static TIMER_DISPLAY_VIEW: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 
-// Global reference to the status bar item (menu bar icon)
-// Using AtomicPtr to store the Retained<NSStatusItem> pointer
-static STATUS_ITEM: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
-
-// Track whether we're in menu bar mode (no immediate shield activation)
-static MENU_BAR_MODE: AtomicBool = AtomicBool::new(false);
-
 // Close button state stored in thread-local for the view
 thread_local! {
     static MOUSE_DOWN_TIME: Cell<Option<Instant>> = const { Cell::new(None) };
@@ -1294,13 +1287,6 @@ fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
     // Attach menu to status item
     status_item.setMenu(Some(&menu));
 
-    // Store the status item pointer globally to keep it alive
-    // The Retained<NSStatusItem> will be returned and kept in main()
-    STATUS_ITEM.store(
-        Retained::as_ptr(&status_item) as *mut c_void,
-        Ordering::SeqCst,
-    );
-
     println!("  ✓ Menu bar icon active (🐱)");
 
     status_item
@@ -1348,8 +1334,6 @@ fn main() {
     // Check if we should enter menu bar mode (no CLI args that trigger immediate start)
     if !has_immediate_start_args(&args) {
         // Menu bar mode: show icon in menu bar and wait for user interaction
-        MENU_BAR_MODE.store(true, Ordering::SeqCst);
-
         println!();
         println!("  🐱 CAT SHIELD 🛡️");
         println!("  ════════════════════════════════════════");
