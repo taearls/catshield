@@ -32,8 +32,8 @@ use objc2::rc::Retained;
 use objc2::{define_class, msg_send, MainThreadOnly};
 use objc2_app_kit::{
     NSApplication, NSApplicationActivationPolicy, NSBackingStoreType, NSBezierPath, NSColor,
-    NSEvent, NSMenu, NSMenuItem, NSScreen, NSStatusBar, NSStatusItem, NSView, NSWindow,
-    NSWindowCollectionBehavior, NSWindowStyleMask, NSWorkspace,
+    NSEvent, NSFont, NSMenu, NSMenuItem, NSScreen, NSStatusBar, NSStatusItem, NSTextAlignment,
+    NSTextField, NSView, NSWindow, NSWindowCollectionBehavior, NSWindowStyleMask, NSWorkspace,
 };
 use objc2_core_foundation::{
     kCFRunLoopCommonModes, kCFRunLoopDefaultMode, CFMachPort, CFRetained, CFString, CGFloat,
@@ -43,7 +43,7 @@ use objc2_core_graphics::{
     CGEvent, CGEventField, CGEventFlags, CGEventMask, CGEventTapLocation, CGEventTapOptions,
     CGEventTapPlacement, CGEventTapProxy, CGEventType,
 };
-use objc2_foundation::{ns_string, MainThreadMarker, NSObject, NSURL};
+use objc2_foundation::{ns_string, MainThreadMarker, NSObject, NSString, NSURL};
 use serde::Deserialize;
 use std::cell::Cell;
 use std::ffi::c_void;
@@ -506,6 +506,8 @@ impl Config {
 // Close button configuration
 const CLOSE_BUTTON_SIZE: CGFloat = 80.0; // Large, easy-to-see button
 const CLOSE_BUTTON_MARGIN: CGFloat = 30.0;
+const CLOSE_BUTTON_LABEL_HEIGHT: CGFloat = 30.0;
+const CLOSE_BUTTON_LABEL_WIDTH: CGFloat = 120.0;
 const HOLD_DURATION_SECS: f64 = 3.0;
 const TIMER_INTERVAL_SECS: f64 = 1.0 / 60.0; // 60 FPS for smooth animation
 
@@ -518,8 +520,8 @@ const MAX_TIMER_SECONDS: u64 = 24 * 60 * 60; // Maximum 24 hours
 const WARNING_SECONDS: u64 = 60; // Show warning 1 minute before exit
 
 // Timer display configuration
-const TIMER_DISPLAY_HEIGHT: CGFloat = 60.0;
-const TIMER_DISPLAY_WIDTH: CGFloat = 200.0;
+const TIMER_DISPLAY_HEIGHT: CGFloat = 70.0;
+const TIMER_DISPLAY_WIDTH: CGFloat = 260.0;
 const TIMER_DISPLAY_MARGIN: CGFloat = 30.0;
 
 /// CLI arguments for Cat Shield
@@ -669,6 +671,37 @@ fn is_hold_complete(elapsed_secs: f64, hold_duration_secs: f64) -> bool {
     elapsed_secs >= hold_duration_secs
 }
 
+/// Create a configured NSTextField label.
+///
+/// Creates a non-editable, non-selectable text field suitable for use as a label.
+/// The text field has no border and can have a transparent or colored background.
+fn create_label(
+    mtm: MainThreadMarker,
+    text: &str,
+    frame: CGRect,
+    font_size: CGFloat,
+    text_color: &NSColor,
+    is_bold: bool,
+) -> Retained<NSTextField> {
+    let label = NSTextField::new(mtm);
+    label.setStringValue(&NSString::from_str(text));
+    label.setEditable(false);
+    label.setSelectable(false);
+    label.setBordered(false);
+    label.setDrawsBackground(false);
+    label.setTextColor(Some(text_color));
+
+    let font = if is_bold {
+        NSFont::boldSystemFontOfSize(font_size)
+    } else {
+        NSFont::systemFontOfSize(font_size)
+    };
+    label.setFont(Some(&font));
+    label.setFrame(frame);
+
+    label
+}
+
 // Global timer reference for cleanup
 static TIMER_REF: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 
@@ -688,6 +721,14 @@ static WARNING_SHOWN: AtomicBool = AtomicBool::new(false);
 
 // Global reference to the timer display view for updates
 static TIMER_DISPLAY_VIEW: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+
+// Global references to timer display labels (NSTextField)
+static TIMER_HEADER_LABEL: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+static TIMER_TIME_LABEL: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+static TIMER_WARNING_LABEL: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+
+// Global reference to close button label (NSTextField)
+static CLOSE_BUTTON_TEXT_LABEL: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 
 // Shield state for on-demand activation (Issue #17)
 // Track whether we're in menu bar mode (app stays running after shield deactivates)
@@ -763,6 +804,13 @@ unsafe extern "C" fn timer_callback(_timer: *mut c_void, _info: *mut c_void) {
     let view_ptr = CLOSE_BUTTON_VIEW.load(Ordering::SeqCst);
     if !view_ptr.is_null() {
         let view: &NSView = &*(view_ptr as *const NSView);
+        view.setNeedsDisplay(true);
+    }
+
+    // Trigger redraw of close button label (for countdown during hold)
+    let label_view_ptr = CLOSE_BUTTON_LABEL_VIEW.load(Ordering::SeqCst);
+    if !label_view_ptr.is_null() {
+        let view: &NSView = &*(label_view_ptr as *const NSView);
         view.setNeedsDisplay(true);
     }
 
@@ -880,13 +928,13 @@ fn draw_timer_display(view: &NSView) {
     let remaining = get_remaining_seconds();
     let is_warning = remaining <= WARNING_SECONDS;
 
-    // Background rounded rectangle
+    // Background rounded rectangle (fully opaque to block overlay behind)
     let bg_color = if is_warning {
         // Red/orange warning color
-        NSColor::colorWithRed_green_blue_alpha(0.8, 0.3, 0.1, 0.9)
+        NSColor::colorWithRed_green_blue_alpha(0.8, 0.3, 0.1, 1.0)
     } else {
-        // Dark semi-transparent background
-        NSColor::colorWithRed_green_blue_alpha(0.1, 0.1, 0.15, 0.9)
+        // Dark opaque background
+        NSColor::colorWithRed_green_blue_alpha(0.1, 0.1, 0.15, 1.0)
     };
     bg_color.set();
 
@@ -912,13 +960,93 @@ fn draw_timer_display(view: &NSView) {
     bg_path.setLineWidth(2.0);
     bg_path.stroke();
 
-    // Draw time text using simple shapes (since we can't easily use NSString drawing)
-    // We'll draw a simple digital-style countdown
+    // Format time string
     let time_str = format_duration(remaining);
 
-    // Draw the time as a series of character approximations
-    // For simplicity, we'll just draw colored rectangles to indicate time
-    // The actual time will be printed to console
+    // Text colors
+    let text_color = NSColor::colorWithRed_green_blue_alpha(1.0, 1.0, 1.0, 1.0);
+    let label_color = NSColor::colorWithRed_green_blue_alpha(0.8, 0.8, 0.8, 1.0);
+    let warning_color = NSColor::colorWithRed_green_blue_alpha(1.0, 1.0, 0.0, 1.0);
+
+    // Get main thread marker (we're guaranteed to be on main thread in drawRect)
+    let mtm = unsafe { MainThreadMarker::new_unchecked() };
+
+    // Create or update NSTextField labels
+    let header_ptr = TIMER_HEADER_LABEL.load(Ordering::SeqCst);
+    let time_ptr = TIMER_TIME_LABEL.load(Ordering::SeqCst);
+    let warning_ptr = TIMER_WARNING_LABEL.load(Ordering::SeqCst);
+
+    // Header label "Time Remaining:"
+    let header_y = bounds.size.height - 22.0;
+    let header_frame = CGRect {
+        origin: CGPoint { x: 12.0, y: header_y },
+        size: CGSize {
+            width: 120.0,
+            height: 16.0,
+        },
+    };
+
+    if header_ptr.is_null() {
+        // Create the header label
+        let header_label = create_label(mtm, "Time Remaining:", header_frame, 12.0, &label_color, false);
+        TIMER_HEADER_LABEL.store(Retained::as_ptr(&header_label) as *mut c_void, Ordering::SeqCst);
+        view.addSubview(&header_label);
+        // Keep retained to prevent deallocation
+        std::mem::forget(header_label);
+    }
+
+    // Time label (large bold countdown)
+    let time_y = bounds.size.height - 48.0;
+    let time_frame = CGRect {
+        origin: CGPoint { x: 12.0, y: time_y },
+        size: CGSize {
+            width: 130.0,
+            height: 26.0,
+        },
+    };
+
+    if time_ptr.is_null() {
+        // Create the time label
+        let time_label = create_label(mtm, &time_str, time_frame, 20.0, &text_color, true);
+        TIMER_TIME_LABEL.store(Retained::as_ptr(&time_label) as *mut c_void, Ordering::SeqCst);
+        view.addSubview(&time_label);
+        std::mem::forget(time_label);
+    } else {
+        // Update existing time label
+        unsafe {
+            let time_label: &NSTextField = &*(time_ptr as *const NSTextField);
+            time_label.setStringValue(&NSString::from_str(&time_str));
+            let color = if is_warning { &warning_color } else { &text_color };
+            time_label.setTextColor(Some(color));
+        }
+    }
+
+    // Warning label "Exiting soon!"
+    let warning_frame = CGRect {
+        origin: CGPoint {
+            x: 140.0,
+            y: time_y + 4.0,
+        },
+        size: CGSize {
+            width: 100.0,
+            height: 18.0,
+        },
+    };
+
+    if warning_ptr.is_null() {
+        // Create the warning label (initially hidden)
+        let warning_label = create_label(mtm, "Exiting soon!", warning_frame, 14.0, &warning_color, false);
+        warning_label.setHidden(!is_warning);
+        TIMER_WARNING_LABEL.store(Retained::as_ptr(&warning_label) as *mut c_void, Ordering::SeqCst);
+        view.addSubview(&warning_label);
+        std::mem::forget(warning_label);
+    } else {
+        // Update existing warning label visibility
+        unsafe {
+            let warning_label: &NSTextField = &*(warning_ptr as *const NSTextField);
+            warning_label.setHidden(!is_warning);
+        }
+    }
 
     // Draw a progress bar showing remaining time
     let duration = AUTO_EXIT_DURATION_SECS.load(Ordering::SeqCst);
@@ -929,9 +1057,9 @@ fn draw_timer_display(view: &NSView) {
     };
 
     // Progress bar background
-    let bar_margin = 10.0;
-    let bar_height = 20.0;
-    let bar_y = (bounds.size.height - bar_height) / 2.0;
+    let bar_margin = 12.0;
+    let bar_height = 8.0;
+    let bar_y = 10.0;
     let bar_width = bounds.size.width - (bar_margin * 2.0);
 
     let bar_bg_color = NSColor::colorWithRed_green_blue_alpha(0.2, 0.2, 0.2, 1.0);
@@ -948,7 +1076,7 @@ fn draw_timer_display(view: &NSView) {
         },
     };
     let bar_bg_path =
-        NSBezierPath::bezierPathWithRoundedRect_xRadius_yRadius(bar_bg_rect, 5.0, 5.0);
+        NSBezierPath::bezierPathWithRoundedRect_xRadius_yRadius(bar_bg_rect, 4.0, 4.0);
     bar_bg_path.fill();
 
     // Progress bar fill
@@ -972,13 +1100,9 @@ fn draw_timer_display(view: &NSView) {
             },
         };
         let bar_fill_path =
-            NSBezierPath::bezierPathWithRoundedRect_xRadius_yRadius(bar_fill_rect, 5.0, 5.0);
+            NSBezierPath::bezierPathWithRoundedRect_xRadius_yRadius(bar_fill_rect, 4.0, 4.0);
         bar_fill_path.fill();
     }
-
-    // Print time to console periodically (every second, roughly)
-    // This is handled by the main timer callback which prints warnings
-    _ = time_str; // Suppress unused warning - time is displayed via progress bar
 }
 
 /// Ivars for the CloseButtonView
@@ -1055,6 +1179,123 @@ impl CloseButtonView {
         let this = mtm.alloc::<CloseButtonView>();
         let this = this.set_ivars(CloseButtonViewIvars {});
         unsafe { msg_send![super(this), initWithFrame: frame] }
+    }
+}
+
+/// Ivars for the CloseButtonLabelView
+struct CloseButtonLabelViewIvars {}
+
+define_class!(
+    #[unsafe(super(NSView))]
+    #[name = "CloseButtonLabelView"]
+    #[ivars = CloseButtonLabelViewIvars]
+    struct CloseButtonLabelView;
+
+    impl CloseButtonLabelView {
+        #[unsafe(method(drawRect:))]
+        unsafe fn draw_rect(&self, _dirty_rect: CGRect) {
+            draw_close_button_label(self);
+        }
+    }
+);
+
+impl CloseButtonLabelView {
+    fn new(mtm: MainThreadMarker, frame: CGRect) -> Retained<Self> {
+        let this = mtm.alloc::<CloseButtonLabelView>();
+        let this = this.set_ivars(CloseButtonLabelViewIvars {});
+        unsafe { msg_send![super(this), initWithFrame: frame] }
+    }
+}
+
+// Global reference to the close button label view for updating during hold
+static CLOSE_BUTTON_LABEL_VIEW: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+
+/// Draw the close button label with hold instructions
+fn draw_close_button_label(view: &NSView) {
+    let bounds = view.bounds();
+
+    // Get current hold progress
+    let progress = MOUSE_DOWN_TIME.with(|time| {
+        if let Some(start) = time.get() {
+            calculate_hold_progress(start.elapsed().as_secs_f64(), HOLD_DURATION_SECS)
+        } else {
+            0.0
+        }
+    });
+    let is_inside = IS_MOUSE_INSIDE.with(|inside| inside.get());
+    let is_holding = progress > 0.0 && is_inside;
+
+    // Background rounded rectangle (fully opaque to block overlay behind)
+    let bg_color = if is_holding {
+        NSColor::colorWithRed_green_blue_alpha(0.2, 0.2, 0.25, 1.0)
+    } else {
+        NSColor::colorWithRed_green_blue_alpha(0.1, 0.1, 0.15, 1.0)
+    };
+    bg_color.set();
+
+    let corner_radius = 8.0;
+    let bg_rect = CGRect {
+        origin: CGPoint { x: 0.0, y: 0.0 },
+        size: bounds.size,
+    };
+    let bg_path = NSBezierPath::bezierPathWithRoundedRect_xRadius_yRadius(
+        bg_rect,
+        corner_radius,
+        corner_radius,
+    );
+    bg_path.fill();
+
+    // Border
+    let border_color = if is_holding {
+        NSColor::colorWithRed_green_blue_alpha(0.4, 0.9, 0.4, 1.0)
+    } else {
+        NSColor::colorWithRed_green_blue_alpha(0.5, 0.5, 0.5, 0.8)
+    };
+    border_color.set();
+    bg_path.setLineWidth(1.5);
+    bg_path.stroke();
+
+    // Text colors
+    let hint_color = NSColor::colorWithRed_green_blue_alpha(0.7, 0.7, 0.7, 1.0);
+    let progress_color = NSColor::colorWithRed_green_blue_alpha(0.4, 1.0, 0.4, 1.0);
+
+    // Get main thread marker (we're guaranteed to be on main thread in drawRect)
+    let mtm = unsafe { MainThreadMarker::new_unchecked() };
+
+    // Create or update NSTextField label
+    let label_ptr = CLOSE_BUTTON_TEXT_LABEL.load(Ordering::SeqCst);
+
+    // Calculate centered frame for the label
+    let label_frame = CGRect {
+        origin: CGPoint { x: 0.0, y: 0.0 },
+        size: bounds.size,
+    };
+
+    // Determine text and color based on state
+    let (text, color, font_size) = if is_holding {
+        let remaining_secs = ((1.0 - progress) * HOLD_DURATION_SECS).ceil() as u32;
+        (format!("{}s...", remaining_secs), &progress_color, 16.0)
+    } else {
+        ("Hold 3s to exit".to_string(), &hint_color, 12.0)
+    };
+
+    if label_ptr.is_null() {
+        // Create the label
+        let label = create_label(mtm, &text, label_frame, font_size, color, false);
+        // Center the text horizontally
+        label.setAlignment(NSTextAlignment::Center);
+        CLOSE_BUTTON_TEXT_LABEL.store(Retained::as_ptr(&label) as *mut c_void, Ordering::SeqCst);
+        view.addSubview(&label);
+        std::mem::forget(label);
+    } else {
+        // Update existing label
+        unsafe {
+            let label: &NSTextField = &*(label_ptr as *const NSTextField);
+            label.setStringValue(&NSString::from_str(&text));
+            label.setTextColor(Some(color));
+            let font = NSFont::systemFontOfSize(font_size);
+            label.setFont(Some(&font));
+        }
     }
 }
 
@@ -1330,8 +1571,24 @@ fn deactivate_shield() {
         }
     }
 
+    // Clear close button label view reference
+    let close_button_label_ptr = CLOSE_BUTTON_LABEL_VIEW.swap(std::ptr::null_mut(), Ordering::SeqCst);
+    if !close_button_label_ptr.is_null() {
+        unsafe {
+            let _label: Retained<CloseButtonLabelView> =
+                Retained::from_raw(close_button_label_ptr as *mut CloseButtonLabelView)
+                    .expect("CLOSE_BUTTON_LABEL_VIEW was valid");
+        }
+    }
+
     // Clear timer display view reference (only set in immediate mode, but clear for safety)
     TIMER_DISPLAY_VIEW.store(std::ptr::null_mut(), Ordering::SeqCst);
+
+    // Clear NSTextField label references
+    TIMER_HEADER_LABEL.store(std::ptr::null_mut(), Ordering::SeqCst);
+    TIMER_TIME_LABEL.store(std::ptr::null_mut(), Ordering::SeqCst);
+    TIMER_WARNING_LABEL.store(std::ptr::null_mut(), Ordering::SeqCst);
+    CLOSE_BUTTON_TEXT_LABEL.store(std::ptr::null_mut(), Ordering::SeqCst);
 
     // Reset auto-exit timer state
     AUTO_EXIT_ENABLED.store(false, Ordering::SeqCst);
@@ -1484,12 +1741,13 @@ fn activate_shield(mtm: MainThreadMarker) {
             | NSWindowCollectionBehavior::IgnoresCycle,
     );
 
-    // Make window semi-transparent (50% opacity - visible but not fully blocking view)
+    // Window must be non-opaque to allow transparent background, but keep alphaValue at 1.0
+    // so that subviews (like label containers) can render fully opaque
     window.setOpaque(false);
-    window.setAlphaValue(0.5);
+    window.setAlphaValue(1.0);
 
-    // Set a dark background color
-    let bg_color = NSColor::colorWithRed_green_blue_alpha(0.1, 0.1, 0.15, 1.0);
+    // Set a semi-transparent dark background color (the overlay effect)
+    let bg_color = NSColor::colorWithRed_green_blue_alpha(0.1, 0.1, 0.15, 0.5);
     window.setBackgroundColor(Some(&bg_color));
 
     // Keep window visible
@@ -1531,9 +1789,36 @@ fn activate_shield(mtm: MainThreadMarker) {
         Ordering::SeqCst,
     );
 
-    // Add close button to the window's content view
+    // Create the close button label view (positioned below the button)
+    let label_x = screen_frame.size.width
+        - CLOSE_BUTTON_MARGIN
+        - CLOSE_BUTTON_SIZE / 2.0
+        - CLOSE_BUTTON_LABEL_WIDTH / 2.0;
+    let label_y = screen_frame.size.height
+        - CLOSE_BUTTON_SIZE
+        - CLOSE_BUTTON_MARGIN
+        - CLOSE_BUTTON_LABEL_HEIGHT
+        - 5.0; // 5px gap between button and label
+
+    let close_button_label_frame = CGRect {
+        origin: CGPoint { x: label_x, y: label_y },
+        size: CGSize {
+            width: CLOSE_BUTTON_LABEL_WIDTH,
+            height: CLOSE_BUTTON_LABEL_HEIGHT,
+        },
+    };
+    let close_button_label = CloseButtonLabelView::new(mtm, close_button_label_frame);
+
+    // Store label view reference for timer callback updates
+    CLOSE_BUTTON_LABEL_VIEW.store(
+        Retained::as_ptr(&close_button_label) as *mut c_void,
+        Ordering::SeqCst,
+    );
+
+    // Add close button and label to the window's content view
     if let Some(content_view) = window.contentView() {
         content_view.addSubview(&close_button);
+        content_view.addSubview(&close_button_label);
     }
 
     // Start the animation timer
@@ -1579,9 +1864,10 @@ fn activate_shield(mtm: MainThreadMarker) {
     println!("        Or press {}", exit_key.display_name);
     println!();
 
-    // Keep the window retained so it doesn't get deallocated
+    // Keep the window and views retained so they don't get deallocated
     std::mem::forget(window);
     std::mem::forget(close_button);
+    std::mem::forget(close_button_label);
 }
 
 /// Callback for the CGEventTap - intercepts and blocks events
@@ -2094,12 +2380,13 @@ fn main() {
             | NSWindowCollectionBehavior::IgnoresCycle,
     );
 
-    // Make window semi-transparent (50% opacity - visible but not fully blocking view)
+    // Window must be non-opaque to allow transparent background, but keep alphaValue at 1.0
+    // so that subviews (like label containers) can render fully opaque
     window.setOpaque(false);
-    window.setAlphaValue(0.5);
+    window.setAlphaValue(1.0);
 
-    // Set a dark background color
-    let bg_color = NSColor::colorWithRed_green_blue_alpha(0.1, 0.1, 0.15, 1.0);
+    // Set a semi-transparent dark background color (the overlay effect)
+    let bg_color = NSColor::colorWithRed_green_blue_alpha(0.1, 0.1, 0.15, 0.5);
     window.setBackgroundColor(Some(&bg_color));
 
     // Keep window visible
@@ -2144,9 +2431,36 @@ fn main() {
         Ordering::SeqCst,
     );
 
-    // Add close button to the window's content view
+    // Create the close button label view (positioned below the button)
+    let label_x = screen_frame.size.width
+        - CLOSE_BUTTON_MARGIN
+        - CLOSE_BUTTON_SIZE / 2.0
+        - CLOSE_BUTTON_LABEL_WIDTH / 2.0;
+    let label_y = screen_frame.size.height
+        - CLOSE_BUTTON_SIZE
+        - CLOSE_BUTTON_MARGIN
+        - CLOSE_BUTTON_LABEL_HEIGHT
+        - 5.0; // 5px gap between button and label
+
+    let close_button_label_frame = CGRect {
+        origin: CGPoint { x: label_x, y: label_y },
+        size: CGSize {
+            width: CLOSE_BUTTON_LABEL_WIDTH,
+            height: CLOSE_BUTTON_LABEL_HEIGHT,
+        },
+    };
+    let close_button_label = CloseButtonLabelView::new(mtm, close_button_label_frame);
+
+    // Store label view reference for timer callback updates
+    CLOSE_BUTTON_LABEL_VIEW.store(
+        Retained::as_ptr(&close_button_label) as *mut c_void,
+        Ordering::SeqCst,
+    );
+
+    // Add close button and label to the window's content view
     if let Some(content_view) = window.contentView() {
         content_view.addSubview(&close_button);
+        content_view.addSubview(&close_button_label);
     }
 
     // Start the animation timer
