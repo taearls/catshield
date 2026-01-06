@@ -32,8 +32,8 @@ use objc2::rc::Retained;
 use objc2::{define_class, msg_send, MainThreadOnly};
 use objc2_app_kit::{
     NSApplication, NSApplicationActivationPolicy, NSBackingStoreType, NSBezierPath, NSColor,
-    NSEvent, NSFont, NSMenu, NSMenuItem, NSScreen, NSStatusBar, NSStatusItem, NSView, NSWindow,
-    NSWindowCollectionBehavior, NSWindowStyleMask, NSWorkspace,
+    NSEvent, NSFont, NSMenu, NSMenuItem, NSScreen, NSStatusBar, NSStatusItem, NSTextAlignment,
+    NSTextField, NSView, NSWindow, NSWindowCollectionBehavior, NSWindowStyleMask, NSWorkspace,
 };
 use objc2_core_foundation::{
     kCFRunLoopCommonModes, kCFRunLoopDefaultMode, CFMachPort, CFRetained, CFString, CGFloat,
@@ -671,99 +671,35 @@ fn is_hold_complete(elapsed_secs: f64, hold_duration_secs: f64) -> bool {
     elapsed_secs >= hold_duration_secs
 }
 
-/// Draw text at the specified point with given font and color.
+/// Create a configured NSTextField label.
 ///
-/// Uses NSAttributedString for proper text rendering.
-fn draw_text(text: &str, point: CGPoint, font_size: CGFloat, color: &NSColor) {
-    unsafe {
-        let font = NSFont::systemFontOfSize(font_size);
-        let ns_text = NSString::from_str(text);
+/// Creates a non-editable, non-selectable text field suitable for use as a label.
+/// The text field has no border and can have a transparent or colored background.
+fn create_label(
+    mtm: MainThreadMarker,
+    text: &str,
+    frame: CGRect,
+    font_size: CGFloat,
+    text_color: &NSColor,
+    is_bold: bool,
+) -> Retained<NSTextField> {
+    let label = NSTextField::new(mtm);
+    label.setStringValue(&NSString::from_str(text));
+    label.setEditable(false);
+    label.setSelectable(false);
+    label.setBordered(false);
+    label.setDrawsBackground(false);
+    label.setTextColor(Some(text_color));
 
-        // Create attributes dictionary using raw objc calls
-        let font_key = NSString::from_str("NSFont");
-        let color_key = NSString::from_str("NSForegroundColor");
+    let font = if is_bold {
+        NSFont::boldSystemFontOfSize(font_size)
+    } else {
+        NSFont::systemFontOfSize(font_size)
+    };
+    label.setFont(Some(&font));
+    label.setFrame(frame);
 
-        let dict_class = objc2::class!(NSMutableDictionary);
-        let dict: *mut NSObject = msg_send![dict_class, new];
-        let _: () = msg_send![dict, setObject: &*font, forKey: &*font_key];
-        let _: () = msg_send![dict, setObject: color, forKey: &*color_key];
-
-        // Create attributed string
-        let attr_string_class = objc2::class!(NSAttributedString);
-        let attr_string: *mut NSObject = msg_send![attr_string_class, alloc];
-        let attr_string: *mut NSObject = msg_send![attr_string, initWithString: &*ns_text, attributes: dict];
-
-        // Draw the attributed string at the point
-        let _: () = msg_send![attr_string, drawAtPoint: point];
-
-        // Release objects to prevent memory leak (these are +1 retained from new/alloc+init)
-        let _: () = msg_send![dict, release];
-        let _: () = msg_send![attr_string, release];
-    }
-}
-
-/// Draw centered text within a given rect with given font and color.
-fn draw_text_centered(text: &str, rect: CGRect, font_size: CGFloat, color: &NSColor) {
-    unsafe {
-        let font = NSFont::systemFontOfSize(font_size);
-        let ns_text = NSString::from_str(text);
-
-        // Create attributes dictionary
-        let font_key = NSString::from_str("NSFont");
-        let color_key = NSString::from_str("NSForegroundColor");
-
-        let dict_class = objc2::class!(NSMutableDictionary);
-        let dict: *mut NSObject = msg_send![dict_class, new];
-        let _: () = msg_send![dict, setObject: &*font, forKey: &*font_key];
-        let _: () = msg_send![dict, setObject: color, forKey: &*color_key];
-
-        // Create attributed string
-        let attr_string_class = objc2::class!(NSAttributedString);
-        let attr_string: *mut NSObject = msg_send![attr_string_class, alloc];
-        let attr_string: *mut NSObject = msg_send![attr_string, initWithString: &*ns_text, attributes: dict];
-
-        // Get the size of the text
-        let text_size: CGSize = msg_send![attr_string, size];
-
-        // Calculate centered position
-        let x = rect.origin.x + (rect.size.width - text_size.width) / 2.0;
-        let y = rect.origin.y + (rect.size.height - text_size.height) / 2.0;
-
-        let draw_point = CGPoint { x, y };
-        let _: () = msg_send![attr_string, drawAtPoint: draw_point];
-
-        // Release objects to prevent memory leak
-        let _: () = msg_send![dict, release];
-        let _: () = msg_send![attr_string, release];
-    }
-}
-
-/// Draw bold text at the specified point with given font and color.
-fn draw_text_bold(text: &str, point: CGPoint, font_size: CGFloat, color: &NSColor) {
-    unsafe {
-        let font = NSFont::boldSystemFontOfSize(font_size);
-        let ns_text = NSString::from_str(text);
-
-        // Create attributes dictionary
-        let font_key = NSString::from_str("NSFont");
-        let color_key = NSString::from_str("NSForegroundColor");
-
-        let dict_class = objc2::class!(NSMutableDictionary);
-        let dict: *mut NSObject = msg_send![dict_class, new];
-        let _: () = msg_send![dict, setObject: &*font, forKey: &*font_key];
-        let _: () = msg_send![dict, setObject: color, forKey: &*color_key];
-
-        // Create attributed string
-        let attr_string_class = objc2::class!(NSAttributedString);
-        let attr_string: *mut NSObject = msg_send![attr_string_class, alloc];
-        let attr_string: *mut NSObject = msg_send![attr_string, initWithString: &*ns_text, attributes: dict];
-
-        let _: () = msg_send![attr_string, drawAtPoint: point];
-
-        // Release objects to prevent memory leak
-        let _: () = msg_send![dict, release];
-        let _: () = msg_send![attr_string, release];
-    }
+    label
 }
 
 // Global timer reference for cleanup
@@ -785,6 +721,14 @@ static WARNING_SHOWN: AtomicBool = AtomicBool::new(false);
 
 // Global reference to the timer display view for updates
 static TIMER_DISPLAY_VIEW: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+
+// Global references to timer display labels (NSTextField)
+static TIMER_HEADER_LABEL: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+static TIMER_TIME_LABEL: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+static TIMER_WARNING_LABEL: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+
+// Global reference to close button label (NSTextField)
+static CLOSE_BUTTON_TEXT_LABEL: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 
 // Shield state for on-demand activation (Issue #17)
 // Track whether we're in menu bar mode (app stays running after shield deactivates)
@@ -984,13 +928,13 @@ fn draw_timer_display(view: &NSView) {
     let remaining = get_remaining_seconds();
     let is_warning = remaining <= WARNING_SECONDS;
 
-    // Background rounded rectangle
+    // Background rounded rectangle (fully opaque to block overlay behind)
     let bg_color = if is_warning {
         // Red/orange warning color
-        NSColor::colorWithRed_green_blue_alpha(0.8, 0.3, 0.1, 0.9)
+        NSColor::colorWithRed_green_blue_alpha(0.8, 0.3, 0.1, 1.0)
     } else {
-        // Dark semi-transparent background
-        NSColor::colorWithRed_green_blue_alpha(0.1, 0.1, 0.15, 0.9)
+        // Dark opaque background
+        NSColor::colorWithRed_green_blue_alpha(0.1, 0.1, 0.15, 1.0)
     };
     bg_color.set();
 
@@ -1022,32 +966,86 @@ fn draw_timer_display(view: &NSView) {
     // Text colors
     let text_color = NSColor::colorWithRed_green_blue_alpha(1.0, 1.0, 1.0, 1.0);
     let label_color = NSColor::colorWithRed_green_blue_alpha(0.8, 0.8, 0.8, 1.0);
+    let warning_color = NSColor::colorWithRed_green_blue_alpha(1.0, 1.0, 0.0, 1.0);
 
-    // Draw header label "Time Remaining:"
+    // Get main thread marker (we're guaranteed to be on main thread in drawRect)
+    let mtm = unsafe { MainThreadMarker::new_unchecked() };
+
+    // Create or update NSTextField labels
+    let header_ptr = TIMER_HEADER_LABEL.load(Ordering::SeqCst);
+    let time_ptr = TIMER_TIME_LABEL.load(Ordering::SeqCst);
+    let warning_ptr = TIMER_WARNING_LABEL.load(Ordering::SeqCst);
+
+    // Header label "Time Remaining:"
     let header_y = bounds.size.height - 22.0;
-    draw_text(
-        "Time Remaining:",
-        CGPoint { x: 12.0, y: header_y },
-        12.0,
-        &label_color,
-    );
+    let header_frame = CGRect {
+        origin: CGPoint { x: 12.0, y: header_y },
+        size: CGSize {
+            width: 120.0,
+            height: 16.0,
+        },
+    };
 
-    // Draw countdown time in large bold text
+    if header_ptr.is_null() {
+        // Create the header label
+        let header_label = create_label(mtm, "Time Remaining:", header_frame, 12.0, &label_color, false);
+        TIMER_HEADER_LABEL.store(Retained::as_ptr(&header_label) as *mut c_void, Ordering::SeqCst);
+        view.addSubview(&header_label);
+        // Keep retained to prevent deallocation
+        std::mem::forget(header_label);
+    }
+
+    // Time label (large bold countdown)
     let time_y = bounds.size.height - 48.0;
-    if is_warning {
-        // Show warning text
-        let warning_color = NSColor::colorWithRed_green_blue_alpha(1.0, 1.0, 0.0, 1.0);
-        draw_text_bold(&time_str, CGPoint { x: 12.0, y: time_y }, 20.0, &warning_color);
+    let time_frame = CGRect {
+        origin: CGPoint { x: 12.0, y: time_y },
+        size: CGSize {
+            width: 130.0,
+            height: 26.0,
+        },
+    };
 
-        // Show warning indicator
-        draw_text(
-            "Exiting soon!",
-            CGPoint { x: 140.0, y: time_y + 4.0 },
-            14.0,
-            &warning_color,
-        );
+    if time_ptr.is_null() {
+        // Create the time label
+        let time_label = create_label(mtm, &time_str, time_frame, 20.0, &text_color, true);
+        TIMER_TIME_LABEL.store(Retained::as_ptr(&time_label) as *mut c_void, Ordering::SeqCst);
+        view.addSubview(&time_label);
+        std::mem::forget(time_label);
     } else {
-        draw_text_bold(&time_str, CGPoint { x: 12.0, y: time_y }, 20.0, &text_color);
+        // Update existing time label
+        unsafe {
+            let time_label: &NSTextField = &*(time_ptr as *const NSTextField);
+            time_label.setStringValue(&NSString::from_str(&time_str));
+            let color = if is_warning { &warning_color } else { &text_color };
+            time_label.setTextColor(Some(color));
+        }
+    }
+
+    // Warning label "Exiting soon!"
+    let warning_frame = CGRect {
+        origin: CGPoint {
+            x: 140.0,
+            y: time_y + 4.0,
+        },
+        size: CGSize {
+            width: 100.0,
+            height: 18.0,
+        },
+    };
+
+    if warning_ptr.is_null() {
+        // Create the warning label (initially hidden)
+        let warning_label = create_label(mtm, "Exiting soon!", warning_frame, 14.0, &warning_color, false);
+        warning_label.setHidden(!is_warning);
+        TIMER_WARNING_LABEL.store(Retained::as_ptr(&warning_label) as *mut c_void, Ordering::SeqCst);
+        view.addSubview(&warning_label);
+        std::mem::forget(warning_label);
+    } else {
+        // Update existing warning label visibility
+        unsafe {
+            let warning_label: &NSTextField = &*(warning_ptr as *const NSTextField);
+            warning_label.setHidden(!is_warning);
+        }
     }
 
     // Draw a progress bar showing remaining time
@@ -1227,11 +1225,11 @@ fn draw_close_button_label(view: &NSView) {
     let is_inside = IS_MOUSE_INSIDE.with(|inside| inside.get());
     let is_holding = progress > 0.0 && is_inside;
 
-    // Background rounded rectangle
+    // Background rounded rectangle (fully opaque to block overlay behind)
     let bg_color = if is_holding {
-        NSColor::colorWithRed_green_blue_alpha(0.2, 0.2, 0.25, 0.95)
+        NSColor::colorWithRed_green_blue_alpha(0.2, 0.2, 0.25, 1.0)
     } else {
-        NSColor::colorWithRed_green_blue_alpha(0.1, 0.1, 0.15, 0.9)
+        NSColor::colorWithRed_green_blue_alpha(0.1, 0.1, 0.15, 1.0)
     };
     bg_color.set();
 
@@ -1257,30 +1255,47 @@ fn draw_close_button_label(view: &NSView) {
     bg_path.setLineWidth(1.5);
     bg_path.stroke();
 
-    // Text color for hint
+    // Text colors
     let hint_color = NSColor::colorWithRed_green_blue_alpha(0.7, 0.7, 0.7, 1.0);
+    let progress_color = NSColor::colorWithRed_green_blue_alpha(0.4, 1.0, 0.4, 1.0);
 
-    if is_holding {
-        // Show countdown during hold
+    // Get main thread marker (we're guaranteed to be on main thread in drawRect)
+    let mtm = unsafe { MainThreadMarker::new_unchecked() };
+
+    // Create or update NSTextField label
+    let label_ptr = CLOSE_BUTTON_TEXT_LABEL.load(Ordering::SeqCst);
+
+    // Calculate centered frame for the label
+    let label_frame = CGRect {
+        origin: CGPoint { x: 0.0, y: 0.0 },
+        size: bounds.size,
+    };
+
+    // Determine text and color based on state
+    let (text, color, font_size) = if is_holding {
         let remaining_secs = ((1.0 - progress) * HOLD_DURATION_SECS).ceil() as u32;
-        let countdown_text = format!("{}s...", remaining_secs);
-        let progress_color = NSColor::colorWithRed_green_blue_alpha(0.4, 1.0, 0.4, 1.0);
-
-        // Center the countdown text
-        draw_text_centered(
-            &countdown_text,
-            bounds,
-            16.0,
-            &progress_color,
-        );
+        (format!("{}s...", remaining_secs), &progress_color, 16.0)
     } else {
-        // Show instruction text
-        draw_text_centered(
-            "Hold 3s to exit",
-            bounds,
-            12.0,
-            &hint_color,
-        );
+        ("Hold 3s to exit".to_string(), &hint_color, 12.0)
+    };
+
+    if label_ptr.is_null() {
+        // Create the label
+        let label = create_label(mtm, &text, label_frame, font_size, color, false);
+        // Center the text horizontally
+        label.setAlignment(NSTextAlignment::Center);
+        CLOSE_BUTTON_TEXT_LABEL.store(Retained::as_ptr(&label) as *mut c_void, Ordering::SeqCst);
+        view.addSubview(&label);
+        std::mem::forget(label);
+    } else {
+        // Update existing label
+        unsafe {
+            let label: &NSTextField = &*(label_ptr as *const NSTextField);
+            label.setStringValue(&NSString::from_str(&text));
+            label.setTextColor(Some(color));
+            let font = NSFont::systemFontOfSize(font_size);
+            label.setFont(Some(&font));
+        }
     }
 }
 
@@ -1569,6 +1584,12 @@ fn deactivate_shield() {
     // Clear timer display view reference (only set in immediate mode, but clear for safety)
     TIMER_DISPLAY_VIEW.store(std::ptr::null_mut(), Ordering::SeqCst);
 
+    // Clear NSTextField label references
+    TIMER_HEADER_LABEL.store(std::ptr::null_mut(), Ordering::SeqCst);
+    TIMER_TIME_LABEL.store(std::ptr::null_mut(), Ordering::SeqCst);
+    TIMER_WARNING_LABEL.store(std::ptr::null_mut(), Ordering::SeqCst);
+    CLOSE_BUTTON_TEXT_LABEL.store(std::ptr::null_mut(), Ordering::SeqCst);
+
     // Reset auto-exit timer state
     AUTO_EXIT_ENABLED.store(false, Ordering::SeqCst);
     WARNING_SHOWN.store(false, Ordering::SeqCst);
@@ -1720,12 +1741,13 @@ fn activate_shield(mtm: MainThreadMarker) {
             | NSWindowCollectionBehavior::IgnoresCycle,
     );
 
-    // Make window semi-transparent (50% opacity - visible but not fully blocking view)
+    // Window must be non-opaque to allow transparent background, but keep alphaValue at 1.0
+    // so that subviews (like label containers) can render fully opaque
     window.setOpaque(false);
-    window.setAlphaValue(0.5);
+    window.setAlphaValue(1.0);
 
-    // Set a dark background color
-    let bg_color = NSColor::colorWithRed_green_blue_alpha(0.1, 0.1, 0.15, 1.0);
+    // Set a semi-transparent dark background color (the overlay effect)
+    let bg_color = NSColor::colorWithRed_green_blue_alpha(0.1, 0.1, 0.15, 0.5);
     window.setBackgroundColor(Some(&bg_color));
 
     // Keep window visible
@@ -2358,12 +2380,13 @@ fn main() {
             | NSWindowCollectionBehavior::IgnoresCycle,
     );
 
-    // Make window semi-transparent (50% opacity - visible but not fully blocking view)
+    // Window must be non-opaque to allow transparent background, but keep alphaValue at 1.0
+    // so that subviews (like label containers) can render fully opaque
     window.setOpaque(false);
-    window.setAlphaValue(0.5);
+    window.setAlphaValue(1.0);
 
-    // Set a dark background color
-    let bg_color = NSColor::colorWithRed_green_blue_alpha(0.1, 0.1, 0.15, 1.0);
+    // Set a semi-transparent dark background color (the overlay effect)
+    let bg_color = NSColor::colorWithRed_green_blue_alpha(0.1, 0.1, 0.15, 0.5);
     window.setBackgroundColor(Some(&bg_color));
 
     // Keep window visible
