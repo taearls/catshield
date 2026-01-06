@@ -44,6 +44,13 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
   - CLI argument takes precedence over config file
   - Default remains Cmd+Option+U for backwards compatibility
 
+### Configuration Improvements
+- [x] **Issue #25**: Limit Claude GitHub Action to only respond to comments
+  - Removed triggers for `pull_request`, `issues`, `pull_request_review`, `pull_request_review_comment`
+  - Kept only `issue_comment` trigger (fires on both issue and PR comments)
+  - Added `if: contains(github.event.comment.body, '@claude')` condition
+  - Claude now only responds when explicitly mentioned with `@claude`
+
 ### Phase 4: Menu-Based Application Interface (In Progress)
 - [x] **Issue #14**: Create Menu Bar Infrastructure (NSStatusItem)
   - Added NSStatusItem with cat emoji (🐱) in menu bar
@@ -109,7 +116,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 | Status | Count | Issues |
 |--------|-------|--------|
 | Open | 6 | #10, #11, #13, #16, #18, #19 |
-| Closed | 7 | #3, #5, #6, #7, #14, #15, #17 |
+| Closed | 8 | #3, #5, #6, #7, #14, #15, #17, #25 |
 
 ### By Priority
 - 🔴 Critical: 0
@@ -117,6 +124,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 - 🟢 Medium: 2 (#10, #16)
 - 🔵 Low: 2 (#11, #19)
 - Epic: 1 (#13)
+- Configuration: 1 (#25 - Closed)
 
 ## Recommended Implementation Order
 
@@ -157,6 +165,11 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-06
+- Completed Issue #25: Limit Claude GitHub Action to only respond to comments
+  - Removed `pull_request`, `issues`, `pull_request_review`, `pull_request_review_comment` triggers
+  - Kept only `issue_comment` trigger (covers both issue and PR comments)
+  - Added `if: contains(github.event.comment.body, '@claude')` condition
+  - Reduces noise from automatic triggers; Claude now only responds when explicitly mentioned
 - Completed Issue #17: Refactor Overlay to On-Demand Activation
   - `catshield` (no args) now shows menu bar icon only, no overlay
   - CLI args (--timer, --exit-key) start protection immediately (preserves scripting)
