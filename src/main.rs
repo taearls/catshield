@@ -43,7 +43,7 @@ use objc2_core_graphics::{
     CGEvent, CGEventField, CGEventFlags, CGEventMask, CGEventTapLocation, CGEventTapOptions,
     CGEventTapPlacement, CGEventTapProxy, CGEventType,
 };
-use objc2_foundation::{ns_string, MainThreadMarker, NSURL};
+use objc2_foundation::{ns_string, MainThreadMarker, NSObject, NSURL};
 use serde::Deserialize;
 use std::cell::Cell;
 use std::ffi::c_void;
@@ -321,6 +321,104 @@ fn set_exit_key(key: &ExitKey) {
     EXIT_KEY_REQUIRES_CTRL.store(key.requires_ctrl, Ordering::SeqCst);
 }
 
+/// Get the current exit key configuration from global storage
+fn get_exit_key() -> ExitKey {
+    ExitKey {
+        keycode: EXIT_KEY_KEYCODE.load(Ordering::SeqCst),
+        requires_cmd: EXIT_KEY_REQUIRES_CMD.load(Ordering::SeqCst),
+        requires_option: EXIT_KEY_REQUIRES_OPTION.load(Ordering::SeqCst),
+        requires_shift: EXIT_KEY_REQUIRES_SHIFT.load(Ordering::SeqCst),
+        requires_ctrl: EXIT_KEY_REQUIRES_CTRL.load(Ordering::SeqCst),
+        display_name: format_exit_key_display(),
+    }
+}
+
+/// Format the exit key for display
+fn format_exit_key_display() -> String {
+    let mut parts = Vec::new();
+    if EXIT_KEY_REQUIRES_CMD.load(Ordering::SeqCst) {
+        parts.push("Cmd");
+    }
+    if EXIT_KEY_REQUIRES_OPTION.load(Ordering::SeqCst) {
+        parts.push("Option");
+    }
+    if EXIT_KEY_REQUIRES_SHIFT.load(Ordering::SeqCst) {
+        parts.push("Shift");
+    }
+    if EXIT_KEY_REQUIRES_CTRL.load(Ordering::SeqCst) {
+        parts.push("Ctrl");
+    }
+    let keycode = EXIT_KEY_KEYCODE.load(Ordering::SeqCst);
+    if let Some(key_name) = keycode_to_name(keycode) {
+        parts.push(key_name);
+    }
+    parts.join("+")
+}
+
+/// Convert keycode back to key name for display
+fn keycode_to_name(keycode: i64) -> Option<&'static str> {
+    match keycode {
+        0 => Some("A"),
+        11 => Some("B"),
+        8 => Some("C"),
+        2 => Some("D"),
+        14 => Some("E"),
+        3 => Some("F"),
+        5 => Some("G"),
+        4 => Some("H"),
+        34 => Some("I"),
+        38 => Some("J"),
+        40 => Some("K"),
+        37 => Some("L"),
+        46 => Some("M"),
+        45 => Some("N"),
+        31 => Some("O"),
+        35 => Some("P"),
+        12 => Some("Q"),
+        15 => Some("R"),
+        1 => Some("S"),
+        17 => Some("T"),
+        32 => Some("U"),
+        9 => Some("V"),
+        13 => Some("W"),
+        7 => Some("X"),
+        16 => Some("Y"),
+        6 => Some("Z"),
+        18 => Some("1"),
+        19 => Some("2"),
+        20 => Some("3"),
+        21 => Some("4"),
+        23 => Some("5"),
+        22 => Some("6"),
+        26 => Some("7"),
+        28 => Some("8"),
+        25 => Some("9"),
+        29 => Some("0"),
+        53 => Some("Escape"),
+        36 => Some("Return"),
+        48 => Some("Tab"),
+        49 => Some("Space"),
+        51 => Some("Delete"),
+        122 => Some("F1"),
+        120 => Some("F2"),
+        99 => Some("F3"),
+        118 => Some("F4"),
+        96 => Some("F5"),
+        97 => Some("F6"),
+        98 => Some("F7"),
+        100 => Some("F8"),
+        101 => Some("F9"),
+        109 => Some("F10"),
+        103 => Some("F11"),
+        111 => Some("F12"),
+        123 => Some("Left"),
+        124 => Some("Right"),
+        125 => Some("Down"),
+        126 => Some("Up"),
+        _ => None,
+    }
+}
+
 /// Check if the given key event matches the configured exit key
 fn check_exit_key(keycode: i64, flags: CGEventFlags) -> bool {
     let expected_keycode = EXIT_KEY_KEYCODE.load(Ordering::SeqCst);
@@ -567,6 +665,19 @@ static WARNING_SHOWN: AtomicBool = AtomicBool::new(false);
 // Global reference to the timer display view for updates
 static TIMER_DISPLAY_VIEW: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 
+// Shield state for on-demand activation (Issue #17)
+// Track whether we're in menu bar mode (app stays running after shield deactivates)
+static MENU_BAR_MODE: AtomicBool = AtomicBool::new(false);
+// Track whether the shield is currently active
+static SHIELD_ACTIVE: AtomicBool = AtomicBool::new(false);
+// Global reference to the shield window for cleanup
+static SHIELD_WINDOW: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+// Global reference to the "Start Protection" menu item for enabling/disabling
+static START_MENU_ITEM: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+// Global storage for sleep assertion ID so we can release it on shield deactivate
+static SLEEP_ASSERTION_ID: AtomicU64 = AtomicU64::new(0);
+static HAS_SLEEP_ASSERTION: AtomicBool = AtomicBool::new(false);
+
 // Close button state stored in thread-local for the view
 thread_local! {
     static MOUSE_DOWN_TIME: Cell<Option<Instant>> = const { Cell::new(None) };
@@ -586,8 +697,11 @@ unsafe extern "C" fn timer_callback(_timer: *mut c_void, _info: *mut c_void) {
     });
 
     if should_exit_from_button {
-        // Use NSApplication terminate to properly exit the app run loop
-        if let Some(mtm) = MainThreadMarker::new() {
+        // In menu bar mode, deactivate shield and return to menu bar
+        // In immediate mode, terminate the app
+        if MENU_BAR_MODE.load(Ordering::SeqCst) {
+            deactivate_shield();
+        } else if let Some(mtm) = MainThreadMarker::new() {
             let app = NSApplication::sharedApplication(mtm);
             app.terminate(None);
         }
@@ -609,7 +723,11 @@ unsafe extern "C" fn timer_callback(_timer: *mut c_void, _info: *mut c_void) {
         if remaining == 0 {
             println!();
             println!("  ⏰ Timer expired - auto-exiting...");
-            if let Some(mtm) = MainThreadMarker::new() {
+            // In menu bar mode, deactivate shield and return to menu bar
+            // In immediate mode, terminate the app
+            if MENU_BAR_MODE.load(Ordering::SeqCst) {
+                deactivate_shield();
+            } else if let Some(mtm) = MainThreadMarker::new() {
                 let app = NSApplication::sharedApplication(mtm);
                 app.terminate(None);
             }
@@ -916,6 +1034,45 @@ impl CloseButtonView {
     }
 }
 
+/// Empty ivars for the MenuActionHandler
+struct MenuActionHandlerIvars {}
+
+// Menu action handler for the "Start Protection" menu item
+// This class provides a target for the menu item action selector
+define_class!(
+    #[unsafe(super(NSObject))]
+    #[name = "MenuActionHandler"]
+    #[ivars = MenuActionHandlerIvars]
+    struct MenuActionHandler;
+
+    impl MenuActionHandler {
+        /// Action method called when "Start Protection" is clicked
+        #[unsafe(method(startProtection:))]
+        unsafe fn start_protection(&self, _sender: Option<&NSMenuItem>) {
+            // Prevent double-activation
+            if SHIELD_ACTIVE.load(Ordering::SeqCst) {
+                return;
+            }
+
+            // Call the activate_shield function
+            if let Some(mtm) = MainThreadMarker::new() {
+                activate_shield(mtm);
+            }
+        }
+    }
+);
+
+impl MenuActionHandler {
+    fn new(mtm: MainThreadMarker) -> Retained<Self> {
+        let this = mtm.alloc::<MenuActionHandler>();
+        let this = this.set_ivars(MenuActionHandlerIvars {});
+        unsafe { msg_send![super(this), init] }
+    }
+}
+
+// Global reference to the menu action handler to keep it alive
+static MENU_ACTION_HANDLER: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+
 /// Draw the close button with progress indicator
 fn draw_close_button(view: &NSView) {
     let bounds = view.bounds();
@@ -1061,6 +1218,300 @@ fn allow_sleep(assertion_id: u32) {
     }
 }
 
+/// Disable and clean up the event tap
+fn disable_event_tap() {
+    let tap_ptr = EVENT_TAP.load(Ordering::SeqCst);
+    if !tap_ptr.is_null() {
+        unsafe {
+            // Disable the tap using the FFI function
+            CGEventTapEnable(tap_ptr, false);
+        }
+        // Clear the global reference
+        EVENT_TAP.store(std::ptr::null_mut(), Ordering::SeqCst);
+        println!("  ✓ Input blocking disabled");
+    }
+}
+
+/// Deactivate the shield and return to menu bar mode
+///
+/// This function:
+/// - Closes the shield window
+/// - Stops the animation timer
+/// - Disables the event tap
+/// - Releases the sleep assertion
+/// - Re-enables the "Start Protection" menu item
+/// - Resets shield state
+fn deactivate_shield() {
+    // Only deactivate if shield is active
+    if !SHIELD_ACTIVE.swap(false, Ordering::SeqCst) {
+        return;
+    }
+
+    println!();
+    println!("  🛡️  Deactivating Cat Shield...");
+
+    // Stop the animation timer first
+    stop_close_button_timer();
+
+    // Disable the event tap
+    disable_event_tap();
+
+    // Release sleep assertion if we have one
+    if HAS_SLEEP_ASSERTION.swap(false, Ordering::SeqCst) {
+        let assertion_id = SLEEP_ASSERTION_ID.load(Ordering::SeqCst) as u32;
+        allow_sleep(assertion_id);
+    }
+
+    // Close the shield window
+    let window_ptr = SHIELD_WINDOW.swap(std::ptr::null_mut(), Ordering::SeqCst);
+    if !window_ptr.is_null() {
+        unsafe {
+            let window: &NSWindow = &*(window_ptr as *const NSWindow);
+            window.close();
+        }
+        println!("  ✓ Shield window closed");
+    }
+
+    // Clear view references
+    CLOSE_BUTTON_VIEW.store(std::ptr::null_mut(), Ordering::SeqCst);
+    TIMER_DISPLAY_VIEW.store(std::ptr::null_mut(), Ordering::SeqCst);
+
+    // Reset auto-exit timer state
+    AUTO_EXIT_ENABLED.store(false, Ordering::SeqCst);
+    WARNING_SHOWN.store(false, Ordering::SeqCst);
+
+    // Reset close button state
+    MOUSE_DOWN_TIME.with(|time| time.set(None));
+    IS_MOUSE_INSIDE.with(|inside| inside.set(false));
+
+    // Re-enable the "Start Protection" menu item
+    let menu_item_ptr = START_MENU_ITEM.load(Ordering::SeqCst);
+    if !menu_item_ptr.is_null() {
+        unsafe {
+            let menu_item: &NSMenuItem = &*(menu_item_ptr as *const NSMenuItem);
+            menu_item.setEnabled(true);
+        }
+    }
+
+    println!();
+    println!("  ✓ Cat Shield deactivated");
+    println!("  Click the 🐱 icon to activate protection again.");
+    println!();
+}
+
+/// Activate the shield protection
+///
+/// This function creates the fullscreen overlay window, sets up input blocking,
+/// and prevents sleep. It's called either from the menu item action or from
+/// the CLI immediate mode.
+fn activate_shield(mtm: MainThreadMarker) {
+    // Prevent double-activation
+    if SHIELD_ACTIVE.swap(true, Ordering::SeqCst) {
+        return;
+    }
+
+    // Disable the "Start Protection" menu item while shield is active
+    let menu_item_ptr = START_MENU_ITEM.load(Ordering::SeqCst);
+    if !menu_item_ptr.is_null() {
+        unsafe {
+            let menu_item: &NSMenuItem = &*(menu_item_ptr as *const NSMenuItem);
+            menu_item.setEnabled(false);
+        }
+    }
+
+    // Get the exit key configuration
+    let exit_key = get_exit_key();
+
+    // Check accessibility permissions FIRST, before any UI
+    let mut has_accessibility = check_accessibility();
+
+    if !has_accessibility {
+        println!();
+        println!("  🐱 CAT SHIELD 🛡️");
+        println!("  ════════════════════════════════════════");
+        println!();
+        eprintln!("  ⚠️  ACCESSIBILITY PERMISSION REQUIRED");
+        eprintln!();
+        eprintln!("  To block keyboard/mouse input and use the exit");
+        eprintln!(
+            "  shortcut ({}), this app needs Accessibility permissions.",
+            exit_key.display_name
+        );
+        eprintln!();
+
+        // Try to prompt user with native dialog
+        println!("  Requesting accessibility permissions...");
+        has_accessibility = check_accessibility_with_prompt();
+
+        if has_accessibility {
+            println!("  ✓ Permissions granted!");
+            println!();
+        } else {
+            eprintln!();
+            eprintln!("  Opening System Settings → Accessibility...");
+
+            if open_accessibility_settings() {
+                eprintln!("  ✓ System Settings opened");
+            }
+            eprintln!();
+            eprintln!("  Please add Cat Shield to the Accessibility list.");
+            eprintln!("  Waiting for permissions...");
+            eprintln!();
+
+            // Poll for permissions every 1 second using CFRunLoopRunInMode
+            const POLL_INTERVAL_SECS: f64 = 1.0;
+            loop {
+                unsafe {
+                    let mode = kCFRunLoopDefaultMode.expect("kCFRunLoopDefaultMode should exist");
+                    CFRunLoopRunInMode((mode as *const CFString).cast(), POLL_INTERVAL_SECS, false);
+                }
+                if check_accessibility() {
+                    println!("  ✓ Permissions granted! Starting Cat Shield...");
+                    println!();
+                    break;
+                }
+            }
+        }
+    }
+
+    println!();
+    println!("  🐱 CAT SHIELD 🛡️");
+    println!("  ════════════════════════════════════════");
+    println!("  Protecting your work from curious cats!");
+    println!();
+
+    // Get the main screen dimensions
+    let screen = NSScreen::mainScreen(mtm);
+    let screen = match screen {
+        Some(s) => s,
+        None => {
+            eprintln!("  ✗ Failed to get main screen");
+            SHIELD_ACTIVE.store(false, Ordering::SeqCst);
+            // Re-enable menu item
+            if !menu_item_ptr.is_null() {
+                unsafe {
+                    let menu_item: &NSMenuItem = &*(menu_item_ptr as *const NSMenuItem);
+                    menu_item.setEnabled(true);
+                }
+            }
+            return;
+        }
+    };
+    let screen_frame = screen.frame();
+
+    // Create a fullscreen, borderless window
+    let window = unsafe {
+        let window = NSWindow::alloc(mtm);
+        NSWindow::initWithContentRect_styleMask_backing_defer(
+            window,
+            screen_frame,
+            NSWindowStyleMask::Borderless,
+            NSBackingStoreType::Buffered,
+            false,
+        )
+    };
+
+    // Store window reference for cleanup
+    SHIELD_WINDOW.store(
+        Retained::as_ptr(&window) as *mut c_void,
+        Ordering::SeqCst,
+    );
+
+    // Configure window to be topmost
+    window.setLevel(NS_SCREEN_SAVER_WINDOW_LEVEL);
+
+    // Set window to appear on all spaces and stay visible
+    window.setCollectionBehavior(
+        NSWindowCollectionBehavior::CanJoinAllSpaces
+            | NSWindowCollectionBehavior::Stationary
+            | NSWindowCollectionBehavior::IgnoresCycle,
+    );
+
+    // Make window semi-transparent (50% opacity - visible but not fully blocking view)
+    window.setOpaque(false);
+    window.setAlphaValue(0.5);
+
+    // Set a dark background color
+    let bg_color = NSColor::colorWithRed_green_blue_alpha(0.1, 0.1, 0.15, 1.0);
+    window.setBackgroundColor(Some(&bg_color));
+
+    // Keep window visible
+    window.setHidesOnDeactivate(false);
+
+    // Accept mouse events (needed for blocking)
+    window.setIgnoresMouseEvents(false);
+
+    // Set title
+    window.setTitle(ns_string!("Cat Shield"));
+
+    // Required when creating NSWindow outside a window controller
+    unsafe {
+        window.setReleasedWhenClosed(false);
+    }
+
+    // Show the window
+    window.makeKeyAndOrderFront(None);
+
+    println!("  ✓ Overlay window active");
+
+    // Create and add the close button in top-right corner
+    let close_button_frame = CGRect {
+        origin: CGPoint {
+            x: screen_frame.size.width - CLOSE_BUTTON_SIZE - CLOSE_BUTTON_MARGIN,
+            y: screen_frame.size.height - CLOSE_BUTTON_SIZE - CLOSE_BUTTON_MARGIN,
+        },
+        size: CGSize {
+            width: CLOSE_BUTTON_SIZE,
+            height: CLOSE_BUTTON_SIZE,
+        },
+    };
+
+    let close_button = CloseButtonView::new(mtm, close_button_frame);
+
+    // Store view reference for timer callback.
+    CLOSE_BUTTON_VIEW.store(
+        Retained::as_ptr(&close_button) as *mut c_void,
+        Ordering::SeqCst,
+    );
+
+    // Add close button to the window's content view
+    if let Some(content_view) = window.contentView() {
+        content_view.addSubview(&close_button);
+    }
+
+    // Start the animation timer
+    start_close_button_timer();
+
+    println!("  ✓ Close button active (hold 3s to exit)");
+    println!("  ✓ Exit key: {}", exit_key.display_name);
+
+    // Prevent sleep
+    if let Some(assertion_id) = prevent_sleep() {
+        SLEEP_ASSERTION_ID.store(assertion_id as u64, Ordering::SeqCst);
+        HAS_SLEEP_ASSERTION.store(true, Ordering::SeqCst);
+    }
+
+    // Set up event tap
+    if setup_event_tap() {
+        println!("  ✓ Input blocking active");
+    } else {
+        eprintln!("  ✗ Failed to create event tap");
+    }
+
+    println!();
+    println!("  ═══════════════════════════════════════");
+    println!("  🛡️  CAT SHIELD IS NOW ACTIVE!");
+    println!("  ═══════════════════════════════════════");
+    println!();
+    println!("  Exit: Hold X button (top-right) for 3 seconds");
+    println!("        Or press {}", exit_key.display_name);
+    println!();
+
+    // Keep the window retained so it doesn't get deallocated
+    std::mem::forget(window);
+    std::mem::forget(close_button);
+}
+
 /// Callback for the CGEventTap - intercepts and blocks events
 unsafe extern "C-unwind" fn event_tap_callback(
     _proxy: CGEventTapProxy,
@@ -1093,8 +1544,11 @@ unsafe extern "C-unwind" fn event_tap_callback(
         if check_exit_key(keycode, flags) {
             println!("\n  🔓 Exit key combination detected!");
 
-            // Use NSApplication terminate to properly exit
-            if let Some(mtm) = MainThreadMarker::new() {
+            // In menu bar mode, deactivate shield and return to menu bar
+            // In immediate mode, terminate the app
+            if MENU_BAR_MODE.load(Ordering::SeqCst) {
+                deactivate_shield();
+            } else if let Some(mtm) = MainThreadMarker::new() {
                 let app = NSApplication::sharedApplication(mtm);
                 app.terminate(None);
             }
@@ -1258,11 +1712,35 @@ fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
     // Add separator
     menu.addItem(&NSMenuItem::separatorItem(mtm));
 
-    // Add "Start Protection" item (placeholder - will be functional in Issue #17)
+    // Add "Start Protection" item
     let start_item = NSMenuItem::new(mtm);
     start_item.setTitle(ns_string!("Start Protection"));
-    start_item.setEnabled(false); // Disabled until Issue #17 implements on-demand activation
+
+    // Create menu action handler and wire it to the Start Protection item
+    let action_handler = MenuActionHandler::new(mtm);
+
+    // Store the handler globally to keep it alive
+    MENU_ACTION_HANDLER.store(
+        Retained::as_ptr(&action_handler) as *mut c_void,
+        Ordering::SeqCst,
+    );
+
+    // Set the target and action for the menu item
+    unsafe {
+        start_item.setTarget(Some(&action_handler));
+        start_item.setAction(Some(objc2::sel!(startProtection:)));
+    }
+
+    // Store the start menu item reference for enabling/disabling
+    START_MENU_ITEM.store(
+        Retained::as_ptr(&start_item) as *mut c_void,
+        Ordering::SeqCst,
+    );
+
     menu.addItem(&start_item);
+
+    // Keep handler alive
+    std::mem::forget(action_handler);
 
     // Add "Settings..." item (placeholder - will be functional in Issue #16)
     let settings_item = NSMenuItem::new(mtm);
@@ -1334,6 +1812,8 @@ fn main() {
     // Check if we should enter menu bar mode (no CLI args that trigger immediate start)
     if !has_immediate_start_args(&args) {
         // Menu bar mode: show icon in menu bar and wait for user interaction
+        MENU_BAR_MODE.store(true, Ordering::SeqCst);
+
         println!();
         println!("  🐱 CAT SHIELD 🛡️");
         println!("  ════════════════════════════════════════");

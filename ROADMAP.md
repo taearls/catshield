@@ -52,6 +52,14 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
   - Basic dropdown menu with branding and Quit option
   - CLI arguments (--timer, --exit-key) bypass menu bar and start shield immediately
   - Foundation for subsequent menu features (#15, #16, #17)
+- [x] **Issue #17**: Refactor Overlay to On-Demand Activation
+  - Running `catshield` (no args) shows menu bar icon only, no overlay
+  - Running `catshield --timer` or `catshield --exit-key` starts protection immediately
+  - "Start Protection" menu item activates the shield on click
+  - Shield exits (close button, exit key, timer) return to menu bar state
+  - Prevents double-activation: menu item disabled while shield is active
+  - Menu item re-enabled after shield deactivates
+  - Clean state management with proper cleanup (event tap, sleep assertion, window)
 
 ## Open Issues
 
@@ -62,7 +70,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 | Priority | Issue | Title | Dependencies | Effort |
 |----------|-------|-------|--------------|--------|
 | ✅ Done | #14 | Create Menu Bar Infrastructure (NSStatusItem) | None | ~1 day |
-| 🔴 Critical | #17 | Refactor Overlay to On-Demand Activation | ✅ #14 | ~2 days |
+| ✅ Done | #17 | Refactor Overlay to On-Demand Activation | ✅ #14 | ~2 days |
 | 🟡 High | #15 | Create Main Dropdown Menu | ✅ #14 | ~1 day |
 | 🟡 High | #18 | Extend Config for New Settings | None | ~1 day |
 | 🟢 Medium | #16 | Create Settings Window | #15, #18 | ~3 days |
@@ -89,11 +97,11 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 8 | #10, #11, #13, #15, #16, #17, #18, #19 |
-| Closed | 5 | #3, #5, #6, #7, #14 |
+| Open | 7 | #10, #11, #13, #15, #16, #18, #19 |
+| Closed | 6 | #3, #5, #6, #7, #14, #17 |
 
 ### By Priority
-- 🔴 Critical: 1 (#17)
+- 🔴 Critical: 0
 - 🟡 High: 2 (#15, #18)
 - 🟢 Medium: 2 (#10, #16)
 - 🔵 Low: 2 (#11, #19)
@@ -103,7 +111,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 
 ### Current Sprint: Phase 4 Foundation
 1. ~~**#14** - Menu Bar Infrastructure~~ ✅ COMPLETED
-2. **#17** - Refactor Overlay (can parallel with #15)
+2. ~~**#17** - Refactor Overlay~~ ✅ COMPLETED
 3. **#15** - Main Dropdown Menu (unblocked by #14)
 4. **#18** - Extend Config (can parallel with menu work)
 
@@ -116,7 +124,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 ## Critical Path
 
 ```
-Foundation:     #14 (Menu Bar) ✅ ──┬── #17 (Refactor Overlay)
+Foundation:     #14 (Menu Bar) ✅ ──┬── #17 (Refactor Overlay) ✅
                                     │
                                     └── #15 (Dropdown Menu) ── #16 (Settings) ── #19 (About)
                                                  │
@@ -136,6 +144,16 @@ Potential future enhancements (not yet tracked as issues):
 - Custom overlay themes
 
 ## Changelog
+
+### 2026-01-06
+- Completed Issue #17: Refactor Overlay to On-Demand Activation
+  - `catshield` (no args) now shows menu bar icon only, no overlay
+  - CLI args (--timer, --exit-key) start protection immediately (preserves scripting)
+  - "Start Protection" menu item activates shield from menu bar
+  - Shield exit (close button, exit key, timer) returns to menu bar state
+  - Added `activate_shield()` and `deactivate_shield()` functions
+  - Menu item disabled during active protection, re-enabled after deactivation
+  - Proper cleanup: event tap, sleep assertion, window, timer state
 
 ### 2026-01-02
 - Completed Issue #14: Create Menu Bar Infrastructure (NSStatusItem)
