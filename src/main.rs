@@ -33,8 +33,8 @@ use objc2::{define_class, msg_send, MainThreadOnly};
 use objc2_app_kit::{
     NSApplication, NSApplicationActivationPolicy, NSBackingStoreType, NSBezierPath, NSButton,
     NSButtonType, NSColor, NSControlSize, NSControlStateValueOff, NSControlStateValueOn, NSEvent,
-    NSFont, NSMenu, NSMenuItem, NSPanel, NSScreen, NSSlider, NSStatusBar, NSStatusItem,
-    NSTextAlignment, NSTextField, NSView, NSWindow, NSWindowCollectionBehavior,
+    NSFont, NSMenu, NSMenuItem, NSPanel, NSPopUpButton, NSScreen, NSSlider, NSStatusBar,
+    NSStatusItem, NSTextAlignment, NSTextField, NSView, NSWindow, NSWindowCollectionBehavior,
     NSWindowStyleMask, NSWorkspace,
 };
 use objc2_core_foundation::{
@@ -567,6 +567,26 @@ impl Config {
         fs::write(path, content).map_err(|e| format!("Failed to write config file: {}", e))?;
 
         Ok(())
+    }
+}
+
+/// Parse a timer string (e.g., "30m", "2h", "90s") into a numeric value and unit index.
+/// Returns (value_string, unit_index) where unit_index is: 0=minutes, 1=hours, 2=seconds
+fn parse_timer_value_and_unit(timer_str: &str) -> (String, isize) {
+    let trimmed = timer_str.trim().to_lowercase();
+
+    // Try to extract number and unit
+    if let Some(pos) = trimmed.find(|c: char| c.is_alphabetic()) {
+        let (num_part, unit_part) = trimmed.split_at(pos);
+        let unit_index = match unit_part {
+            "h" | "hr" | "hrs" | "hour" | "hours" => 1,
+            "s" | "sec" | "secs" | "second" | "seconds" => 2,
+            _ => 0, // Default to minutes for "m", "min", etc.
+        };
+        (num_part.to_string(), unit_index)
+    } else {
+        // Just a number, assume minutes
+        (trimmed, 0)
     }
 }
 
@@ -1435,7 +1455,8 @@ fn set_current_config(config: Config) {
 
 // Settings window UI element references for reading values on save
 static SETTINGS_EXIT_KEY_FIELD: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
-static SETTINGS_TIMER_FIELD: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+static SETTINGS_TIMER_VALUE_FIELD: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+static SETTINGS_TIMER_UNIT_DROPDOWN: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 static SETTINGS_TIMER_CHECKBOX: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 static SETTINGS_OPACITY_SLIDER: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 static SETTINGS_OPACITY_LABEL: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
@@ -1512,9 +1533,10 @@ fn update_opacity_label(value: f64) {
     }
 }
 
-/// Update the timer field enabled state based on checkbox
+/// Update the timer field and dropdown enabled state based on checkbox
 fn update_timer_field_enabled(enabled: bool) {
-    let field_ptr = SETTINGS_TIMER_FIELD.load(Ordering::SeqCst);
+    // Update number field
+    let field_ptr = SETTINGS_TIMER_VALUE_FIELD.load(Ordering::SeqCst);
     if !field_ptr.is_null() {
         unsafe {
             let field: &NSTextField = &*(field_ptr as *const NSTextField);
@@ -1524,6 +1546,15 @@ fn update_timer_field_enabled(enabled: bool) {
             } else {
                 field.setTextColor(Some(&NSColor::disabledControlTextColor()));
             }
+        }
+    }
+
+    // Update unit dropdown
+    let dropdown_ptr = SETTINGS_TIMER_UNIT_DROPDOWN.load(Ordering::SeqCst);
+    if !dropdown_ptr.is_null() {
+        unsafe {
+            let dropdown: &NSPopUpButton = &*(dropdown_ptr as *const NSPopUpButton);
+            dropdown.setEnabled(enabled);
         }
     }
 }
@@ -1540,7 +1571,8 @@ fn close_settings_window() {
 
         // Clear UI element references
         SETTINGS_EXIT_KEY_FIELD.store(std::ptr::null_mut(), Ordering::SeqCst);
-        SETTINGS_TIMER_FIELD.store(std::ptr::null_mut(), Ordering::SeqCst);
+        SETTINGS_TIMER_VALUE_FIELD.store(std::ptr::null_mut(), Ordering::SeqCst);
+        SETTINGS_TIMER_UNIT_DROPDOWN.store(std::ptr::null_mut(), Ordering::SeqCst);
         SETTINGS_TIMER_CHECKBOX.store(std::ptr::null_mut(), Ordering::SeqCst);
         SETTINGS_OPACITY_SLIDER.store(std::ptr::null_mut(), Ordering::SeqCst);
         SETTINGS_OPACITY_LABEL.store(std::ptr::null_mut(), Ordering::SeqCst);
@@ -1593,25 +1625,53 @@ fn save_settings_from_window() {
 
     // Get timer value and validate (if checkbox is checked)
     let timer_checkbox_ptr = SETTINGS_TIMER_CHECKBOX.load(Ordering::SeqCst);
-    let timer_field_ptr = SETTINGS_TIMER_FIELD.load(Ordering::SeqCst);
-    if !timer_checkbox_ptr.is_null() && !timer_field_ptr.is_null() {
+    let timer_value_ptr = SETTINGS_TIMER_VALUE_FIELD.load(Ordering::SeqCst);
+    let timer_unit_ptr = SETTINGS_TIMER_UNIT_DROPDOWN.load(Ordering::SeqCst);
+    if !timer_checkbox_ptr.is_null() && !timer_value_ptr.is_null() && !timer_unit_ptr.is_null() {
         unsafe {
             let checkbox: &NSButton = &*(timer_checkbox_ptr as *const NSButton);
-            let field: &NSTextField = &*(timer_field_ptr as *const NSTextField);
+            let value_field: &NSTextField = &*(timer_value_ptr as *const NSTextField);
+            let unit_dropdown: &NSPopUpButton = &*(timer_unit_ptr as *const NSPopUpButton);
             let is_enabled = checkbox.state() == NSControlStateValueOn;
 
             if is_enabled {
-                let value = field.stringValue().to_string();
-                let trimmed = value.trim();
+                let value_str = value_field.stringValue().to_string();
+                let trimmed = value_str.trim();
 
                 if !trimmed.is_empty() {
-                    match parse_duration(trimmed) {
-                        Ok(_) => {
-                            config.default_timer = Some(trimmed.to_string());
-                            update_validation_label(SETTINGS_TIMER_VALIDATION_LABEL.load(Ordering::SeqCst), true, "✓ Valid");
+                    // Parse the number
+                    match trimmed.parse::<u64>() {
+                        Ok(num) if num > 0 => {
+                            // Get the selected unit suffix
+                            let unit_index = unit_dropdown.indexOfSelectedItem();
+                            let unit_suffix = match unit_index {
+                                0 => "m",  // Minutes
+                                1 => "h",  // Hours
+                                2 => "s",  // Seconds
+                                _ => "m",  // Default to minutes
+                            };
+
+                            // Construct the duration string
+                            let duration_str = format!("{}{}", num, unit_suffix);
+
+                            // Validate using parse_duration
+                            match parse_duration(&duration_str) {
+                                Ok(_) => {
+                                    config.default_timer = Some(duration_str);
+                                    update_validation_label(SETTINGS_TIMER_VALIDATION_LABEL.load(Ordering::SeqCst), true, "✓ Valid");
+                                }
+                                Err(e) => {
+                                    update_validation_label(SETTINGS_TIMER_VALIDATION_LABEL.load(Ordering::SeqCst), false, &e);
+                                    has_errors = true;
+                                }
+                            }
                         }
-                        Err(e) => {
-                            update_validation_label(SETTINGS_TIMER_VALIDATION_LABEL.load(Ordering::SeqCst), false, &e);
+                        Ok(_) => {
+                            update_validation_label(SETTINGS_TIMER_VALIDATION_LABEL.load(Ordering::SeqCst), false, "Must be greater than 0");
+                            has_errors = true;
+                        }
+                        Err(_) => {
+                            update_validation_label(SETTINGS_TIMER_VALIDATION_LABEL.load(Ordering::SeqCst), false, "Enter a number");
                             has_errors = true;
                         }
                     }
@@ -1874,25 +1934,54 @@ fn show_settings_window(mtm: MainThreadMarker) {
         std::mem::forget(timer_checkbox);
 
         y_offset -= field_height + row_spacing;
-        let timer_field = NSTextField::new(mtm);
-        timer_field.setFrame(CGRect {
+
+        // Parse existing timer value to extract number and unit
+        let (timer_value, timer_unit_index) = if let Some(ref timer_str) = config.default_timer {
+            parse_timer_value_and_unit(timer_str)
+        } else {
+            ("".to_string(), 0) // Default to minutes
+        };
+
+        // Number input field (narrower, on the left)
+        let number_field_width: CGFloat = 80.0;
+        let dropdown_width: CGFloat = 100.0;
+        let spacing: CGFloat = 10.0;
+
+        let timer_value_field = NSTextField::new(mtm);
+        timer_value_field.setFrame(CGRect {
             origin: CGPoint { x: margin, y: y_offset },
-            size: CGSize { width: field_width, height: field_height },
+            size: CGSize { width: number_field_width, height: field_height },
         });
-        timer_field.setStringValue(&NSString::from_str(
-            config.default_timer.as_deref().unwrap_or(""),
-        ));
-        timer_field.setPlaceholderString(Some(ns_string!("e.g., 30m, 1h, 1h30m")));
-        timer_field.setEnabled(config.default_timer.is_some());
+        timer_value_field.setStringValue(&NSString::from_str(&timer_value));
+        timer_value_field.setPlaceholderString(Some(ns_string!("30")));
+        timer_value_field.setEnabled(config.default_timer.is_some());
         if config.default_timer.is_none() {
-            timer_field.setTextColor(Some(&NSColor::disabledControlTextColor()));
+            timer_value_field.setTextColor(Some(&NSColor::disabledControlTextColor()));
         }
-        content_view.addSubview(&timer_field);
-        SETTINGS_TIMER_FIELD.store(
-            Retained::as_ptr(&timer_field) as *mut c_void,
+        content_view.addSubview(&timer_value_field);
+        SETTINGS_TIMER_VALUE_FIELD.store(
+            Retained::as_ptr(&timer_value_field) as *mut c_void,
             Ordering::SeqCst,
         );
-        std::mem::forget(timer_field);
+        std::mem::forget(timer_value_field);
+
+        // Unit dropdown (to the right of the number field)
+        let timer_unit_dropdown = NSPopUpButton::new(mtm);
+        timer_unit_dropdown.setFrame(CGRect {
+            origin: CGPoint { x: margin + number_field_width + spacing, y: y_offset },
+            size: CGSize { width: dropdown_width, height: field_height },
+        });
+        timer_unit_dropdown.addItemWithTitle(ns_string!("Minutes"));
+        timer_unit_dropdown.addItemWithTitle(ns_string!("Hours"));
+        timer_unit_dropdown.addItemWithTitle(ns_string!("Seconds"));
+        timer_unit_dropdown.selectItemAtIndex(timer_unit_index);
+        timer_unit_dropdown.setEnabled(config.default_timer.is_some());
+        content_view.addSubview(&timer_unit_dropdown);
+        SETTINGS_TIMER_UNIT_DROPDOWN.store(
+            Retained::as_ptr(&timer_unit_dropdown) as *mut c_void,
+            Ordering::SeqCst,
+        );
+        std::mem::forget(timer_unit_dropdown);
 
         y_offset -= label_height + 2.0;
         let timer_validation = NSTextField::new(mtm);
@@ -2056,6 +2145,12 @@ fn show_settings_window(mtm: MainThreadMarker) {
         content_view.addSubview(&save_button);
         std::mem::forget(save_button);
     }
+
+    // Activate the application so the window can receive focus
+    // This is needed because the app runs in accessory mode (no dock icon)
+    let app = NSApplication::sharedApplication(mtm);
+    #[allow(deprecated)]
+    app.activateIgnoringOtherApps(true);
 
     // Show the window
     panel.makeKeyAndOrderFront(None);
