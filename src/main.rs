@@ -32,7 +32,7 @@ use objc2::rc::Retained;
 use objc2::{define_class, msg_send, MainThreadOnly};
 use objc2_app_kit::{
     NSApplication, NSApplicationActivationPolicy, NSBackingStoreType, NSBezierPath, NSColor,
-    NSEvent, NSMenu, NSMenuItem, NSScreen, NSStatusBar, NSStatusItem, NSView, NSWindow,
+    NSEvent, NSFont, NSMenu, NSMenuItem, NSScreen, NSStatusBar, NSStatusItem, NSView, NSWindow,
     NSWindowCollectionBehavior, NSWindowStyleMask, NSWorkspace,
 };
 use objc2_core_foundation::{
@@ -43,7 +43,7 @@ use objc2_core_graphics::{
     CGEvent, CGEventField, CGEventFlags, CGEventMask, CGEventTapLocation, CGEventTapOptions,
     CGEventTapPlacement, CGEventTapProxy, CGEventType,
 };
-use objc2_foundation::{ns_string, MainThreadMarker, NSObject, NSURL};
+use objc2_foundation::{ns_string, MainThreadMarker, NSObject, NSString, NSURL};
 use serde::Deserialize;
 use std::cell::Cell;
 use std::ffi::c_void;
@@ -506,6 +506,8 @@ impl Config {
 // Close button configuration
 const CLOSE_BUTTON_SIZE: CGFloat = 80.0; // Large, easy-to-see button
 const CLOSE_BUTTON_MARGIN: CGFloat = 30.0;
+const CLOSE_BUTTON_LABEL_HEIGHT: CGFloat = 30.0;
+const CLOSE_BUTTON_LABEL_WIDTH: CGFloat = 120.0;
 const HOLD_DURATION_SECS: f64 = 3.0;
 const TIMER_INTERVAL_SECS: f64 = 1.0 / 60.0; // 60 FPS for smooth animation
 
@@ -518,8 +520,8 @@ const MAX_TIMER_SECONDS: u64 = 24 * 60 * 60; // Maximum 24 hours
 const WARNING_SECONDS: u64 = 60; // Show warning 1 minute before exit
 
 // Timer display configuration
-const TIMER_DISPLAY_HEIGHT: CGFloat = 60.0;
-const TIMER_DISPLAY_WIDTH: CGFloat = 200.0;
+const TIMER_DISPLAY_HEIGHT: CGFloat = 70.0;
+const TIMER_DISPLAY_WIDTH: CGFloat = 260.0;
 const TIMER_DISPLAY_MARGIN: CGFloat = 30.0;
 
 /// CLI arguments for Cat Shield
@@ -669,6 +671,89 @@ fn is_hold_complete(elapsed_secs: f64, hold_duration_secs: f64) -> bool {
     elapsed_secs >= hold_duration_secs
 }
 
+/// Draw text at the specified point with given font and color.
+///
+/// Uses NSAttributedString for proper text rendering.
+fn draw_text(text: &str, point: CGPoint, font_size: CGFloat, color: &NSColor) {
+    unsafe {
+        let font = NSFont::systemFontOfSize(font_size);
+        let ns_text = NSString::from_str(text);
+
+        // Create attributes dictionary using raw objc calls
+        let font_key = NSString::from_str("NSFont");
+        let color_key = NSString::from_str("NSForegroundColor");
+
+        let dict_class = objc2::class!(NSMutableDictionary);
+        let dict: *mut NSObject = msg_send![dict_class, new];
+        let _: () = msg_send![dict, setObject: &*font, forKey: &*font_key];
+        let _: () = msg_send![dict, setObject: color, forKey: &*color_key];
+
+        // Create attributed string
+        let attr_string_class = objc2::class!(NSAttributedString);
+        let attr_string: *mut NSObject = msg_send![attr_string_class, alloc];
+        let attr_string: *mut NSObject = msg_send![attr_string, initWithString: &*ns_text, attributes: dict];
+
+        // Draw the attributed string at the point
+        let _: () = msg_send![attr_string, drawAtPoint: point];
+    }
+}
+
+/// Draw centered text within a given rect with given font and color.
+fn draw_text_centered(text: &str, rect: CGRect, font_size: CGFloat, color: &NSColor) {
+    unsafe {
+        let font = NSFont::systemFontOfSize(font_size);
+        let ns_text = NSString::from_str(text);
+
+        // Create attributes dictionary
+        let font_key = NSString::from_str("NSFont");
+        let color_key = NSString::from_str("NSForegroundColor");
+
+        let dict_class = objc2::class!(NSMutableDictionary);
+        let dict: *mut NSObject = msg_send![dict_class, new];
+        let _: () = msg_send![dict, setObject: &*font, forKey: &*font_key];
+        let _: () = msg_send![dict, setObject: color, forKey: &*color_key];
+
+        // Create attributed string
+        let attr_string_class = objc2::class!(NSAttributedString);
+        let attr_string: *mut NSObject = msg_send![attr_string_class, alloc];
+        let attr_string: *mut NSObject = msg_send![attr_string, initWithString: &*ns_text, attributes: dict];
+
+        // Get the size of the text
+        let text_size: CGSize = msg_send![attr_string, size];
+
+        // Calculate centered position
+        let x = rect.origin.x + (rect.size.width - text_size.width) / 2.0;
+        let y = rect.origin.y + (rect.size.height - text_size.height) / 2.0;
+
+        let draw_point = CGPoint { x, y };
+        let _: () = msg_send![attr_string, drawAtPoint: draw_point];
+    }
+}
+
+/// Draw bold text at the specified point with given font and color.
+fn draw_text_bold(text: &str, point: CGPoint, font_size: CGFloat, color: &NSColor) {
+    unsafe {
+        let font = NSFont::boldSystemFontOfSize(font_size);
+        let ns_text = NSString::from_str(text);
+
+        // Create attributes dictionary
+        let font_key = NSString::from_str("NSFont");
+        let color_key = NSString::from_str("NSForegroundColor");
+
+        let dict_class = objc2::class!(NSMutableDictionary);
+        let dict: *mut NSObject = msg_send![dict_class, new];
+        let _: () = msg_send![dict, setObject: &*font, forKey: &*font_key];
+        let _: () = msg_send![dict, setObject: color, forKey: &*color_key];
+
+        // Create attributed string
+        let attr_string_class = objc2::class!(NSAttributedString);
+        let attr_string: *mut NSObject = msg_send![attr_string_class, alloc];
+        let attr_string: *mut NSObject = msg_send![attr_string, initWithString: &*ns_text, attributes: dict];
+
+        let _: () = msg_send![attr_string, drawAtPoint: point];
+    }
+}
+
 // Global timer reference for cleanup
 static TIMER_REF: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 
@@ -763,6 +848,13 @@ unsafe extern "C" fn timer_callback(_timer: *mut c_void, _info: *mut c_void) {
     let view_ptr = CLOSE_BUTTON_VIEW.load(Ordering::SeqCst);
     if !view_ptr.is_null() {
         let view: &NSView = &*(view_ptr as *const NSView);
+        view.setNeedsDisplay(true);
+    }
+
+    // Trigger redraw of close button label (for countdown during hold)
+    let label_view_ptr = CLOSE_BUTTON_LABEL_VIEW.load(Ordering::SeqCst);
+    if !label_view_ptr.is_null() {
+        let view: &NSView = &*(label_view_ptr as *const NSView);
         view.setNeedsDisplay(true);
     }
 
@@ -912,13 +1004,39 @@ fn draw_timer_display(view: &NSView) {
     bg_path.setLineWidth(2.0);
     bg_path.stroke();
 
-    // Draw time text using simple shapes (since we can't easily use NSString drawing)
-    // We'll draw a simple digital-style countdown
+    // Format time string
     let time_str = format_duration(remaining);
 
-    // Draw the time as a series of character approximations
-    // For simplicity, we'll just draw colored rectangles to indicate time
-    // The actual time will be printed to console
+    // Text colors
+    let text_color = NSColor::colorWithRed_green_blue_alpha(1.0, 1.0, 1.0, 1.0);
+    let label_color = NSColor::colorWithRed_green_blue_alpha(0.8, 0.8, 0.8, 1.0);
+
+    // Draw header label "Time Remaining:"
+    let header_y = bounds.size.height - 22.0;
+    draw_text(
+        "Time Remaining:",
+        CGPoint { x: 12.0, y: header_y },
+        12.0,
+        &label_color,
+    );
+
+    // Draw countdown time in large bold text
+    let time_y = bounds.size.height - 48.0;
+    if is_warning {
+        // Show warning text
+        let warning_color = NSColor::colorWithRed_green_blue_alpha(1.0, 1.0, 0.0, 1.0);
+        draw_text_bold(&time_str, CGPoint { x: 12.0, y: time_y }, 20.0, &warning_color);
+
+        // Show warning indicator
+        draw_text(
+            "Exiting soon!",
+            CGPoint { x: 140.0, y: time_y + 4.0 },
+            14.0,
+            &warning_color,
+        );
+    } else {
+        draw_text_bold(&time_str, CGPoint { x: 12.0, y: time_y }, 20.0, &text_color);
+    }
 
     // Draw a progress bar showing remaining time
     let duration = AUTO_EXIT_DURATION_SECS.load(Ordering::SeqCst);
@@ -929,9 +1047,9 @@ fn draw_timer_display(view: &NSView) {
     };
 
     // Progress bar background
-    let bar_margin = 10.0;
-    let bar_height = 20.0;
-    let bar_y = (bounds.size.height - bar_height) / 2.0;
+    let bar_margin = 12.0;
+    let bar_height = 8.0;
+    let bar_y = 10.0;
     let bar_width = bounds.size.width - (bar_margin * 2.0);
 
     let bar_bg_color = NSColor::colorWithRed_green_blue_alpha(0.2, 0.2, 0.2, 1.0);
@@ -948,7 +1066,7 @@ fn draw_timer_display(view: &NSView) {
         },
     };
     let bar_bg_path =
-        NSBezierPath::bezierPathWithRoundedRect_xRadius_yRadius(bar_bg_rect, 5.0, 5.0);
+        NSBezierPath::bezierPathWithRoundedRect_xRadius_yRadius(bar_bg_rect, 4.0, 4.0);
     bar_bg_path.fill();
 
     // Progress bar fill
@@ -972,13 +1090,9 @@ fn draw_timer_display(view: &NSView) {
             },
         };
         let bar_fill_path =
-            NSBezierPath::bezierPathWithRoundedRect_xRadius_yRadius(bar_fill_rect, 5.0, 5.0);
+            NSBezierPath::bezierPathWithRoundedRect_xRadius_yRadius(bar_fill_rect, 4.0, 4.0);
         bar_fill_path.fill();
     }
-
-    // Print time to console periodically (every second, roughly)
-    // This is handled by the main timer callback which prints warnings
-    _ = time_str; // Suppress unused warning - time is displayed via progress bar
 }
 
 /// Ivars for the CloseButtonView
@@ -1056,6 +1170,110 @@ impl CloseButtonView {
         let this = this.set_ivars(CloseButtonViewIvars {});
         unsafe { msg_send![super(this), initWithFrame: frame] }
     }
+}
+
+/// Ivars for the CloseButtonLabelView
+struct CloseButtonLabelViewIvars {}
+
+define_class!(
+    #[unsafe(super(NSView))]
+    #[name = "CloseButtonLabelView"]
+    #[ivars = CloseButtonLabelViewIvars]
+    struct CloseButtonLabelView;
+
+    impl CloseButtonLabelView {
+        #[unsafe(method(drawRect:))]
+        unsafe fn draw_rect(&self, _dirty_rect: CGRect) {
+            draw_close_button_label(self);
+        }
+    }
+);
+
+impl CloseButtonLabelView {
+    fn new(mtm: MainThreadMarker, frame: CGRect) -> Retained<Self> {
+        let this = mtm.alloc::<CloseButtonLabelView>();
+        let this = this.set_ivars(CloseButtonLabelViewIvars {});
+        unsafe { msg_send![super(this), initWithFrame: frame] }
+    }
+}
+
+// Global reference to the close button label view for updating during hold
+static CLOSE_BUTTON_LABEL_VIEW: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+
+/// Draw the close button label with hold instructions
+fn draw_close_button_label(view: &NSView) {
+    let bounds = view.bounds();
+
+    // Get current hold progress
+    let progress = MOUSE_DOWN_TIME.with(|time| {
+        if let Some(start) = time.get() {
+            calculate_hold_progress(start.elapsed().as_secs_f64(), HOLD_DURATION_SECS)
+        } else {
+            0.0
+        }
+    });
+    let is_inside = IS_MOUSE_INSIDE.with(|inside| inside.get());
+    let is_holding = progress > 0.0 && is_inside;
+
+    // Background rounded rectangle
+    let bg_color = if is_holding {
+        NSColor::colorWithRed_green_blue_alpha(0.2, 0.2, 0.25, 0.95)
+    } else {
+        NSColor::colorWithRed_green_blue_alpha(0.1, 0.1, 0.15, 0.9)
+    };
+    bg_color.set();
+
+    let corner_radius = 8.0;
+    let bg_rect = CGRect {
+        origin: CGPoint { x: 0.0, y: 0.0 },
+        size: bounds.size,
+    };
+    let bg_path = NSBezierPath::bezierPathWithRoundedRect_xRadius_yRadius(
+        bg_rect,
+        corner_radius,
+        corner_radius,
+    );
+    bg_path.fill();
+
+    // Border
+    let border_color = if is_holding {
+        NSColor::colorWithRed_green_blue_alpha(0.4, 0.9, 0.4, 1.0)
+    } else {
+        NSColor::colorWithRed_green_blue_alpha(0.5, 0.5, 0.5, 0.8)
+    };
+    border_color.set();
+    bg_path.setLineWidth(1.5);
+    bg_path.stroke();
+
+    // Text colors
+    let text_color = NSColor::colorWithRed_green_blue_alpha(1.0, 1.0, 1.0, 1.0);
+    let hint_color = NSColor::colorWithRed_green_blue_alpha(0.7, 0.7, 0.7, 1.0);
+
+    if is_holding {
+        // Show countdown during hold
+        let remaining_secs = ((1.0 - progress) * HOLD_DURATION_SECS).ceil() as u32;
+        let countdown_text = format!("{}s...", remaining_secs);
+        let progress_color = NSColor::colorWithRed_green_blue_alpha(0.4, 1.0, 0.4, 1.0);
+
+        // Center the countdown text
+        draw_text_centered(
+            &countdown_text,
+            bounds,
+            16.0,
+            &progress_color,
+        );
+    } else {
+        // Show instruction text
+        draw_text_centered(
+            "Hold 3s to exit",
+            bounds,
+            12.0,
+            &hint_color,
+        );
+    }
+
+    // Suppress unused warning
+    _ = text_color;
 }
 
 /// Empty ivars for the MenuActionHandler
@@ -1330,6 +1548,16 @@ fn deactivate_shield() {
         }
     }
 
+    // Clear close button label view reference
+    let close_button_label_ptr = CLOSE_BUTTON_LABEL_VIEW.swap(std::ptr::null_mut(), Ordering::SeqCst);
+    if !close_button_label_ptr.is_null() {
+        unsafe {
+            let _label: Retained<CloseButtonLabelView> =
+                Retained::from_raw(close_button_label_ptr as *mut CloseButtonLabelView)
+                    .expect("CLOSE_BUTTON_LABEL_VIEW was valid");
+        }
+    }
+
     // Clear timer display view reference (only set in immediate mode, but clear for safety)
     TIMER_DISPLAY_VIEW.store(std::ptr::null_mut(), Ordering::SeqCst);
 
@@ -1531,9 +1759,36 @@ fn activate_shield(mtm: MainThreadMarker) {
         Ordering::SeqCst,
     );
 
-    // Add close button to the window's content view
+    // Create the close button label view (positioned below the button)
+    let label_x = screen_frame.size.width
+        - CLOSE_BUTTON_MARGIN
+        - CLOSE_BUTTON_SIZE / 2.0
+        - CLOSE_BUTTON_LABEL_WIDTH / 2.0;
+    let label_y = screen_frame.size.height
+        - CLOSE_BUTTON_SIZE
+        - CLOSE_BUTTON_MARGIN
+        - CLOSE_BUTTON_LABEL_HEIGHT
+        - 5.0; // 5px gap between button and label
+
+    let close_button_label_frame = CGRect {
+        origin: CGPoint { x: label_x, y: label_y },
+        size: CGSize {
+            width: CLOSE_BUTTON_LABEL_WIDTH,
+            height: CLOSE_BUTTON_LABEL_HEIGHT,
+        },
+    };
+    let close_button_label = CloseButtonLabelView::new(mtm, close_button_label_frame);
+
+    // Store label view reference for timer callback updates
+    CLOSE_BUTTON_LABEL_VIEW.store(
+        Retained::as_ptr(&close_button_label) as *mut c_void,
+        Ordering::SeqCst,
+    );
+
+    // Add close button and label to the window's content view
     if let Some(content_view) = window.contentView() {
         content_view.addSubview(&close_button);
+        content_view.addSubview(&close_button_label);
     }
 
     // Start the animation timer
@@ -2144,9 +2399,36 @@ fn main() {
         Ordering::SeqCst,
     );
 
-    // Add close button to the window's content view
+    // Create the close button label view (positioned below the button)
+    let label_x = screen_frame.size.width
+        - CLOSE_BUTTON_MARGIN
+        - CLOSE_BUTTON_SIZE / 2.0
+        - CLOSE_BUTTON_LABEL_WIDTH / 2.0;
+    let label_y = screen_frame.size.height
+        - CLOSE_BUTTON_SIZE
+        - CLOSE_BUTTON_MARGIN
+        - CLOSE_BUTTON_LABEL_HEIGHT
+        - 5.0; // 5px gap between button and label
+
+    let close_button_label_frame = CGRect {
+        origin: CGPoint { x: label_x, y: label_y },
+        size: CGSize {
+            width: CLOSE_BUTTON_LABEL_WIDTH,
+            height: CLOSE_BUTTON_LABEL_HEIGHT,
+        },
+    };
+    let close_button_label = CloseButtonLabelView::new(mtm, close_button_label_frame);
+
+    // Store label view reference for timer callback updates
+    CLOSE_BUTTON_LABEL_VIEW.store(
+        Retained::as_ptr(&close_button_label) as *mut c_void,
+        Ordering::SeqCst,
+    );
+
+    // Add close button and label to the window's content view
     if let Some(content_view) = window.contentView() {
         content_view.addSubview(&close_button);
+        content_view.addSubview(&close_button_label);
     }
 
     // Start the animation timer

@@ -51,6 +51,15 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
   - Added `if: contains(github.event.comment.body, '@claude')` condition
   - Claude now only responds when explicitly mentioned with `@claude`
 
+### Phase 3.5: Overlay Usability
+- [x] **Issue #10**: Add informative labels to overlay UI elements
+  - Timer display now shows "Time Remaining:" header with countdown text (e.g., "29m 45s")
+  - Warning state shows yellow text with "Exiting soon!" indicator when < 1 minute
+  - Close button has "Hold 3s to exit" instruction label below it
+  - During hold, label shows countdown ("3s...", "2s...", "1s...")
+  - Text rendering via NSAttributedString with proper font and color support
+  - All labels have good contrast against the overlay background
+
 ### Phase 4: Menu-Based Application Interface (In Progress)
 - [x] **Issue #14**: Create Menu Bar Infrastructure (NSStatusItem)
   - Added NSStatusItem with cat emoji (🐱) in menu bar
@@ -108,20 +117,19 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 
 | Priority | Issue | Title | Effort |
 |----------|-------|-------|--------|
-| 🟢 Medium | #10 | Add informative labels to overlay UI elements | ~1 day |
 | 🔵 Low | #11 | Add install script for easy CLI access | ~0.5 day |
 
 ## Issue Summary
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 6 | #10, #11, #13, #16, #18, #19 |
-| Closed | 8 | #3, #5, #6, #7, #14, #15, #17, #25 |
+| Open | 5 | #11, #13, #16, #18, #19 |
+| Closed | 9 | #3, #5, #6, #7, #10, #14, #15, #17, #25 |
 
 ### By Priority
 - 🔴 Critical: 0
 - 🟡 High: 1 (#18)
-- 🟢 Medium: 2 (#10, #16)
+- 🟢 Medium: 1 (#16)
 - 🔵 Low: 2 (#11, #19)
 - Epic: 1 (#13)
 - Configuration: 1 (#25 - Closed)
@@ -137,8 +145,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 ### Next Up
 5. **#16** - Settings Window (biggest effort, depends on #15 + #18)
 6. **#19** - About Panel (polish, low priority)
-7. **#10** - UI Labels (can be done anytime)
-8. **#11** - Install Script (can be done anytime)
+7. **#11** - Install Script (can be done anytime)
 
 ## Critical Path
 
@@ -149,7 +156,7 @@ Foundation:     #14 (Menu Bar) ✅ ──┬── #17 (Refactor Overlay) ✅
                                                  │
 Parallel:       #18 (Config) ───────────────────┘
 
-Independent:    #10 (UI Labels), #11 (Install Script)
+Independent:    #10 (UI Labels) ✅, #11 (Install Script)
 ```
 
 ## Future Considerations
@@ -165,6 +172,15 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-06
+- Completed Issue #10: Add informative labels to overlay UI elements
+  - Timer display now shows "Time Remaining:" header with countdown text (e.g., "29m 45s")
+  - Warning state shows yellow text with "Exiting soon!" indicator when < 1 minute remaining
+  - Close button has "Hold 3s to exit" instruction label positioned below the button
+  - During hold, label dynamically shows countdown ("3s...", "2s...", "1s...")
+  - Added text rendering via NSAttributedString with system fonts
+  - Added helper functions: `draw_text()`, `draw_text_centered()`, `draw_text_bold()`
+  - Created new `CloseButtonLabelView` custom NSView for the instruction label
+  - All labels have good contrast with proper background styling
 - Completed Issue #25: Limit Claude GitHub Action to only respond to comments
   - Removed `pull_request`, `issues`, `pull_request_review`, `pull_request_review_comment` triggers
   - Kept only `issue_comment` trigger (covers both issue and PR comments)
