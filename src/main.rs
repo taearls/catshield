@@ -695,6 +695,10 @@ fn draw_text(text: &str, point: CGPoint, font_size: CGFloat, color: &NSColor) {
 
         // Draw the attributed string at the point
         let _: () = msg_send![attr_string, drawAtPoint: point];
+
+        // Release objects to prevent memory leak (these are +1 retained from new/alloc+init)
+        let _: () = msg_send![dict, release];
+        let _: () = msg_send![attr_string, release];
     }
 }
 
@@ -727,6 +731,10 @@ fn draw_text_centered(text: &str, rect: CGRect, font_size: CGFloat, color: &NSCo
 
         let draw_point = CGPoint { x, y };
         let _: () = msg_send![attr_string, drawAtPoint: draw_point];
+
+        // Release objects to prevent memory leak
+        let _: () = msg_send![dict, release];
+        let _: () = msg_send![attr_string, release];
     }
 }
 
@@ -751,6 +759,10 @@ fn draw_text_bold(text: &str, point: CGPoint, font_size: CGFloat, color: &NSColo
         let attr_string: *mut NSObject = msg_send![attr_string, initWithString: &*ns_text, attributes: dict];
 
         let _: () = msg_send![attr_string, drawAtPoint: point];
+
+        // Release objects to prevent memory leak
+        let _: () = msg_send![dict, release];
+        let _: () = msg_send![attr_string, release];
     }
 }
 
@@ -1245,8 +1257,7 @@ fn draw_close_button_label(view: &NSView) {
     bg_path.setLineWidth(1.5);
     bg_path.stroke();
 
-    // Text colors
-    let text_color = NSColor::colorWithRed_green_blue_alpha(1.0, 1.0, 1.0, 1.0);
+    // Text color for hint
     let hint_color = NSColor::colorWithRed_green_blue_alpha(0.7, 0.7, 0.7, 1.0);
 
     if is_holding {
@@ -1271,9 +1282,6 @@ fn draw_close_button_label(view: &NSView) {
             &hint_color,
         );
     }
-
-    // Suppress unused warning
-    _ = text_color;
 }
 
 /// Empty ivars for the MenuActionHandler
@@ -1834,9 +1842,10 @@ fn activate_shield(mtm: MainThreadMarker) {
     println!("        Or press {}", exit_key.display_name);
     println!();
 
-    // Keep the window retained so it doesn't get deallocated
+    // Keep the window and views retained so they don't get deallocated
     std::mem::forget(window);
     std::mem::forget(close_button);
+    std::mem::forget(close_button_label);
 }
 
 /// Callback for the CGEventTap - intercepts and blocks events
