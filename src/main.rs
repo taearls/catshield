@@ -538,6 +538,36 @@ impl Config {
 
         Ok(())
     }
+
+    /// Load configuration from a specific path (for testing)
+    #[cfg(test)]
+    fn load_from_path(path: &std::path::Path) -> Self {
+        if !path.exists() {
+            return Self::default();
+        }
+
+        match fs::read_to_string(path) {
+            Ok(contents) => match toml::from_str(&contents) {
+                Ok(config) => config,
+                Err(_) => Self::default(),
+            },
+            Err(_) => Self::default(),
+        }
+    }
+
+    /// Save configuration to a specific path (for testing)
+    #[cfg(test)]
+    fn save_to_path(&self, path: &std::path::Path) -> Result<(), String> {
+        // Create directory if it doesn't exist
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).map_err(|e| format!("Failed to create config directory: {}", e))?;
+        }
+
+        let content = toml::to_string_pretty(self).map_err(|e| format!("Failed to serialize config: {}", e))?;
+        fs::write(path, content).map_err(|e| format!("Failed to write config file: {}", e))?;
+
+        Ok(())
+    }
 }
 
 // Close button configuration
@@ -3560,5 +3590,271 @@ mod tests {
             exit_key: None,
         };
         assert!(!has_immediate_start_args(&args));
+    }
+
+    // =========================================================
+    // Config Integration Tests
+    // =========================================================
+
+    // Config Loading Tests
+
+    #[test]
+    fn test_config_load_missing_file_returns_default() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("nonexistent.toml");
+
+        let config = Config::load_from_path(&config_path);
+
+        assert!(config.exit_key.is_none());
+        assert!(config.default_timer.is_none());
+        assert!(config.overlay_opacity.is_none());
+    }
+
+    #[test]
+    fn test_config_load_empty_file_returns_default() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+        std::fs::write(&config_path, "").unwrap();
+
+        let config = Config::load_from_path(&config_path);
+
+        assert!(config.exit_key.is_none());
+        assert!(config.default_timer.is_none());
+        assert!(config.overlay_opacity.is_none());
+    }
+
+    #[test]
+    fn test_config_load_valid_toml() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+        std::fs::write(
+            &config_path,
+            r#"
+exit_key = "Cmd+Shift+Q"
+default_timer = "30m"
+overlay_opacity = 0.6
+"#,
+        )
+        .unwrap();
+
+        let config = Config::load_from_path(&config_path);
+
+        assert_eq!(config.exit_key, Some("Cmd+Shift+Q".to_string()));
+        assert_eq!(config.default_timer, Some("30m".to_string()));
+        assert_eq!(config.overlay_opacity, Some(0.6));
+    }
+
+    #[test]
+    fn test_config_load_partial_toml_uses_defaults() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+        std::fs::write(&config_path, r#"exit_key = "Cmd+Shift+Q""#).unwrap();
+
+        let config = Config::load_from_path(&config_path);
+
+        assert_eq!(config.exit_key, Some("Cmd+Shift+Q".to_string()));
+        assert!(config.default_timer.is_none());
+        assert!(config.overlay_opacity.is_none());
+    }
+
+    #[test]
+    fn test_config_load_invalid_toml_returns_default() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+        std::fs::write(&config_path, "this is not valid toml {{{{").unwrap();
+
+        let config = Config::load_from_path(&config_path);
+
+        assert!(config.exit_key.is_none());
+        assert!(config.default_timer.is_none());
+        assert!(config.overlay_opacity.is_none());
+    }
+
+    #[test]
+    fn test_config_load_with_unknown_fields_ignores_them() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+        std::fs::write(
+            &config_path,
+            r#"
+exit_key = "Cmd+Option+X"
+unknown_field = "should be ignored"
+another_unknown = 42
+"#,
+        )
+        .unwrap();
+
+        let config = Config::load_from_path(&config_path);
+
+        assert_eq!(config.exit_key, Some("Cmd+Option+X".to_string()));
+    }
+
+    // Config Saving Tests
+
+    #[test]
+    fn test_config_save_creates_directory() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("subdir").join("config.toml");
+
+        let config = Config {
+            exit_key: Some("Cmd+Option+U".to_string()),
+            default_timer: None,
+            overlay_opacity: None,
+        };
+
+        config.save_to_path(&config_path).unwrap();
+
+        assert!(config_path.parent().unwrap().exists());
+    }
+
+    #[test]
+    fn test_config_save_creates_file() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+
+        let config = Config {
+            exit_key: Some("Cmd+Option+U".to_string()),
+            default_timer: None,
+            overlay_opacity: None,
+        };
+
+        config.save_to_path(&config_path).unwrap();
+
+        assert!(config_path.exists());
+    }
+
+    #[test]
+    fn test_config_save_writes_valid_toml() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+
+        let config = Config {
+            exit_key: Some("Cmd+Shift+X".to_string()),
+            default_timer: Some("1h".to_string()),
+            overlay_opacity: Some(0.7),
+        };
+
+        config.save_to_path(&config_path).unwrap();
+
+        let content = std::fs::read_to_string(&config_path).unwrap();
+        assert!(content.contains("exit_key = \"Cmd+Shift+X\""));
+        assert!(content.contains("default_timer = \"1h\""));
+        assert!(content.contains("overlay_opacity = 0.7"));
+    }
+
+    #[test]
+    fn test_config_save_overwrites_existing() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+
+        // Write initial config
+        let config1 = Config {
+            exit_key: Some("Cmd+Option+A".to_string()),
+            default_timer: None,
+            overlay_opacity: None,
+        };
+        config1.save_to_path(&config_path).unwrap();
+
+        // Overwrite with new config
+        let config2 = Config {
+            exit_key: Some("Cmd+Option+B".to_string()),
+            default_timer: Some("2h".to_string()),
+            overlay_opacity: Some(0.3),
+        };
+        config2.save_to_path(&config_path).unwrap();
+
+        let content = std::fs::read_to_string(&config_path).unwrap();
+        assert!(content.contains("exit_key = \"Cmd+Option+B\""));
+        assert!(content.contains("default_timer = \"2h\""));
+        assert!(!content.contains("Cmd+Option+A"));
+    }
+
+    // Config Round-Trip Tests
+
+    #[test]
+    fn test_config_round_trip_all_fields() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+
+        let original = Config {
+            exit_key: Some("Ctrl+Option+Escape".to_string()),
+            default_timer: Some("45m".to_string()),
+            overlay_opacity: Some(0.65),
+        };
+
+        original.save_to_path(&config_path).unwrap();
+        let loaded = Config::load_from_path(&config_path);
+
+        assert_eq!(original.exit_key, loaded.exit_key);
+        assert_eq!(original.default_timer, loaded.default_timer);
+        assert_eq!(original.overlay_opacity, loaded.overlay_opacity);
+    }
+
+    #[test]
+    fn test_config_round_trip_partial_fields() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+
+        let original = Config {
+            exit_key: Some("Cmd+Shift+Q".to_string()),
+            default_timer: None,
+            overlay_opacity: Some(0.4),
+        };
+
+        original.save_to_path(&config_path).unwrap();
+        let loaded = Config::load_from_path(&config_path);
+
+        assert_eq!(original.exit_key, loaded.exit_key);
+        assert!(loaded.default_timer.is_none());
+        assert_eq!(original.overlay_opacity, loaded.overlay_opacity);
+    }
+
+    // Config Opacity Tests
+
+    #[test]
+    fn test_config_opacity_default_when_none() {
+        let config = Config {
+            exit_key: None,
+            default_timer: None,
+            overlay_opacity: None,
+        };
+
+        assert_eq!(config.opacity(), DEFAULT_OVERLAY_OPACITY);
+        assert_eq!(config.opacity(), 0.5);
+    }
+
+    #[test]
+    fn test_config_opacity_clamps_below_min() {
+        let config = Config {
+            exit_key: None,
+            default_timer: None,
+            overlay_opacity: Some(0.1), // Below MIN_OVERLAY_OPACITY (0.2)
+        };
+
+        assert_eq!(config.opacity(), MIN_OVERLAY_OPACITY);
+        assert_eq!(config.opacity(), 0.2);
+    }
+
+    #[test]
+    fn test_config_opacity_clamps_above_max() {
+        let config = Config {
+            exit_key: None,
+            default_timer: None,
+            overlay_opacity: Some(0.95), // Above MAX_OVERLAY_OPACITY (0.8)
+        };
+
+        assert_eq!(config.opacity(), MAX_OVERLAY_OPACITY);
+        assert_eq!(config.opacity(), 0.8);
+    }
+
+    #[test]
+    fn test_config_opacity_valid_value_unchanged() {
+        let config = Config {
+            exit_key: None,
+            default_timer: None,
+            overlay_opacity: Some(0.6),
+        };
+
+        assert_eq!(config.opacity(), 0.6);
     }
 }
