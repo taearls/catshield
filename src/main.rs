@@ -89,6 +89,7 @@ extern "C" {
         order: i64,
     ) -> *mut c_void;
     fn CFRunLoopAddSource(rl: *mut c_void, source: *mut c_void, mode: *const c_void);
+    fn CFRunLoopRemoveSource(rl: *mut c_void, source: *mut c_void, mode: *const c_void);
 
     // Run loop access
     fn CFRunLoopGetCurrent() -> *mut c_void;
@@ -676,6 +677,8 @@ static CLOSE_BUTTON_VIEW: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut(
 
 // Global pointer to the event tap for re-enabling from callback
 static EVENT_TAP: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+// Global pointer to the event tap's run loop source for cleanup
+static EVENT_TAP_RUN_LOOP_SOURCE: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 
 // Global timer state for auto-exit feature
 static AUTO_EXIT_ENABLED: AtomicBool = AtomicBool::new(false);
@@ -1241,14 +1244,30 @@ fn allow_sleep(assertion_id: u32) {
 
 /// Disable and clean up the event tap
 fn disable_event_tap() {
-    let tap_ptr = EVENT_TAP.load(Ordering::SeqCst);
+    let tap_ptr = EVENT_TAP.swap(std::ptr::null_mut(), Ordering::SeqCst);
+    let source_ptr = EVENT_TAP_RUN_LOOP_SOURCE.swap(std::ptr::null_mut(), Ordering::SeqCst);
+
     if !tap_ptr.is_null() {
         unsafe {
-            // Disable the tap using the FFI function
+            // Disable the tap
             CGEventTapEnable(tap_ptr, false);
+
+            // Remove the run loop source from the run loop before releasing
+            if !source_ptr.is_null() {
+                let current_run_loop = CFRunLoopGetCurrent();
+                let run_loop_mode = kCFRunLoopCommonModes.expect("kCFRunLoopCommonModes should exist");
+                CFRunLoopRemoveSource(
+                    current_run_loop,
+                    source_ptr,
+                    (run_loop_mode as *const CFString) as *const c_void,
+                );
+                // Release the run loop source
+                CFRelease(source_ptr);
+            }
+
+            // Release the CFMachPort
+            CFRelease(tap_ptr);
         }
-        // Clear the global reference
-        EVENT_TAP.store(std::ptr::null_mut(), Ordering::SeqCst);
         println!("  ✓ Input blocking disabled");
     }
 }
@@ -1691,6 +1710,9 @@ fn setup_event_tap() -> bool {
             return false;
         }
 
+        // Store run loop source for cleanup in disable_event_tap()
+        EVENT_TAP_RUN_LOOP_SOURCE.store(run_loop_source, Ordering::SeqCst);
+
         // Add to run loop
         let current_run_loop = CFRunLoopGetCurrent();
         let run_loop_mode = kCFRunLoopCommonModes.expect("kCFRunLoopCommonModes should exist");
@@ -1703,9 +1725,9 @@ fn setup_event_tap() -> bool {
         // Enable the tap
         CGEventTapEnable(tap_ptr, true);
 
-        // Intentionally leak the CFRetained<CFMachPort> to keep the event tap alive
-        // for the entire program lifetime. The raw pointer in EVENT_TAP remains valid,
-        // and cleanup happens automatically on process exit.
+        // Transfer ownership of CFMachPort to raw pointer stored in EVENT_TAP.
+        // We call std::mem::forget to prevent CFRetained from releasing it here;
+        // instead, we'll release it manually via CFRelease in disable_event_tap().
         std::mem::forget(tap);
 
         true
