@@ -358,6 +358,7 @@ fn format_exit_key_display() -> String {
 /// Convert keycode back to key name for display
 fn keycode_to_name(keycode: i64) -> Option<&'static str> {
     match keycode {
+        // Letters
         0 => Some("A"),
         11 => Some("B"),
         8 => Some("C"),
@@ -384,6 +385,7 @@ fn keycode_to_name(keycode: i64) -> Option<&'static str> {
         7 => Some("X"),
         16 => Some("Y"),
         6 => Some("Z"),
+        // Numbers
         18 => Some("1"),
         19 => Some("2"),
         20 => Some("3"),
@@ -394,11 +396,25 @@ fn keycode_to_name(keycode: i64) -> Option<&'static str> {
         28 => Some("8"),
         25 => Some("9"),
         29 => Some("0"),
+        // Punctuation and symbols
+        24 => Some("="),
+        27 => Some("-"),
+        30 => Some("]"),
+        33 => Some("["),
+        39 => Some("'"),
+        41 => Some(";"),
+        42 => Some("\\"),
+        43 => Some(","),
+        44 => Some("/"),
+        47 => Some("."),
+        50 => Some("`"),
+        // Special keys
         53 => Some("Escape"),
         36 => Some("Return"),
         48 => Some("Tab"),
         49 => Some("Space"),
         51 => Some("Delete"),
+        // Function keys
         122 => Some("F1"),
         120 => Some("F2"),
         99 => Some("F3"),
@@ -411,6 +427,11 @@ fn keycode_to_name(keycode: i64) -> Option<&'static str> {
         109 => Some("F10"),
         103 => Some("F11"),
         111 => Some("F12"),
+        // Navigation keys
+        115 => Some("Home"),
+        119 => Some("End"),
+        116 => Some("PageUp"),
+        121 => Some("PageDown"),
         123 => Some("Left"),
         124 => Some("Right"),
         125 => Some("Down"),
