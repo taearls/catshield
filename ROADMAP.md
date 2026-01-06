@@ -87,6 +87,26 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
   - Prevents double-activation: menu item disabled while shield is active
   - Menu item re-enabled after shield deactivates
   - Clean state management with proper cleanup (event tap, sleep assertion, window)
+- [x] **Issue #18**: Extend Config for New Settings
+  - Added `default_timer: Option<String>` for persistent timer duration
+  - Added `overlay_opacity: Option<f64>` for configurable opacity (0.2-0.8)
+  - Added `Serialize` derive to Config for saving to file
+  - Added `Config::save()` method to persist settings to `~/.config/catshield/config.toml`
+  - Added `Config::opacity()` helper with clamping to valid range
+  - Creates config directory if it doesn't exist
+  - Default opacity is 0.5 (50%) when not specified
+- [x] **Issue #16**: Create Settings Window
+  - Settings window opens centered on screen from menu bar Settings... item (Cmd+,)
+  - Exit Key field with real-time validation using `ExitKey::parse()`
+  - Default Timer section with enable checkbox and duration field
+  - Timer duration field accepts formats: 30m, 2h, 1h30m, 90s
+  - Timer field disabled when checkbox unchecked
+  - Overlay Opacity slider from 20% to 80% with live percentage display
+  - Save button validates all fields and persists to config file
+  - Cancel button (Escape) discards changes and closes window
+  - Only one settings window can be open at a time
+  - Window properly manages focus (text fields work)
+  - Validation feedback with green checkmark or red error messages
 
 ## Open Issues
 
@@ -99,17 +119,17 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 | ✅ Done | #14 | Create Menu Bar Infrastructure (NSStatusItem) | None | ~1 day |
 | ✅ Done | #15 | Create Main Dropdown Menu | ✅ #14 | ~1 day |
 | ✅ Done | #17 | Refactor Overlay to On-Demand Activation | ✅ #14 | ~2 days |
-| 🟡 High | #18 | Extend Config for New Settings | None | ~1 day |
-| 🟢 Medium | #16 | Create Settings Window | ✅ #15, #18 | ~3 days |
+| ✅ Done | #18 | Extend Config for New Settings | None | ~1 day |
+| ✅ Done | #16 | Create Settings Window | ✅ #15, ✅ #18 | ~3 days |
 | 🔵 Low | #19 | Add About Panel | ✅ #15 | ~0.5 day |
 
 **Implementation Order:**
 ```
-#14: Menu Bar Infrastructure
-    ├── #17: Refactor Overlay (parallel with #15)
-    └── #15: Dropdown Menu
-            ├── #18: Extend Config (parallel)
-            └── #16: Settings Window
+#14: Menu Bar Infrastructure ✅
+    ├── #17: Refactor Overlay ✅ (parallel with #15)
+    └── #15: Dropdown Menu ✅
+            ├── #18: Extend Config ✅ (parallel)
+            └── #16: Settings Window ✅
                     └── #19: About Panel (optional)
 ```
 
@@ -123,27 +143,27 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 5 | #11, #13, #16, #18, #19 |
-| Closed | 9 | #3, #5, #6, #7, #10, #14, #15, #17, #25 |
+| Open | 3 | #11, #13, #19 |
+| Closed | 11 | #3, #5, #6, #7, #10, #14, #15, #16, #17, #18, #25 |
 
 ### By Priority
 - 🔴 Critical: 0
-- 🟡 High: 1 (#18)
-- 🟢 Medium: 1 (#16)
+- 🟡 High: 0
+- 🟢 Medium: 0
 - 🔵 Low: 2 (#11, #19)
 - Epic: 1 (#13)
 - Configuration: 1 (#25 - Closed)
 
 ## Recommended Implementation Order
 
-### Current Sprint: Phase 4 Foundation
+### Current Sprint: Phase 4 Foundation - COMPLETE
 1. ~~**#14** - Menu Bar Infrastructure~~ ✅ COMPLETED
 2. ~~**#15** - Main Dropdown Menu~~ ✅ COMPLETED
 3. ~~**#17** - Refactor Overlay~~ ✅ COMPLETED
-4. **#18** - Extend Config (can parallel with other work)
+4. ~~**#18** - Extend Config~~ ✅ COMPLETED
+5. ~~**#16** - Settings Window~~ ✅ COMPLETED
 
 ### Next Up
-5. **#16** - Settings Window (biggest effort, depends on #15 + #18)
 6. **#19** - About Panel (polish, low priority)
 7. **#11** - Install Script (can be done anytime)
 
@@ -152,9 +172,9 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 ```
 Foundation:     #14 (Menu Bar) ✅ ──┬── #17 (Refactor Overlay) ✅
                                     │
-                                    └── #15 (Dropdown Menu) ✅ ── #16 (Settings) ── #19 (About)
+                                    └── #15 (Dropdown Menu) ✅ ── #16 (Settings) ✅ ── #19 (About)
                                                  │
-Parallel:       #18 (Config) ───────────────────┘
+Parallel:       #18 (Config) ✅ ────────────────┘
 
 Independent:    #10 (UI Labels) ✅, #11 (Install Script)
 ```
@@ -172,6 +192,29 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-06
+- Completed Issue #16: Create Settings Window
+  - Settings window accessible from menu bar via Settings... (Cmd+,)
+  - Exit Key Shortcut text field with real-time validation using `ExitKey::parse()`
+  - Default Timer section with enable checkbox and duration text field
+  - Timer field accepts formats: 30m, 2h, 1h30m, 90s using existing `parse_duration()`
+  - Timer text field disabled/grayed when checkbox is unchecked
+  - Overlay Opacity slider from 20% to 80% with live percentage display
+  - Save button validates all fields before persisting to `~/.config/catshield/config.toml`
+  - Cancel button (Escape) discards changes and closes window
+  - Only one settings window can be open at a time
+  - Validation feedback with green checkmarks for valid input or red error messages
+  - Settings window opens centered on screen
+  - Uses NSPanel for utility window style
+  - Created `SettingsActionHandler` class with action methods for all UI interactions
+- Completed Issue #18: Extend Config for New Settings
+  - Added `default_timer: Option<String>` field for persistent timer duration
+  - Added `overlay_opacity: Option<f64>` field for configurable overlay opacity
+  - Added `Serialize` derive to Config struct for saving
+  - Added `Config::save()` method to write settings to TOML file
+  - Added `Config::opacity()` helper method with clamping to valid range (0.2-0.8)
+  - Creates config directory if it doesn't exist on save
+  - Default opacity is 0.5 (50%) when not specified in config
+  - Added global config storage with `CURRENT_CONFIG`, `get_current_config()`, `set_current_config()`
 - Completed Issue #10: Add informative labels to overlay UI elements
   - Timer display now shows "Time Remaining:" header with countdown text (e.g., "29m 45s")
   - Warning state shows yellow text with "Exiting soon!" indicator when < 1 minute remaining
