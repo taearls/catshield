@@ -52,6 +52,17 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
   - Basic dropdown menu with branding and Quit option
   - CLI arguments (--timer, --exit-key) bypass menu bar and start shield immediately
   - Foundation for subsequent menu features (#15, #16, #17)
+- [x] **Issue #15**: Create Main Dropdown Menu
+  - Comprehensive menu structure with all application features
+  - Protection section: Start/Stop Protection items (ready for #17)
+  - Configuration section: Settings with Cmd+, shortcut (ready for #16)
+  - Information section: About Cat Shield (ready for #19) and Help submenu
+  - Help submenu with View Documentation, Report Issue, and Release Notes
+  - All menu items include tooltips explaining their purpose
+  - Keyboard shortcuts: Cmd+Q (Quit), Cmd+, (Settings)
+  - Stop Protection initially hidden, will show when shield is active
+  - Proper menu organization with section separators
+  - Foundation complete for #16, #17, and #19 to implement functionality
 - [x] **Issue #17**: Refactor Overlay to On-Demand Activation
   - Running `catshield` (no args) shows menu bar icon only, no overlay
   - Running `catshield --timer` or `catshield --exit-key` starts protection immediately
@@ -70,11 +81,11 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 | Priority | Issue | Title | Dependencies | Effort |
 |----------|-------|-------|--------------|--------|
 | ✅ Done | #14 | Create Menu Bar Infrastructure (NSStatusItem) | None | ~1 day |
+| ✅ Done | #15 | Create Main Dropdown Menu | ✅ #14 | ~1 day |
 | ✅ Done | #17 | Refactor Overlay to On-Demand Activation | ✅ #14 | ~2 days |
-| 🟡 High | #15 | Create Main Dropdown Menu | ✅ #14 | ~1 day |
 | 🟡 High | #18 | Extend Config for New Settings | None | ~1 day |
-| 🟢 Medium | #16 | Create Settings Window | #15, #18 | ~3 days |
-| 🔵 Low | #19 | Add About Panel | #15 | ~0.5 day |
+| 🟢 Medium | #16 | Create Settings Window | ✅ #15, #18 | ~3 days |
+| 🔵 Low | #19 | Add About Panel | ✅ #15 | ~0.5 day |
 
 **Implementation Order:**
 ```
@@ -97,12 +108,12 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 7 | #10, #11, #13, #15, #16, #18, #19 |
-| Closed | 6 | #3, #5, #6, #7, #14, #17 |
+| Open | 6 | #10, #11, #13, #16, #18, #19 |
+| Closed | 7 | #3, #5, #6, #7, #14, #15, #17 |
 
 ### By Priority
 - 🔴 Critical: 0
-- 🟡 High: 2 (#15, #18)
+- 🟡 High: 1 (#18)
 - 🟢 Medium: 2 (#10, #16)
 - 🔵 Low: 2 (#11, #19)
 - Epic: 1 (#13)
@@ -111,9 +122,9 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 
 ### Current Sprint: Phase 4 Foundation
 1. ~~**#14** - Menu Bar Infrastructure~~ ✅ COMPLETED
-2. ~~**#17** - Refactor Overlay~~ ✅ COMPLETED
-3. **#15** - Main Dropdown Menu (unblocked by #14)
-4. **#18** - Extend Config (can parallel with menu work)
+2. ~~**#15** - Main Dropdown Menu~~ ✅ COMPLETED
+3. ~~**#17** - Refactor Overlay~~ ✅ COMPLETED
+4. **#18** - Extend Config (can parallel with other work)
 
 ### Next Up
 5. **#16** - Settings Window (biggest effort, depends on #15 + #18)
@@ -126,7 +137,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 ```
 Foundation:     #14 (Menu Bar) ✅ ──┬── #17 (Refactor Overlay) ✅
                                     │
-                                    └── #15 (Dropdown Menu) ── #16 (Settings) ── #19 (About)
+                                    └── #15 (Dropdown Menu) ✅ ── #16 (Settings) ── #19 (About)
                                                  │
 Parallel:       #18 (Config) ───────────────────┘
 
@@ -154,6 +165,21 @@ Potential future enhancements (not yet tracked as issues):
   - Added `activate_shield()` and `deactivate_shield()` functions
   - Menu item disabled during active protection, re-enabled after deactivation
   - Proper cleanup: event tap, sleep assertion, window, timer state
+
+### 2026-01-03
+- Completed Issue #15: Create Main Dropdown Menu
+  - Comprehensive menu structure with all application features organized into sections
+  - Protection section: Start Protection and Stop Protection menu items (ready for #17)
+  - Configuration section: Settings menu item with Cmd+, keyboard shortcut (ready for #16)
+  - Information section: About Cat Shield (ready for #19) and Help submenu
+  - Help submenu includes: View Documentation, Report Issue, and Release Notes
+  - All menu items include descriptive tooltips explaining their purpose
+  - Stop Protection initially hidden, will be shown when shield becomes active
+  - Proper menu organization with section separators for clarity
+  - Keyboard shortcuts: Cmd+Q for Quit, Cmd+, for Settings
+  - Enhanced tooltip on menu bar icon: "Cat Shield - Protect your work from curious cats"
+  - Foundation complete for #16 (Settings Window) and #19 (About Panel) to build upon
+  - Unblocks #16 and #19 for continued Phase 4 development
 
 ### 2026-01-02
 - Completed Issue #14: Create Menu Bar Infrastructure (NSStatusItem)

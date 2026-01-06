@@ -1717,7 +1717,14 @@ fn setup_event_tap() -> bool {
 /// Creates an NSStatusItem in the system menu bar with:
 /// - Cat emoji (🐱) as the icon
 /// - "Cat Shield" tooltip on hover
-/// - Basic menu with Start Protection and Quit options
+/// - Comprehensive dropdown menu with all application features
+///
+/// Menu Structure:
+/// - Header: "🐱 Cat Shield" (branding)
+/// - Protection: Start/Stop Protection (for Issue #17)
+/// - Configuration: Settings (for Issue #16)
+/// - Information: About and Help (About for Issue #19)
+/// - Exit: Quit with Cmd+Q
 ///
 /// Returns the Retained<NSStatusItem> which must be kept alive for the duration
 /// of the app to prevent the status item from being deallocated.
@@ -1735,11 +1742,15 @@ fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
         button.setTitle(ns_string!("🐱"));
 
         // Set tooltip for accessibility
-        button.setToolTip(Some(ns_string!("Cat Shield")));
+        button.setToolTip(Some(ns_string!("Cat Shield - Protect your work from curious cats")));
     }
 
-    // Create a simple menu for now (will be expanded in Issue #15)
+    // Create the main dropdown menu
     let menu = NSMenu::new(mtm);
+
+    // ============================================
+    // HEADER SECTION
+    // ============================================
 
     // Add "Cat Shield" title (disabled, just for branding)
     let title_item = NSMenuItem::new(mtm);
@@ -1747,12 +1758,11 @@ fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
     title_item.setEnabled(false);
     menu.addItem(&title_item);
 
-    // Add separator
     menu.addItem(&NSMenuItem::separatorItem(mtm));
 
-    // Add "Start Protection" item
-    let start_item = NSMenuItem::new(mtm);
-    start_item.setTitle(ns_string!("Start Protection"));
+    // ============================================
+    // PROTECTION SECTION
+    // ============================================
 
     // Create menu action handler and wire it to the Start Protection item
     let action_handler = MenuActionHandler::new(mtm);
@@ -1762,6 +1772,11 @@ fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
         Retained::as_ptr(&action_handler) as *mut c_void,
         Ordering::SeqCst,
     );
+
+    // Add "Start Protection" item - activates the shield overlay on-demand
+    let start_item = NSMenuItem::new(mtm);
+    start_item.setTitle(ns_string!("Start Protection"));
+    start_item.setToolTip(Some(ns_string!("Activate cat shield overlay")));
 
     // Set the target and action for the menu item
     unsafe {
@@ -1780,19 +1795,87 @@ fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
     // Keep handler alive
     std::mem::forget(action_handler);
 
-    // Add "Settings..." item (placeholder - will be functional in Issue #16)
+    // Add "Stop Protection" item - deactivates the shield overlay when active
+    // Initially hidden, will be shown when protection is active
+    let stop_item = NSMenuItem::new(mtm);
+    stop_item.setTitle(ns_string!("Stop Protection"));
+    stop_item.setToolTip(Some(ns_string!("Deactivate cat shield overlay")));
+    stop_item.setEnabled(false); // Will be enabled when shield is active
+    stop_item.setHidden(true);   // Hidden until protection is active
+    menu.addItem(&stop_item);
+
+    menu.addItem(&NSMenuItem::separatorItem(mtm));
+
+    // ============================================
+    // CONFIGURATION SECTION
+    // ============================================
+
+    // Add "Settings..." item (will be functional in Issue #16)
+    // Opens settings window for configuring timer, opacity, exit key, etc.
     let settings_item = NSMenuItem::new(mtm);
     settings_item.setTitle(ns_string!("Settings..."));
+    settings_item.setToolTip(Some(ns_string!("Configure shield settings (Available in Issue #16)")));
+    settings_item.setKeyEquivalent(ns_string!(",")); // Standard Cmd+, for settings
     settings_item.setEnabled(false); // Disabled until Issue #16 implements settings window
     menu.addItem(&settings_item);
 
-    // Add separator
     menu.addItem(&NSMenuItem::separatorItem(mtm));
+
+    // ============================================
+    // INFORMATION SECTION
+    // ============================================
+
+    // Add "About Cat Shield" item (will be functional in Issue #19)
+    // Shows version, credits, and app information
+    let about_item = NSMenuItem::new(mtm);
+    about_item.setTitle(ns_string!("About Cat Shield"));
+    about_item.setToolTip(Some(ns_string!("About this application (Available in Issue #19)")));
+    about_item.setEnabled(false); // Disabled until Issue #19 implements about panel
+    menu.addItem(&about_item);
+
+    // Add "Help" submenu
+    // Contains links to documentation, GitHub, and support resources
+    let help_item = NSMenuItem::new(mtm);
+    help_item.setTitle(ns_string!("Help"));
+
+    // Create Help submenu
+    let help_submenu = NSMenu::new(mtm);
+
+    // Help -> View Documentation
+    let docs_item = NSMenuItem::new(mtm);
+    docs_item.setTitle(ns_string!("View Documentation"));
+    docs_item.setToolTip(Some(ns_string!("Open README on GitHub")));
+    docs_item.setEnabled(false); // Will need custom action handler to open URL
+    help_submenu.addItem(&docs_item);
+
+    // Help -> Report Issue
+    let issue_item = NSMenuItem::new(mtm);
+    issue_item.setTitle(ns_string!("Report Issue"));
+    issue_item.setToolTip(Some(ns_string!("Report a bug on GitHub")));
+    issue_item.setEnabled(false); // Will need custom action handler to open URL
+    help_submenu.addItem(&issue_item);
+
+    // Help -> Release Notes
+    let release_item = NSMenuItem::new(mtm);
+    release_item.setTitle(ns_string!("Release Notes"));
+    release_item.setToolTip(Some(ns_string!("View ROADMAP and release notes")));
+    release_item.setEnabled(false); // Will need custom action handler to open URL
+    help_submenu.addItem(&release_item);
+
+    help_item.setSubmenu(Some(&help_submenu));
+    menu.addItem(&help_item);
+
+    menu.addItem(&NSMenuItem::separatorItem(mtm));
+
+    // ============================================
+    // EXIT SECTION
+    // ============================================
 
     // Add "Quit Cat Shield" item
     // Note: This uses the standard terminate: action which NSApplication handles
     let quit_item = NSMenuItem::new(mtm);
     quit_item.setTitle(ns_string!("Quit Cat Shield"));
+    quit_item.setToolTip(Some(ns_string!("Quit the application")));
     unsafe {
         quit_item.setAction(Some(objc2::sel!(terminate:)));
     }
@@ -1803,7 +1886,7 @@ fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
     // Attach menu to status item
     status_item.setMenu(Some(&menu));
 
-    println!("  ✓ Menu bar icon active (🐱)");
+    println!("  ✓ Menu bar icon active (🐱) with comprehensive dropdown menu");
 
     status_item
 }
