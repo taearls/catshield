@@ -1548,12 +1548,27 @@ fn activate_shield(mtm: MainThreadMarker) {
         HAS_SLEEP_ASSERTION.store(true, Ordering::SeqCst);
     }
 
-    // Set up event tap
-    if setup_event_tap() {
-        println!("  ✓ Input blocking active");
-    } else {
+    // Set up event tap - this is the core security feature
+    // Without input blocking, the shield is just a visual overlay
+    if !setup_event_tap() {
         eprintln!("  ✗ Failed to create event tap");
+        eprintln!();
+        eprintln!("  ════════════════════════════════════════");
+        eprintln!("  ⚠️  SHIELD ACTIVATION FAILED");
+        eprintln!("  ════════════════════════════════════════");
+        eprintln!();
+        eprintln!("  Input blocking could not be enabled.");
+        eprintln!("  The shield cannot protect without this feature.");
+        eprintln!();
+        eprintln!("  Please check:");
+        eprintln!("  - Accessibility permissions are granted");
+        eprintln!("  - No other apps are blocking event taps");
+        eprintln!();
+        // Deactivate and return to menu bar mode
+        deactivate_shield();
+        return;
     }
+    println!("  ✓ Input blocking active");
 
     println!();
     println!("  ═══════════════════════════════════════");
@@ -2181,12 +2196,25 @@ fn main() {
     // Prevent sleep
     let assertion_id = prevent_sleep();
 
-    // Set up event tap (we always have permissions at this point)
-    if setup_event_tap() {
-        println!("  ✓ Input blocking active");
-    } else {
+    // Set up event tap - this is the core security feature
+    // Without input blocking, the shield is just a visual overlay
+    if !setup_event_tap() {
         eprintln!("  ✗ Failed to create event tap");
+        eprintln!();
+        eprintln!("  ════════════════════════════════════════");
+        eprintln!("  ⚠️  SHIELD ACTIVATION FAILED");
+        eprintln!("  ════════════════════════════════════════");
+        eprintln!();
+        eprintln!("  Input blocking could not be enabled.");
+        eprintln!("  The shield cannot protect without this feature.");
+        eprintln!();
+        eprintln!("  Please check:");
+        eprintln!("  - Accessibility permissions are granted");
+        eprintln!("  - No other apps are blocking event taps");
+        eprintln!();
+        std::process::exit(1);
     }
+    println!("  ✓ Input blocking active");
 
     println!();
     println!("  ═══════════════════════════════════════");
