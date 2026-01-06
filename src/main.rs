@@ -1262,18 +1262,35 @@ fn deactivate_shield() {
         allow_sleep(assertion_id);
     }
 
-    // Close the shield window
+    // Close the shield window and properly release it
+    // We use Retained::from_raw to reclaim ownership from the raw pointer,
+    // which ensures the NSWindow is properly released when dropped
     let window_ptr = SHIELD_WINDOW.swap(std::ptr::null_mut(), Ordering::SeqCst);
     if !window_ptr.is_null() {
         unsafe {
-            let window: &NSWindow = &*(window_ptr as *const NSWindow);
+            // Reconstruct Retained to take ownership and properly release
+            let window: Retained<NSWindow> =
+                Retained::from_raw(window_ptr as *mut NSWindow).expect("SHIELD_WINDOW was valid");
             window.close();
+            // window is dropped here, calling release() on the NSWindow
         }
         println!("  ✓ Shield window closed");
     }
 
-    // Clear view references
-    CLOSE_BUTTON_VIEW.store(std::ptr::null_mut(), Ordering::SeqCst);
+    // Release the close button view properly
+    // The window's content view also holds a reference, but we need to release our ownership
+    let close_button_ptr = CLOSE_BUTTON_VIEW.swap(std::ptr::null_mut(), Ordering::SeqCst);
+    if !close_button_ptr.is_null() {
+        unsafe {
+            // Reconstruct Retained to take ownership and properly release
+            let _close_button: Retained<CloseButtonView> =
+                Retained::from_raw(close_button_ptr as *mut CloseButtonView)
+                    .expect("CLOSE_BUTTON_VIEW was valid");
+            // Dropped here, calling release()
+        }
+    }
+
+    // Clear timer display view reference (only set in immediate mode, but clear for safety)
     TIMER_DISPLAY_VIEW.store(std::ptr::null_mut(), Ordering::SeqCst);
 
     // Reset auto-exit timer state
