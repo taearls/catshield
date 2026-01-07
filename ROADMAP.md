@@ -117,6 +117,13 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
   - Only one settings window can be open at a time
   - Window properly manages focus (text fields work)
   - Validation feedback with green checkmark or red error messages
+- [x] **Issue #24**: Fix multiple menu bar icons bug (single-instance enforcement)
+  - Prevents launching multiple Cat Shield instances simultaneously
+  - Uses PID-based lock file at `~/.config/catshield/catshield.lock`
+  - Checks if existing process is still running before acquiring lock
+  - Cleans up stale lock files from crashed instances
+  - Shows friendly error message if already running with existing PID
+  - Lock is released on normal application exit
 
 ## Open Issues
 
@@ -147,7 +154,6 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 
 | Priority | Issue | Title | Effort |
 |----------|-------|-------|--------|
-| 🟡 High | #24 | Bug: Multiple menu bar icons created when app is already running | ~0.5 day |
 | 🟢 Medium | #30 | Add real-time validation for Exit Key field in Settings Window | ~0.5 day |
 | 🟢 Medium | #28 | Migrate from raw objc2 bindings to Cacao library | ~1-2 weeks |
 | 🔵 Low | #11 | Add install script for easy CLI access | ~0.5 day |
@@ -156,12 +162,12 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 6 | #11, #13, #19, #24, #28, #30 |
-| Closed | 12 | #3, #5, #6, #7, #10, #14, #15, #16, #17, #18, #25, #31 |
+| Open | 5 | #11, #13, #19, #28, #30 |
+| Closed | 13 | #3, #5, #6, #7, #10, #14, #15, #16, #17, #18, #24, #25, #31 |
 
 ### By Priority
 - 🔴 Critical: 0
-- 🟡 High: 1 (#24 - Bug)
+- 🟡 High: 0
 - 🟢 Medium: 2 (#28, #30)
 - 🔵 Low: 2 (#11, #19)
 - Epic: 1 (#13)
@@ -176,7 +182,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 5. ~~**#16** - Settings Window~~ ✅ COMPLETED
 
 ### Next Up
-6. **#24** - Fix multiple menu bar icons bug (high priority - bug fix)
+6. ~~**#24** - Fix multiple menu bar icons bug~~ ✅ COMPLETED
 7. **#30** - Add real-time Exit Key validation in Settings (enhances #16)
 8. **#19** - About Panel (polish, low priority)
 9. **#11** - Install Script (can be done anytime)
@@ -193,7 +199,7 @@ Foundation:     #14 (Menu Bar) ✅ ──┬── #17 (Refactor Overlay) ✅
                                                  │                                    │
 Parallel:       #18 (Config) ✅ ────────────────┘                                    └─ #30 (Exit Key Validation)
 
-Bug Fix:        #24 (Multiple Menu Icons) - High Priority
+Bug Fix:        #24 (Multiple Menu Icons) ✅
 
 Independent:    #10 (UI Labels) ✅, #11 (Install Script), #31 (CI) ✅
 
@@ -213,11 +219,20 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-07
+- Completed Issue #24: Fix multiple menu bar icons bug (single-instance enforcement)
+  - Implemented PID-based lock file mechanism at `~/.config/catshield/catshield.lock`
+  - Added `acquire_instance_lock()` function to check for existing instances
+  - Added `release_instance_lock()` function to clean up on exit
+  - Added `is_process_running()` helper using POSIX kill(pid, 0) to check process existence
+  - Lock check happens early in `main()` before NSApplication initialization
+  - Lock cleanup occurs in both menu bar mode and immediate mode exit paths
+  - Stale lock files from crashed instances are automatically cleaned up
+  - User-friendly error message when Cat Shield is already running
+- Updated issue counts: 5 open, 13 closed
 - Updated roadmap with 3 new issues (#24, #28, #30)
-  - #24: Bug fix for multiple menu bar icons (🟡 High priority)
+  - #24: Bug fix for multiple menu bar icons (🟡 High priority) - NOW COMPLETED
   - #28: Migration to Cacao library (🟢 Medium - future consideration)
   - #30: Real-time Exit Key validation in Settings (🟢 Medium)
-- Updated issue counts: 6 open, 12 closed
 - Revised critical path to include new issues and bug fix priority
 - Updated recommended implementation order
 - Completed Issue #31: Add CI workflow with lint, format, test, and build checks
