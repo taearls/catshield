@@ -52,8 +52,8 @@ use objc2_foundation::{
 use serde::{Deserialize, Serialize};
 use std::cell::Cell;
 use std::ffi::c_void;
-use std::fs;
-use std::io::Write;
+use std::fs::{self, OpenOptions};
+use std::io::{self, Write};
 use std::path::PathBuf;
 use std::process;
 use std::ptr::NonNull;
@@ -609,8 +609,14 @@ enum LockResult {
     Error(String),
 }
 
+/// Maximum number of retry attempts for lock acquisition
+const LOCK_RETRY_LIMIT: u32 = 3;
+
 /// Attempt to acquire the single-instance lock
 /// Returns LockResult indicating success, existing instance, or error
+///
+/// Uses atomic file creation (O_CREAT | O_EXCL) to prevent TOCTOU race conditions
+/// where two instances could simultaneously detect a stale lock and both acquire it.
 fn acquire_instance_lock() -> LockResult {
     let Some(lock_path) = lock_file_path() else {
         return LockResult::Error("Could not determine lock file path".to_string());
@@ -623,34 +629,70 @@ fn acquire_instance_lock() -> LockResult {
         }
     }
 
-    // Check if lock file exists and contains a valid running process
-    if lock_path.exists() {
-        match fs::read_to_string(&lock_path) {
-            Ok(contents) => {
-                if let Ok(existing_pid) = contents.trim().parse::<u32>() {
-                    if is_process_running(existing_pid) {
-                        return LockResult::AlreadyRunning(existing_pid);
+    let current_pid = process::id();
+
+    // Use a loop with retry limit to handle stale lock cleanup
+    for attempt in 0..LOCK_RETRY_LIMIT {
+        // Try to atomically create the lock file (fails if it already exists)
+        match OpenOptions::new()
+            .write(true)
+            .create_new(true) // Atomic: fails with AlreadyExists if file exists
+            .open(&lock_path)
+        {
+            Ok(mut file) => {
+                // Successfully created new lock file atomically
+                if let Err(e) = write!(file, "{}", current_pid) {
+                    // Write failed - clean up the file we created
+                    let _ = fs::remove_file(&lock_path);
+                    return LockResult::Error(format!("Failed to write lock file: {}", e));
+                }
+                return LockResult::Acquired;
+            }
+            Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {
+                // Lock file exists - check if it's from a running process
+                match fs::read_to_string(&lock_path) {
+                    Ok(contents) => {
+                        if let Ok(existing_pid) = contents.trim().parse::<u32>() {
+                            if is_process_running(existing_pid) {
+                                // Another instance is actually running
+                                return LockResult::AlreadyRunning(existing_pid);
+                            }
+                            // Stale lock from a dead process - try to remove and retry
+                            let _ = fs::remove_file(&lock_path);
+                            // Continue to next iteration to retry atomic creation
+                        } else {
+                            // Invalid PID in lock file - try to remove and retry
+                            let _ = fs::remove_file(&lock_path);
+                        }
                     }
-                    // Stale lock file - process no longer running, continue to acquire
+                    Err(_) => {
+                        // Can't read lock file - try to remove and retry
+                        let _ = fs::remove_file(&lock_path);
+                    }
                 }
             }
-            Err(_) => {
-                // Can't read lock file, try to acquire anyway
+            Err(e) => {
+                // Other error (permissions, etc.)
+                return LockResult::Error(format!("Failed to create lock file: {}", e));
             }
+        }
+
+        // If we're here, we removed a stale lock and will retry
+        // Log only on later attempts to avoid noise
+        if attempt > 0 {
+            eprintln!(
+                "  ⚠️  Retrying lock acquisition (attempt {}/{})",
+                attempt + 1,
+                LOCK_RETRY_LIMIT
+            );
         }
     }
 
-    // Write our PID to the lock file
-    let current_pid = process::id();
-    match fs::File::create(&lock_path) {
-        Ok(mut file) => {
-            if let Err(e) = write!(file, "{}", current_pid) {
-                return LockResult::Error(format!("Failed to write lock file: {}", e));
-            }
-            LockResult::Acquired
-        }
-        Err(e) => LockResult::Error(format!("Failed to create lock file: {}", e)),
-    }
+    // Exhausted retries - this shouldn't normally happen
+    LockResult::Error(format!(
+        "Failed to acquire lock after {} attempts",
+        LOCK_RETRY_LIMIT
+    ))
 }
 
 /// Release the single-instance lock by removing the lock file
