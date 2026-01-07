@@ -147,22 +147,24 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 
 | Priority | Issue | Title | Effort |
 |----------|-------|-------|--------|
+| 🟡 High | #24 | Bug: Multiple menu bar icons created when app is already running | ~0.5 day |
+| 🟢 Medium | #30 | Add real-time validation for Exit Key field in Settings Window | ~0.5 day |
+| 🟢 Medium | #28 | Migrate from raw objc2 bindings to Cacao library | ~1-2 weeks |
 | 🔵 Low | #11 | Add install script for easy CLI access | ~0.5 day |
 
 ## Issue Summary
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 3 | #11, #13, #19 |
+| Open | 6 | #11, #13, #19, #24, #28, #30 |
 | Closed | 12 | #3, #5, #6, #7, #10, #14, #15, #16, #17, #18, #25, #31 |
 
 ### By Priority
 - 🔴 Critical: 0
-- 🟡 High: 0
-- 🟢 Medium: 0
+- 🟡 High: 1 (#24 - Bug)
+- 🟢 Medium: 2 (#28, #30)
 - 🔵 Low: 2 (#11, #19)
 - Epic: 1 (#13)
-- Configuration: 1 (#25 - Closed)
 
 ## Recommended Implementation Order
 
@@ -174,19 +176,28 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 5. ~~**#16** - Settings Window~~ ✅ COMPLETED
 
 ### Next Up
-6. **#19** - About Panel (polish, low priority)
-7. **#11** - Install Script (can be done anytime)
+6. **#24** - Fix multiple menu bar icons bug (high priority - bug fix)
+7. **#30** - Add real-time Exit Key validation in Settings (enhances #16)
+8. **#19** - About Panel (polish, low priority)
+9. **#11** - Install Script (can be done anytime)
+
+### Future
+10. **#28** - Migrate to Cacao library (major refactor, low priority)
 
 ## Critical Path
 
 ```
 Foundation:     #14 (Menu Bar) ✅ ──┬── #17 (Refactor Overlay) ✅
                                     │
-                                    └── #15 (Dropdown Menu) ✅ ── #16 (Settings) ✅ ── #19 (About)
-                                                 │
-Parallel:       #18 (Config) ✅ ────────────────┘
+                                    └── #15 (Dropdown Menu) ✅ ── #16 (Settings) ✅ ─┬─ #19 (About)
+                                                 │                                    │
+Parallel:       #18 (Config) ✅ ────────────────┘                                    └─ #30 (Exit Key Validation)
 
-Independent:    #10 (UI Labels) ✅, #11 (Install Script)
+Bug Fix:        #24 (Multiple Menu Icons) - High Priority
+
+Independent:    #10 (UI Labels) ✅, #11 (Install Script), #31 (CI) ✅
+
+Major Refactor: #28 (Cacao Migration) - Future consideration
 ```
 
 ## Future Considerations
@@ -202,6 +213,13 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-07
+- Updated roadmap with 3 new issues (#24, #28, #30)
+  - #24: Bug fix for multiple menu bar icons (🟡 High priority)
+  - #28: Migration to Cacao library (🟢 Medium - future consideration)
+  - #30: Real-time Exit Key validation in Settings (🟢 Medium)
+- Updated issue counts: 6 open, 12 closed
+- Revised critical path to include new issues and bug fix priority
+- Updated recommended implementation order
 - Completed Issue #31: Add CI workflow with lint, format, test, and build checks
   - Created `.github/workflows/ci.yml` with three parallel jobs
   - Lint & Format job: checks code formatting with `cargo fmt --check` and runs Clippy with `-D warnings`
