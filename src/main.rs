@@ -52,7 +52,8 @@ use objc2_foundation::{
 use serde::{Deserialize, Serialize};
 use std::cell::Cell;
 use std::ffi::c_void;
-use std::fs;
+use std::fs::{self, OpenOptions};
+use std::io::{self, Write};
 use std::path::PathBuf;
 use std::process;
 use std::ptr::NonNull;
@@ -571,6 +572,142 @@ impl Config {
         fs::write(path, content).map_err(|e| format!("Failed to write config file: {}", e))?;
 
         Ok(())
+    }
+}
+
+// ============================================================================
+// Single-instance lock mechanism (Issue #24)
+// ============================================================================
+
+/// Lock file name for single-instance enforcement
+const LOCK_FILE_NAME: &str = "catshield.lock";
+
+/// Get the path to the lock file
+/// On macOS: ~/Library/Application Support/catshield/catshield.lock
+/// On Linux: ~/.config/catshield/catshield.lock
+fn lock_file_path() -> Option<PathBuf> {
+    dirs::config_dir().map(|p| p.join("catshield").join(LOCK_FILE_NAME))
+}
+
+// Declare kill function from libc for process existence check
+extern "C" {
+    fn kill(pid: i32, sig: i32) -> i32;
+}
+
+/// Check if a process with the given PID is still running
+fn is_process_running(pid: u32) -> bool {
+    // Use kill with signal 0 to check if process exists
+    // This doesn't actually send a signal, just checks if the process exists
+    unsafe { kill(pid as i32, 0) == 0 }
+}
+
+/// Result of attempting to acquire the single-instance lock
+enum LockResult {
+    /// Successfully acquired the lock
+    Acquired,
+    /// Another instance is already running with the given PID
+    AlreadyRunning(u32),
+    /// Failed to acquire lock due to an error
+    Error(String),
+}
+
+/// Maximum number of retry attempts for lock acquisition
+const LOCK_RETRY_LIMIT: u32 = 3;
+
+/// Attempt to acquire the single-instance lock
+/// Returns LockResult indicating success, existing instance, or error
+///
+/// Uses atomic file creation (O_CREAT | O_EXCL) to prevent TOCTOU race conditions
+/// where two instances could simultaneously detect a stale lock and both acquire it.
+fn acquire_instance_lock() -> LockResult {
+    let Some(lock_path) = lock_file_path() else {
+        return LockResult::Error("Could not determine lock file path".to_string());
+    };
+
+    // Ensure the config directory exists
+    if let Some(parent) = lock_path.parent() {
+        if let Err(e) = fs::create_dir_all(parent) {
+            return LockResult::Error(format!("Failed to create config directory: {}", e));
+        }
+    }
+
+    let current_pid = process::id();
+
+    // Use a loop with retry limit to handle stale lock cleanup
+    for attempt in 0..LOCK_RETRY_LIMIT {
+        // Try to atomically create the lock file (fails if it already exists)
+        match OpenOptions::new()
+            .write(true)
+            .create_new(true) // Atomic: fails with AlreadyExists if file exists
+            .open(&lock_path)
+        {
+            Ok(mut file) => {
+                // Successfully created new lock file atomically
+                if let Err(e) = write!(file, "{}", current_pid) {
+                    // Write failed - clean up the file we created
+                    let _ = fs::remove_file(&lock_path);
+                    return LockResult::Error(format!("Failed to write lock file: {}", e));
+                }
+                return LockResult::Acquired;
+            }
+            Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {
+                // Lock file exists - check if it's from a running process
+                match fs::read_to_string(&lock_path) {
+                    Ok(contents) => {
+                        if let Ok(existing_pid) = contents.trim().parse::<u32>() {
+                            if is_process_running(existing_pid) {
+                                // Another instance is actually running
+                                return LockResult::AlreadyRunning(existing_pid);
+                            }
+                            // Stale lock from a dead process - try to remove and retry
+                            let _ = fs::remove_file(&lock_path);
+                            // Continue to next iteration to retry atomic creation
+                        } else {
+                            // Invalid PID in lock file - try to remove and retry
+                            let _ = fs::remove_file(&lock_path);
+                        }
+                    }
+                    Err(_) => {
+                        // Can't read lock file - try to remove and retry
+                        let _ = fs::remove_file(&lock_path);
+                    }
+                }
+            }
+            Err(e) => {
+                // Other error (permissions, etc.)
+                return LockResult::Error(format!("Failed to create lock file: {}", e));
+            }
+        }
+
+        // If we're here, we removed a stale lock and will retry
+        // Log only on later attempts to avoid noise
+        if attempt > 0 {
+            eprintln!(
+                "  ⚠️  Retrying lock acquisition (attempt {}/{})",
+                attempt + 1,
+                LOCK_RETRY_LIMIT
+            );
+        }
+    }
+
+    // Exhausted retries - this shouldn't normally happen
+    LockResult::Error(format!(
+        "Failed to acquire lock after {} attempts",
+        LOCK_RETRY_LIMIT
+    ))
+}
+
+/// Release the single-instance lock by removing the lock file
+fn release_instance_lock() {
+    if let Some(lock_path) = lock_file_path() {
+        // Only remove the lock file if it contains our PID
+        if let Ok(contents) = fs::read_to_string(&lock_path) {
+            if let Ok(file_pid) = contents.trim().parse::<u32>() {
+                if file_pid == process::id() {
+                    let _ = fs::remove_file(&lock_path);
+                }
+            }
+        }
     }
 }
 
@@ -3301,6 +3438,27 @@ fn main() {
     // Parse command line arguments
     let args = Args::parse();
 
+    // Check for existing instance (single-instance enforcement)
+    match acquire_instance_lock() {
+        LockResult::Acquired => {
+            // Successfully acquired lock, continue startup
+        }
+        LockResult::AlreadyRunning(pid) => {
+            eprintln!();
+            eprintln!("  🐱 Cat Shield is already running (PID: {})", pid);
+            eprintln!("  Look for the 🐱 icon in your menu bar.");
+            eprintln!();
+            process::exit(0);
+        }
+        LockResult::Error(e) => {
+            eprintln!(
+                "  ⚠️  Warning: Could not check for existing instance: {}",
+                e
+            );
+            // Continue anyway - lock check is best-effort
+        }
+    }
+
     // Load config file
     let config = Config::load();
 
@@ -3356,6 +3514,9 @@ fn main() {
         // Run the NSApplication event loop
         // The status item keeps the app alive in the menu bar
         app.run();
+
+        // Release single-instance lock before exiting
+        release_instance_lock();
 
         println!();
         println!("  👋 Cat Shield closed. Goodbye!");
@@ -3634,6 +3795,9 @@ fn main() {
     if let Some(id) = assertion_id {
         allow_sleep(id);
     }
+
+    // Release single-instance lock before exiting
+    release_instance_lock();
 
     println!();
     println!("  👋 Cat Shield deactivated. Goodbye!");
