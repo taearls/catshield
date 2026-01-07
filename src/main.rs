@@ -582,7 +582,9 @@ impl Config {
 /// Lock file name for single-instance enforcement
 const LOCK_FILE_NAME: &str = "catshield.lock";
 
-/// Get the path to the lock file (~/.config/catshield/catshield.lock)
+/// Get the path to the lock file
+/// On macOS: ~/Library/Application Support/catshield/catshield.lock
+/// On Linux: ~/.config/catshield/catshield.lock
 fn lock_file_path() -> Option<PathBuf> {
     dirs::config_dir().map(|p| p.join("catshield").join(LOCK_FILE_NAME))
 }
