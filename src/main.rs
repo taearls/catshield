@@ -533,10 +533,12 @@ impl Config {
 
         // Create directory if it doesn't exist
         if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).map_err(|e| format!("Failed to create config directory: {}", e))?;
+            fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create config directory: {}", e))?;
         }
 
-        let content = toml::to_string_pretty(self).map_err(|e| format!("Failed to serialize config: {}", e))?;
+        let content = toml::to_string_pretty(self)
+            .map_err(|e| format!("Failed to serialize config: {}", e))?;
         fs::write(&path, content).map_err(|e| format!("Failed to write config file: {}", e))?;
 
         Ok(())
@@ -550,10 +552,7 @@ impl Config {
         }
 
         match fs::read_to_string(path) {
-            Ok(contents) => match toml::from_str(&contents) {
-                Ok(config) => config,
-                Err(_) => Self::default(),
-            },
+            Ok(contents) => toml::from_str(&contents).unwrap_or_default(),
             Err(_) => Self::default(),
         }
     }
@@ -563,10 +562,12 @@ impl Config {
     fn save_to_path(&self, path: &std::path::Path) -> Result<(), String> {
         // Create directory if it doesn't exist
         if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).map_err(|e| format!("Failed to create config directory: {}", e))?;
+            fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create config directory: {}", e))?;
         }
 
-        let content = toml::to_string_pretty(self).map_err(|e| format!("Failed to serialize config: {}", e))?;
+        let content = toml::to_string_pretty(self)
+            .map_err(|e| format!("Failed to serialize config: {}", e))?;
         fs::write(path, content).map_err(|e| format!("Failed to write config file: {}", e))?;
 
         Ok(())
@@ -1069,7 +1070,10 @@ fn draw_timer_display(view: &NSView) {
     // Header label "Time Remaining:"
     let header_y = bounds.size.height - 22.0;
     let header_frame = CGRect {
-        origin: CGPoint { x: 12.0, y: header_y },
+        origin: CGPoint {
+            x: 12.0,
+            y: header_y,
+        },
         size: CGSize {
             width: 120.0,
             height: 16.0,
@@ -1078,8 +1082,18 @@ fn draw_timer_display(view: &NSView) {
 
     if header_ptr.is_null() {
         // Create the header label
-        let header_label = create_label(mtm, "Time Remaining:", header_frame, 12.0, &label_color, false);
-        TIMER_HEADER_LABEL.store(Retained::as_ptr(&header_label) as *mut c_void, Ordering::SeqCst);
+        let header_label = create_label(
+            mtm,
+            "Time Remaining:",
+            header_frame,
+            12.0,
+            &label_color,
+            false,
+        );
+        TIMER_HEADER_LABEL.store(
+            Retained::as_ptr(&header_label) as *mut c_void,
+            Ordering::SeqCst,
+        );
         view.addSubview(&header_label);
         // Keep retained to prevent deallocation
         std::mem::forget(header_label);
@@ -1098,7 +1112,10 @@ fn draw_timer_display(view: &NSView) {
     if time_ptr.is_null() {
         // Create the time label
         let time_label = create_label(mtm, &time_str, time_frame, 20.0, &text_color, true);
-        TIMER_TIME_LABEL.store(Retained::as_ptr(&time_label) as *mut c_void, Ordering::SeqCst);
+        TIMER_TIME_LABEL.store(
+            Retained::as_ptr(&time_label) as *mut c_void,
+            Ordering::SeqCst,
+        );
         view.addSubview(&time_label);
         std::mem::forget(time_label);
     } else {
@@ -1106,7 +1123,11 @@ fn draw_timer_display(view: &NSView) {
         unsafe {
             let time_label: &NSTextField = &*(time_ptr as *const NSTextField);
             time_label.setStringValue(&NSString::from_str(&time_str));
-            let color = if is_warning { &warning_color } else { &text_color };
+            let color = if is_warning {
+                &warning_color
+            } else {
+                &text_color
+            };
             time_label.setTextColor(Some(color));
         }
     }
@@ -1125,9 +1146,19 @@ fn draw_timer_display(view: &NSView) {
 
     if warning_ptr.is_null() {
         // Create the warning label (initially hidden)
-        let warning_label = create_label(mtm, "Exiting soon!", warning_frame, 14.0, &warning_color, false);
+        let warning_label = create_label(
+            mtm,
+            "Exiting soon!",
+            warning_frame,
+            14.0,
+            &warning_color,
+            false,
+        );
         warning_label.setHidden(!is_warning);
-        TIMER_WARNING_LABEL.store(Retained::as_ptr(&warning_label) as *mut c_void, Ordering::SeqCst);
+        TIMER_WARNING_LABEL.store(
+            Retained::as_ptr(&warning_label) as *mut c_void,
+            Ordering::SeqCst,
+        );
         view.addSubview(&warning_label);
         std::mem::forget(warning_label);
     } else {
@@ -1649,16 +1680,28 @@ fn save_settings_from_window() {
                 match ExitKey::parse(trimmed) {
                     Ok(_) => {
                         config.exit_key = Some(trimmed.to_string());
-                        update_validation_label(SETTINGS_EXIT_KEY_VALIDATION_LABEL.load(Ordering::SeqCst), true, "✓ Valid");
+                        update_validation_label(
+                            SETTINGS_EXIT_KEY_VALIDATION_LABEL.load(Ordering::SeqCst),
+                            true,
+                            "✓ Valid",
+                        );
                     }
                     Err(e) => {
-                        update_validation_label(SETTINGS_EXIT_KEY_VALIDATION_LABEL.load(Ordering::SeqCst), false, &e);
+                        update_validation_label(
+                            SETTINGS_EXIT_KEY_VALIDATION_LABEL.load(Ordering::SeqCst),
+                            false,
+                            &e,
+                        );
                         has_errors = true;
                     }
                 }
             } else {
                 config.exit_key = None;
-                update_validation_label(SETTINGS_EXIT_KEY_VALIDATION_LABEL.load(Ordering::SeqCst), true, "Using default");
+                update_validation_label(
+                    SETTINGS_EXIT_KEY_VALIDATION_LABEL.load(Ordering::SeqCst),
+                    true,
+                    "Using default",
+                );
             }
         }
     }
@@ -1685,10 +1728,10 @@ fn save_settings_from_window() {
                             // Get the selected unit suffix
                             let unit_index = unit_dropdown.indexOfSelectedItem();
                             let unit_suffix = match unit_index {
-                                0 => "m",  // Minutes
-                                1 => "h",  // Hours
-                                2 => "s",  // Seconds
-                                _ => "m",  // Default to minutes
+                                0 => "m", // Minutes
+                                1 => "h", // Hours
+                                2 => "s", // Seconds
+                                _ => "m", // Default to minutes
                             };
 
                             // Construct the duration string
@@ -1698,30 +1741,54 @@ fn save_settings_from_window() {
                             match parse_duration(&duration_str) {
                                 Ok(_) => {
                                     config.default_timer = Some(duration_str);
-                                    update_validation_label(SETTINGS_TIMER_VALIDATION_LABEL.load(Ordering::SeqCst), true, "✓ Valid");
+                                    update_validation_label(
+                                        SETTINGS_TIMER_VALIDATION_LABEL.load(Ordering::SeqCst),
+                                        true,
+                                        "✓ Valid",
+                                    );
                                 }
                                 Err(e) => {
-                                    update_validation_label(SETTINGS_TIMER_VALIDATION_LABEL.load(Ordering::SeqCst), false, &e);
+                                    update_validation_label(
+                                        SETTINGS_TIMER_VALIDATION_LABEL.load(Ordering::SeqCst),
+                                        false,
+                                        &e,
+                                    );
                                     has_errors = true;
                                 }
                             }
                         }
                         Ok(_) => {
-                            update_validation_label(SETTINGS_TIMER_VALIDATION_LABEL.load(Ordering::SeqCst), false, "Must be greater than 0");
+                            update_validation_label(
+                                SETTINGS_TIMER_VALIDATION_LABEL.load(Ordering::SeqCst),
+                                false,
+                                "Must be greater than 0",
+                            );
                             has_errors = true;
                         }
                         Err(_) => {
-                            update_validation_label(SETTINGS_TIMER_VALIDATION_LABEL.load(Ordering::SeqCst), false, "Enter a number");
+                            update_validation_label(
+                                SETTINGS_TIMER_VALIDATION_LABEL.load(Ordering::SeqCst),
+                                false,
+                                "Enter a number",
+                            );
                             has_errors = true;
                         }
                     }
                 } else {
-                    update_validation_label(SETTINGS_TIMER_VALIDATION_LABEL.load(Ordering::SeqCst), false, "Duration required");
+                    update_validation_label(
+                        SETTINGS_TIMER_VALIDATION_LABEL.load(Ordering::SeqCst),
+                        false,
+                        "Duration required",
+                    );
                     has_errors = true;
                 }
             } else {
                 config.default_timer = None;
-                update_validation_label(SETTINGS_TIMER_VALIDATION_LABEL.load(Ordering::SeqCst), true, "");
+                update_validation_label(
+                    SETTINGS_TIMER_VALIDATION_LABEL.load(Ordering::SeqCst),
+                    true,
+                    "",
+                );
             }
         }
     }
@@ -1808,15 +1875,24 @@ fn show_settings_window(mtm: MainThreadMarker) {
         .map(|s| s.frame())
         .unwrap_or(CGRect {
             origin: CGPoint { x: 0.0, y: 0.0 },
-            size: CGSize { width: 1920.0, height: 1080.0 },
+            size: CGSize {
+                width: 1920.0,
+                height: 1080.0,
+            },
         });
 
     let window_x = (screen_frame.size.width - window_width) / 2.0;
     let window_y = (screen_frame.size.height - window_height) / 2.0;
 
     let window_frame = CGRect {
-        origin: CGPoint { x: window_x, y: window_y },
-        size: CGSize { width: window_width, height: window_height },
+        origin: CGPoint {
+            x: window_x,
+            y: window_y,
+        },
+        size: CGSize {
+            width: window_width,
+            height: window_height,
+        },
     };
 
     // Create the settings panel (utility window style)
@@ -1855,10 +1931,7 @@ fn show_settings_window(mtm: MainThreadMarker) {
     panel.setDelegate(Some(ProtocolObject::from_ref(delegate)));
 
     // Store window reference
-    SETTINGS_WINDOW.store(
-        Retained::as_ptr(&panel) as *mut c_void,
-        Ordering::SeqCst,
-    );
+    SETTINGS_WINDOW.store(Retained::as_ptr(&panel) as *mut c_void, Ordering::SeqCst);
 
     // Get or create settings action handler
     let handler = unsafe {
@@ -1898,8 +1971,14 @@ fn show_settings_window(mtm: MainThreadMarker) {
             mtm,
             "Exit Key Shortcut:",
             CGRect {
-                origin: CGPoint { x: margin, y: y_offset },
-                size: CGSize { width: field_width, height: label_height },
+                origin: CGPoint {
+                    x: margin,
+                    y: y_offset,
+                },
+                size: CGSize {
+                    width: field_width,
+                    height: label_height,
+                },
             },
             13.0,
             &NSColor::labelColor(),
@@ -1910,8 +1989,14 @@ fn show_settings_window(mtm: MainThreadMarker) {
         y_offset -= field_height + row_spacing;
         let exit_key_field = NSTextField::new(mtm);
         exit_key_field.setFrame(CGRect {
-            origin: CGPoint { x: margin, y: y_offset },
-            size: CGSize { width: field_width, height: field_height },
+            origin: CGPoint {
+                x: margin,
+                y: y_offset,
+            },
+            size: CGSize {
+                width: field_width,
+                height: field_height,
+            },
         });
         exit_key_field.setStringValue(&NSString::from_str(
             config.exit_key.as_deref().unwrap_or(DEFAULT_EXIT_KEY),
@@ -1927,8 +2012,14 @@ fn show_settings_window(mtm: MainThreadMarker) {
         y_offset -= label_height + 2.0;
         let exit_key_validation = NSTextField::new(mtm);
         exit_key_validation.setFrame(CGRect {
-            origin: CGPoint { x: margin, y: y_offset },
-            size: CGSize { width: field_width, height: label_height },
+            origin: CGPoint {
+                x: margin,
+                y: y_offset,
+            },
+            size: CGSize {
+                width: field_width,
+                height: label_height,
+            },
         });
         exit_key_validation.setEditable(false);
         exit_key_validation.setSelectable(false);
@@ -1952,8 +2043,14 @@ fn show_settings_window(mtm: MainThreadMarker) {
             mtm,
             "Default Timer:",
             CGRect {
-                origin: CGPoint { x: margin, y: y_offset },
-                size: CGSize { width: field_width, height: label_height },
+                origin: CGPoint {
+                    x: margin,
+                    y: y_offset,
+                },
+                size: CGSize {
+                    width: field_width,
+                    height: label_height,
+                },
             },
             13.0,
             &NSColor::labelColor(),
@@ -1972,8 +2069,14 @@ fn show_settings_window(mtm: MainThreadMarker) {
                 mtm,
             );
             checkbox.setFrame(CGRect {
-                origin: CGPoint { x: margin, y: y_offset },
-                size: CGSize { width: 200.0, height: field_height },
+                origin: CGPoint {
+                    x: margin,
+                    y: y_offset,
+                },
+                size: CGSize {
+                    width: 200.0,
+                    height: field_height,
+                },
             });
             checkbox.setControlSize(NSControlSize::Regular);
             if config.default_timer.is_some() {
@@ -2006,8 +2109,14 @@ fn show_settings_window(mtm: MainThreadMarker) {
 
         let timer_value_field = NSTextField::new(mtm);
         timer_value_field.setFrame(CGRect {
-            origin: CGPoint { x: margin, y: y_offset },
-            size: CGSize { width: number_field_width, height: field_height },
+            origin: CGPoint {
+                x: margin,
+                y: y_offset,
+            },
+            size: CGSize {
+                width: number_field_width,
+                height: field_height,
+            },
         });
         timer_value_field.setStringValue(&NSString::from_str(&timer_value));
         timer_value_field.setPlaceholderString(Some(ns_string!("30")));
@@ -2025,8 +2134,14 @@ fn show_settings_window(mtm: MainThreadMarker) {
         // Unit dropdown (to the right of the number field)
         let timer_unit_dropdown = NSPopUpButton::new(mtm);
         timer_unit_dropdown.setFrame(CGRect {
-            origin: CGPoint { x: margin + number_field_width + spacing, y: y_offset },
-            size: CGSize { width: dropdown_width, height: field_height },
+            origin: CGPoint {
+                x: margin + number_field_width + spacing,
+                y: y_offset,
+            },
+            size: CGSize {
+                width: dropdown_width,
+                height: field_height,
+            },
         });
         timer_unit_dropdown.addItemWithTitle(ns_string!("Minutes"));
         timer_unit_dropdown.addItemWithTitle(ns_string!("Hours"));
@@ -2043,8 +2158,14 @@ fn show_settings_window(mtm: MainThreadMarker) {
         y_offset -= label_height + 2.0;
         let timer_validation = NSTextField::new(mtm);
         timer_validation.setFrame(CGRect {
-            origin: CGPoint { x: margin, y: y_offset },
-            size: CGSize { width: field_width, height: label_height },
+            origin: CGPoint {
+                x: margin,
+                y: y_offset,
+            },
+            size: CGSize {
+                width: field_width,
+                height: label_height,
+            },
         });
         timer_validation.setEditable(false);
         timer_validation.setSelectable(false);
@@ -2068,8 +2189,14 @@ fn show_settings_window(mtm: MainThreadMarker) {
             mtm,
             "Overlay Opacity:",
             CGRect {
-                origin: CGPoint { x: margin, y: y_offset },
-                size: CGSize { width: 120.0, height: label_height },
+                origin: CGPoint {
+                    x: margin,
+                    y: y_offset,
+                },
+                size: CGSize {
+                    width: 120.0,
+                    height: label_height,
+                },
             },
             13.0,
             &NSColor::labelColor(),
@@ -2080,8 +2207,14 @@ fn show_settings_window(mtm: MainThreadMarker) {
         // Current percentage label (right side)
         let percentage_label = NSTextField::new(mtm);
         percentage_label.setFrame(CGRect {
-            origin: CGPoint { x: window_width - margin - 50.0, y: y_offset },
-            size: CGSize { width: 50.0, height: label_height },
+            origin: CGPoint {
+                x: window_width - margin - 50.0,
+                y: y_offset,
+            },
+            size: CGSize {
+                width: 50.0,
+                height: label_height,
+            },
         });
         percentage_label.setEditable(false);
         percentage_label.setSelectable(false);
@@ -2089,7 +2222,10 @@ fn show_settings_window(mtm: MainThreadMarker) {
         percentage_label.setDrawsBackground(false);
         percentage_label.setAlignment(NSTextAlignment::Right);
         let current_opacity = config.opacity();
-        percentage_label.setStringValue(&NSString::from_str(&format!("{}%", (current_opacity * 100.0) as i32)));
+        percentage_label.setStringValue(&NSString::from_str(&format!(
+            "{}%",
+            (current_opacity * 100.0) as i32
+        )));
         percentage_label.setFont(Some(&NSFont::boldSystemFontOfSize(13.0)));
         content_view.addSubview(&percentage_label);
         SETTINGS_OPACITY_LABEL.store(
@@ -2109,8 +2245,14 @@ fn show_settings_window(mtm: MainThreadMarker) {
             mtm,
             "20%",
             CGRect {
-                origin: CGPoint { x: margin, y: y_offset },
-                size: CGSize { width: 30.0, height: field_height },
+                origin: CGPoint {
+                    x: margin,
+                    y: y_offset,
+                },
+                size: CGSize {
+                    width: 30.0,
+                    height: field_height,
+                },
             },
             11.0,
             &NSColor::secondaryLabelColor(),
@@ -2123,8 +2265,14 @@ fn show_settings_window(mtm: MainThreadMarker) {
             mtm,
             "80%",
             CGRect {
-                origin: CGPoint { x: window_width - margin - 30.0, y: y_offset },
-                size: CGSize { width: 30.0, height: field_height },
+                origin: CGPoint {
+                    x: window_width - margin - 30.0,
+                    y: y_offset,
+                },
+                size: CGSize {
+                    width: 30.0,
+                    height: field_height,
+                },
             },
             11.0,
             &NSColor::secondaryLabelColor(),
@@ -2137,8 +2285,14 @@ fn show_settings_window(mtm: MainThreadMarker) {
         let opacity_slider = {
             let slider = NSSlider::new(mtm);
             slider.setFrame(CGRect {
-                origin: CGPoint { x: margin + slider_margin, y: y_offset },
-                size: CGSize { width: slider_width, height: field_height },
+                origin: CGPoint {
+                    x: margin + slider_margin,
+                    y: y_offset,
+                },
+                size: CGSize {
+                    width: slider_width,
+                    height: field_height,
+                },
             });
             slider.setMinValue(MIN_OVERLAY_OPACITY);
             slider.setMaxValue(MAX_OVERLAY_OPACITY);
@@ -2173,8 +2327,14 @@ fn show_settings_window(mtm: MainThreadMarker) {
                 mtm,
             );
             button.setFrame(CGRect {
-                origin: CGPoint { x: window_width - margin - button_width - button_spacing - button_width, y: button_y },
-                size: CGSize { width: button_width, height: button_height },
+                origin: CGPoint {
+                    x: window_width - margin - button_width - button_spacing - button_width,
+                    y: button_y,
+                },
+                size: CGSize {
+                    width: button_width,
+                    height: button_height,
+                },
             });
             button.setButtonType(NSButtonType::MomentaryPushIn);
             button.setKeyEquivalent(ns_string!("\u{1b}")); // Escape key
@@ -2192,8 +2352,14 @@ fn show_settings_window(mtm: MainThreadMarker) {
                 mtm,
             );
             button.setFrame(CGRect {
-                origin: CGPoint { x: window_width - margin - button_width, y: button_y },
-                size: CGSize { width: button_width, height: button_height },
+                origin: CGPoint {
+                    x: window_width - margin - button_width,
+                    y: button_y,
+                },
+                size: CGSize {
+                    width: button_width,
+                    height: button_height,
+                },
             });
             button.setButtonType(NSButtonType::MomentaryPushIn);
             button.setKeyEquivalent(ns_string!("\r")); // Return key
@@ -2376,7 +2542,8 @@ fn disable_event_tap() {
             // Remove the run loop source from the run loop before releasing
             if !source_ptr.is_null() {
                 let current_run_loop = CFRunLoopGetCurrent();
-                let run_loop_mode = kCFRunLoopCommonModes.expect("kCFRunLoopCommonModes should exist");
+                let run_loop_mode =
+                    kCFRunLoopCommonModes.expect("kCFRunLoopCommonModes should exist");
                 CFRunLoopRemoveSource(
                     current_run_loop,
                     source_ptr,
@@ -2452,7 +2619,8 @@ fn deactivate_shield() {
     }
 
     // Clear close button label view reference
-    let close_button_label_ptr = CLOSE_BUTTON_LABEL_VIEW.swap(std::ptr::null_mut(), Ordering::SeqCst);
+    let close_button_label_ptr =
+        CLOSE_BUTTON_LABEL_VIEW.swap(std::ptr::null_mut(), Ordering::SeqCst);
     if !close_button_label_ptr.is_null() {
         unsafe {
             let _label: Retained<CloseButtonLabelView> =
@@ -2606,10 +2774,7 @@ fn activate_shield(mtm: MainThreadMarker) {
     };
 
     // Store window reference for cleanup
-    SHIELD_WINDOW.store(
-        Retained::as_ptr(&window) as *mut c_void,
-        Ordering::SeqCst,
-    );
+    SHIELD_WINDOW.store(Retained::as_ptr(&window) as *mut c_void, Ordering::SeqCst);
 
     // Configure window to be topmost
     window.setLevel(NS_SCREEN_SAVER_WINDOW_LEVEL);
@@ -2681,7 +2846,10 @@ fn activate_shield(mtm: MainThreadMarker) {
         - 5.0; // 5px gap between button and label
 
     let close_button_label_frame = CGRect {
-        origin: CGPoint { x: label_x, y: label_y },
+        origin: CGPoint {
+            x: label_x,
+            y: label_y,
+        },
         size: CGSize {
             width: CLOSE_BUTTON_LABEL_WIDTH,
             height: CLOSE_BUTTON_LABEL_HEIGHT,
@@ -2945,7 +3113,9 @@ fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
         button.setTitle(ns_string!("🐱"));
 
         // Set tooltip for accessibility
-        button.setToolTip(Some(ns_string!("Cat Shield - Protect your work from curious cats")));
+        button.setToolTip(Some(ns_string!(
+            "Cat Shield - Protect your work from curious cats"
+        )));
     }
 
     // Create the main dropdown menu
@@ -3004,7 +3174,7 @@ fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
     stop_item.setTitle(ns_string!("Stop Protection"));
     stop_item.setToolTip(Some(ns_string!("Deactivate cat shield overlay")));
     stop_item.setEnabled(false); // Will be enabled when shield is active
-    stop_item.setHidden(true);   // Hidden until protection is active
+    stop_item.setHidden(true); // Hidden until protection is active
     menu.addItem(&stop_item);
 
     menu.addItem(&NSMenuItem::separatorItem(mtm));
@@ -3016,7 +3186,9 @@ fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
     // Add "Settings..." item - opens settings window for configuring preferences
     let settings_item = NSMenuItem::new(mtm);
     settings_item.setTitle(ns_string!("Settings..."));
-    settings_item.setToolTip(Some(ns_string!("Configure exit key, timer, and overlay opacity")));
+    settings_item.setToolTip(Some(ns_string!(
+        "Configure exit key, timer, and overlay opacity"
+    )));
     settings_item.setKeyEquivalent(ns_string!(",")); // Standard Cmd+, for settings
 
     // Create settings action handler and wire it to the Settings item
@@ -3055,7 +3227,9 @@ fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
     // Shows version, credits, and app information
     let about_item = NSMenuItem::new(mtm);
     about_item.setTitle(ns_string!("About Cat Shield"));
-    about_item.setToolTip(Some(ns_string!("About this application (Available in Issue #19)")));
+    about_item.setToolTip(Some(ns_string!(
+        "About this application (Available in Issue #19)"
+    )));
     about_item.setEnabled(false); // Disabled until Issue #19 implements about panel
     menu.addItem(&about_item);
 
@@ -3346,7 +3520,10 @@ fn main() {
         - 5.0; // 5px gap between button and label
 
     let close_button_label_frame = CGRect {
-        origin: CGPoint { x: label_x, y: label_y },
+        origin: CGPoint {
+            x: label_x,
+            y: label_y,
+        },
         size: CGSize {
             width: CLOSE_BUTTON_LABEL_WIDTH,
             height: CLOSE_BUTTON_LABEL_HEIGHT,
