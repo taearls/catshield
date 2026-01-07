@@ -29,13 +29,14 @@
 
 use clap::Parser;
 use objc2::rc::Retained;
+use objc2::runtime::ProtocolObject;
 use objc2::{define_class, msg_send, MainThreadOnly};
 use objc2_app_kit::{
     NSApplication, NSApplicationActivationPolicy, NSBackingStoreType, NSBezierPath, NSButton,
     NSButtonType, NSColor, NSControlSize, NSControlStateValueOff, NSControlStateValueOn, NSEvent,
     NSFont, NSMenu, NSMenuItem, NSPanel, NSPopUpButton, NSScreen, NSSlider, NSStatusBar,
     NSStatusItem, NSTextAlignment, NSTextField, NSView, NSWindow, NSWindowCollectionBehavior,
-    NSWindowStyleMask, NSWorkspace,
+    NSWindowDelegate, NSWindowStyleMask, NSWorkspace,
 };
 use objc2_core_foundation::{
     kCFRunLoopCommonModes, kCFRunLoopDefaultMode, CFMachPort, CFRetained, CFString, CGFloat,
@@ -45,7 +46,9 @@ use objc2_core_graphics::{
     CGEvent, CGEventField, CGEventFlags, CGEventMask, CGEventTapLocation, CGEventTapOptions,
     CGEventTapPlacement, CGEventTapProxy, CGEventType,
 };
-use objc2_foundation::{ns_string, MainThreadMarker, NSObject, NSString, NSURL};
+use objc2_foundation::{
+    ns_string, MainThreadMarker, NSNotification, NSObject, NSObjectProtocol, NSString, NSURL,
+};
 use serde::{Deserialize, Serialize};
 use std::cell::Cell;
 use std::ffi::c_void;
@@ -1448,9 +1451,8 @@ fn get_current_config() -> Config {
 
 /// Update the current config
 fn set_current_config(config: Config) {
-    if let Some(mutex) = CURRENT_CONFIG.get() {
-        *mutex.lock().unwrap() = config;
-    }
+    let mutex = CURRENT_CONFIG.get_or_init(|| std::sync::Mutex::new(Config::load()));
+    *mutex.lock().unwrap() = config;
 }
 
 // Settings window UI element references for reading values on save
@@ -1462,9 +1464,40 @@ static SETTINGS_OPACITY_SLIDER: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::nul
 static SETTINGS_OPACITY_LABEL: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 static SETTINGS_EXIT_KEY_VALIDATION_LABEL: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 static SETTINGS_TIMER_VALIDATION_LABEL: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+static SETTINGS_WINDOW_DELEGATE: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 
 /// Empty ivars for the SettingsActionHandler
 struct SettingsActionHandlerIvars {}
+
+/// Empty ivars for the SettingsWindowDelegate
+struct SettingsWindowDelegateIvars {}
+
+// Window delegate to handle window close events
+define_class!(
+    #[unsafe(super(NSObject))]
+    #[thread_kind = MainThreadOnly]
+    #[name = "SettingsWindowDelegate"]
+    #[ivars = SettingsWindowDelegateIvars]
+    struct SettingsWindowDelegate;
+
+    unsafe impl NSObjectProtocol for SettingsWindowDelegate {}
+
+    unsafe impl NSWindowDelegate for SettingsWindowDelegate {
+        /// Called when the window is about to close (including via X button)
+        #[unsafe(method(windowWillClose:))]
+        fn window_will_close(&self, _notification: &NSNotification) {
+            cleanup_settings_window_references();
+        }
+    }
+);
+
+impl SettingsWindowDelegate {
+    fn new(mtm: MainThreadMarker) -> Retained<Self> {
+        let this = mtm.alloc::<SettingsWindowDelegate>();
+        let this = this.set_ivars(SettingsWindowDelegateIvars {});
+        unsafe { msg_send![super(this), init] }
+    }
+}
 
 // Settings action handler for menu items and buttons
 define_class!(
@@ -1559,36 +1592,43 @@ fn update_timer_field_enabled(enabled: bool) {
     }
 }
 
-/// Close the settings window
+/// Clean up settings window UI element references
+/// Called both when window is closed programmatically and via X button
+fn cleanup_settings_window_references() {
+    // Clear window reference (swap to null to avoid double-cleanup)
+    SETTINGS_WINDOW.store(std::ptr::null_mut(), Ordering::SeqCst);
+
+    // Clear UI element references
+    SETTINGS_EXIT_KEY_FIELD.store(std::ptr::null_mut(), Ordering::SeqCst);
+    SETTINGS_TIMER_VALUE_FIELD.store(std::ptr::null_mut(), Ordering::SeqCst);
+    SETTINGS_TIMER_UNIT_DROPDOWN.store(std::ptr::null_mut(), Ordering::SeqCst);
+    SETTINGS_TIMER_CHECKBOX.store(std::ptr::null_mut(), Ordering::SeqCst);
+    SETTINGS_OPACITY_SLIDER.store(std::ptr::null_mut(), Ordering::SeqCst);
+    SETTINGS_OPACITY_LABEL.store(std::ptr::null_mut(), Ordering::SeqCst);
+    SETTINGS_EXIT_KEY_VALIDATION_LABEL.store(std::ptr::null_mut(), Ordering::SeqCst);
+    SETTINGS_TIMER_VALIDATION_LABEL.store(std::ptr::null_mut(), Ordering::SeqCst);
+
+    // Re-enable the settings menu item
+    let menu_item_ptr = SETTINGS_MENU_ITEM.load(Ordering::SeqCst);
+    if !menu_item_ptr.is_null() {
+        unsafe {
+            let menu_item: &NSMenuItem = &*(menu_item_ptr as *const NSMenuItem);
+            menu_item.setEnabled(true);
+        }
+    }
+
+    println!("  Settings window closed");
+}
+
+/// Close the settings window (called by Cancel/Save buttons)
 fn close_settings_window() {
-    let window_ptr = SETTINGS_WINDOW.swap(std::ptr::null_mut(), Ordering::SeqCst);
+    let window_ptr = SETTINGS_WINDOW.load(Ordering::SeqCst);
     if !window_ptr.is_null() {
         unsafe {
-            let window: Retained<NSPanel> =
-                Retained::from_raw(window_ptr as *mut NSPanel).expect("SETTINGS_WINDOW was valid");
+            let window: &NSPanel = &*(window_ptr as *const NSPanel);
             window.close();
         }
-
-        // Clear UI element references
-        SETTINGS_EXIT_KEY_FIELD.store(std::ptr::null_mut(), Ordering::SeqCst);
-        SETTINGS_TIMER_VALUE_FIELD.store(std::ptr::null_mut(), Ordering::SeqCst);
-        SETTINGS_TIMER_UNIT_DROPDOWN.store(std::ptr::null_mut(), Ordering::SeqCst);
-        SETTINGS_TIMER_CHECKBOX.store(std::ptr::null_mut(), Ordering::SeqCst);
-        SETTINGS_OPACITY_SLIDER.store(std::ptr::null_mut(), Ordering::SeqCst);
-        SETTINGS_OPACITY_LABEL.store(std::ptr::null_mut(), Ordering::SeqCst);
-        SETTINGS_EXIT_KEY_VALIDATION_LABEL.store(std::ptr::null_mut(), Ordering::SeqCst);
-        SETTINGS_TIMER_VALIDATION_LABEL.store(std::ptr::null_mut(), Ordering::SeqCst);
-
-        // Re-enable the settings menu item
-        let menu_item_ptr = SETTINGS_MENU_ITEM.load(Ordering::SeqCst);
-        if !menu_item_ptr.is_null() {
-            unsafe {
-                let menu_item: &NSMenuItem = &*(menu_item_ptr as *const NSMenuItem);
-                menu_item.setEnabled(true);
-            }
-        }
-
-        println!("  Settings window closed");
+        // Note: cleanup_settings_window_references() will be called by the window delegate
     }
 }
 
@@ -1796,6 +1836,23 @@ fn show_settings_window(mtm: MainThreadMarker) {
     unsafe {
         panel.setReleasedWhenClosed(false);
     }
+
+    // Create and set window delegate to handle close button (X) cleanup
+    let delegate = unsafe {
+        let delegate_ptr = SETTINGS_WINDOW_DELEGATE.load(Ordering::SeqCst);
+        if delegate_ptr.is_null() {
+            let new_delegate = SettingsWindowDelegate::new(mtm);
+            SETTINGS_WINDOW_DELEGATE.store(
+                Retained::as_ptr(&new_delegate) as *mut c_void,
+                Ordering::SeqCst,
+            );
+            std::mem::forget(new_delegate);
+            &*(SETTINGS_WINDOW_DELEGATE.load(Ordering::SeqCst) as *const SettingsWindowDelegate)
+        } else {
+            &*(delegate_ptr as *const SettingsWindowDelegate)
+        }
+    };
+    panel.setDelegate(Some(ProtocolObject::from_ref(delegate)));
 
     // Store window reference
     SETTINGS_WINDOW.store(
