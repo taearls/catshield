@@ -329,6 +329,7 @@ pub fn show_about_window(mtm: MainThreadMarker) {
         );
         description_label.setAlignment(NSTextAlignment::Center);
         content_view.addSubview(&description_label);
+        std::mem::forget(description_label);
 
         // ========================================
         // Close Button
