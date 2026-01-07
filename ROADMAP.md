@@ -51,6 +51,16 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
   - Added `if: contains(github.event.comment.body, '@claude')` condition
   - Claude now only responds when explicitly mentioned with `@claude`
 
+### CI/CD Infrastructure
+- [x] **Issue #31**: Add CI workflow with lint, format, test, and build checks
+  - Created `.github/workflows/ci.yml` with comprehensive CI pipeline
+  - Triggers on push to main, PRs targeting main, and manual dispatch
+  - Lint & Format job: `cargo fmt --check` and `cargo clippy -D warnings`
+  - Test job: `cargo test --verbose`
+  - Build job: `cargo build --release`
+  - All jobs run on `macos-latest` (required for objc2/AppKit)
+  - Uses `dtolnay/rust-toolchain@stable` and `Swatinem/rust-cache@v2` for caching
+
 ### Phase 3.5: Overlay Usability
 - [x] **Issue #10**: Add informative labels to overlay UI elements
   - Timer display now shows "Time Remaining:" header with countdown text (e.g., "29m 45s")
@@ -144,7 +154,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 | Status | Count | Issues |
 |--------|-------|--------|
 | Open | 3 | #11, #13, #19 |
-| Closed | 11 | #3, #5, #6, #7, #10, #14, #15, #16, #17, #18, #25 |
+| Closed | 12 | #3, #5, #6, #7, #10, #14, #15, #16, #17, #18, #25, #31 |
 
 ### By Priority
 - 🔴 Critical: 0
@@ -190,6 +200,17 @@ Potential future enhancements (not yet tracked as issues):
 - Custom overlay themes
 
 ## Changelog
+
+### 2026-01-07
+- Completed Issue #31: Add CI workflow with lint, format, test, and build checks
+  - Created `.github/workflows/ci.yml` with three parallel jobs
+  - Lint & Format job: checks code formatting with `cargo fmt --check` and runs Clippy with `-D warnings`
+  - Test job: runs `cargo test --verbose`
+  - Build job: compiles release build with `cargo build --release`
+  - All jobs run on `macos-latest` runners (required for objc2/AppKit dependencies)
+  - Uses `dtolnay/rust-toolchain@stable` for reliable Rust toolchain installation
+  - Uses `Swatinem/rust-cache@v2` for dependency caching to speed up builds
+  - Triggers on push to main, PRs targeting main, and manual workflow dispatch
 
 ### 2026-01-06
 - Completed Issue #16: Create Settings Window
