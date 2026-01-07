@@ -30,11 +30,11 @@
 use cat_shield::config::{has_immediate_start_args, Args, Config};
 use cat_shield::input::{set_exit_key, ExitKey, DEFAULT_EXIT_KEY};
 use cat_shield::lock::{acquire_instance_lock, release_instance_lock, LockResult};
-use cat_shield::platform::{
-    check_accessibility, check_accessibility_with_prompt, open_accessibility_settings,
-    prevent_sleep, allow_sleep, setup_event_tap,
-};
 use cat_shield::platform::CFRunLoopRunInMode;
+use cat_shield::platform::{
+    allow_sleep, check_accessibility, check_accessibility_with_prompt, open_accessibility_settings,
+    prevent_sleep, setup_event_tap,
+};
 use cat_shield::timer::{format_duration, get_remaining_seconds, init_auto_exit_timer};
 use cat_shield::ui::menu_bar::setup_menu_bar;
 use cat_shield::ui::shield::stop_close_button_timer;
@@ -53,7 +53,9 @@ use objc2_app_kit::{
     NSApplication, NSApplicationActivationPolicy, NSBackingStoreType, NSColor, NSScreen, NSWindow,
     NSWindowCollectionBehavior, NSWindowStyleMask,
 };
-use objc2_core_foundation::{kCFRunLoopCommonModes, kCFRunLoopDefaultMode, CFString, CGPoint, CGRect, CGSize};
+use objc2_core_foundation::{
+    kCFRunLoopCommonModes, kCFRunLoopDefaultMode, CFString, CGPoint, CGRect, CGSize,
+};
 use objc2_foundation::{ns_string, MainThreadMarker};
 use std::ffi::c_void;
 use std::process;
@@ -64,8 +66,7 @@ use cat_shield::platform::{
 };
 use cat_shield::timer::{AUTO_EXIT_ENABLED, WARNING_SECONDS, WARNING_SHOWN};
 use cat_shield::ui::state::{
-    is_hold_complete, HOLD_DURATION_SECS, IS_MOUSE_INSIDE,
-    MOUSE_DOWN_TIME, TIMER_INTERVAL_SECS,
+    is_hold_complete, HOLD_DURATION_SECS, IS_MOUSE_INSIDE, MOUSE_DOWN_TIME, TIMER_INTERVAL_SECS,
 };
 
 // Timer callback to update progress, check for exit condition, and trigger redraw

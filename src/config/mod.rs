@@ -11,6 +11,4 @@ mod types;
 
 pub use args::{has_immediate_start_args, Args};
 pub use file::{get_current_config, set_current_config};
-pub use types::{
-    Config, DEFAULT_OVERLAY_OPACITY, MAX_OVERLAY_OPACITY, MIN_OVERLAY_OPACITY,
-};
+pub use types::{Config, DEFAULT_OVERLAY_OPACITY, MAX_OVERLAY_OPACITY, MIN_OVERLAY_OPACITY};

@@ -1,6 +1,8 @@
 //! Settings window for Cat Shield
 
-use crate::config::{get_current_config, set_current_config, MIN_OVERLAY_OPACITY, MAX_OVERLAY_OPACITY};
+use crate::config::{
+    get_current_config, set_current_config, MAX_OVERLAY_OPACITY, MIN_OVERLAY_OPACITY,
+};
 use crate::input::{set_exit_key, ExitKey, DEFAULT_EXIT_KEY};
 use crate::timer::{parse_duration, parse_timer_value_and_unit};
 use crate::ui::helpers::create_label;
@@ -19,7 +21,9 @@ use objc2_app_kit::{
     NSScreen, NSSlider, NSTextAlignment, NSTextField, NSWindowDelegate, NSWindowStyleMask,
 };
 use objc2_core_foundation::{CGFloat, CGPoint, CGRect, CGSize};
-use objc2_foundation::{ns_string, MainThreadMarker, NSNotification, NSObject, NSObjectProtocol, NSString};
+use objc2_foundation::{
+    ns_string, MainThreadMarker, NSNotification, NSObject, NSObjectProtocol, NSString,
+};
 use std::ffi::c_void;
 use std::sync::atomic::Ordering;
 

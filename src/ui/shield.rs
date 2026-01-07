@@ -22,12 +22,16 @@ use objc2_app_kit::{
     NSBackingStoreType, NSColor, NSMenuItem, NSScreen, NSWindow, NSWindowCollectionBehavior,
     NSWindowStyleMask,
 };
-use objc2_core_foundation::{kCFRunLoopCommonModes, kCFRunLoopDefaultMode, CFString, CGPoint, CGRect, CGSize};
+use objc2_core_foundation::{
+    kCFRunLoopCommonModes, kCFRunLoopDefaultMode, CFString, CGPoint, CGRect, CGSize,
+};
 use objc2_foundation::{ns_string, MainThreadMarker};
 use std::ffi::c_void;
 use std::sync::atomic::Ordering;
 
-use crate::platform::{CFAbsoluteTimeGetCurrent, CFRunLoopAddTimer, CFRunLoopTimerCreate, CFRunLoopTimerInvalidate};
+use crate::platform::{
+    CFAbsoluteTimeGetCurrent, CFRunLoopAddTimer, CFRunLoopTimerCreate, CFRunLoopTimerInvalidate,
+};
 use crate::timer::{get_remaining_seconds, WARNING_SECONDS};
 use crate::ui::state::TIMER_INTERVAL_SECS;
 

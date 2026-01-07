@@ -1,7 +1,9 @@
 //! Menu bar setup for Cat Shield
 
 use super::handlers::MenuActionHandler;
-use crate::ui::state::{MENU_ACTION_HANDLER, SETTINGS_ACTION_HANDLER, SETTINGS_MENU_ITEM, START_MENU_ITEM};
+use crate::ui::state::{
+    MENU_ACTION_HANDLER, SETTINGS_ACTION_HANDLER, SETTINGS_MENU_ITEM, START_MENU_ITEM,
+};
 use crate::ui::windows::SettingsActionHandler;
 use objc2::rc::Retained;
 use objc2_app_kit::{NSMenu, NSMenuItem, NSStatusBar, NSStatusItem};

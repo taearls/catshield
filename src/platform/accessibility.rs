@@ -1,11 +1,11 @@
 //! Accessibility permission handling for Cat Shield
 
 use super::bindings::{
-    kAXTrustedCheckOptionPrompt, kCFBooleanTrue, AXIsProcessTrusted,
-    AXIsProcessTrustedWithOptions, CFDictionaryCreate, CFRelease,
+    kAXTrustedCheckOptionPrompt, kCFBooleanTrue, AXIsProcessTrusted, AXIsProcessTrustedWithOptions,
+    CFDictionaryCreate, CFRelease,
 };
-use objc2_foundation::{ns_string, NSURL};
 use objc2_app_kit::NSWorkspace;
+use objc2_foundation::{ns_string, NSURL};
 
 /// Check if we have accessibility permissions
 pub fn check_accessibility() -> bool {

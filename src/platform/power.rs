@@ -2,7 +2,9 @@
 //!
 //! Provides functions to prevent and allow system sleep.
 
-use super::bindings::{IOPMAssertionCreateWithName, IOPMAssertionRelease, K_IOPM_ASSERTION_LEVEL_ON};
+use super::bindings::{
+    IOPMAssertionCreateWithName, IOPMAssertionRelease, K_IOPM_ASSERTION_LEVEL_ON,
+};
 use objc2_core_foundation::{CFRetained, CFString};
 use std::ffi::c_void;
 

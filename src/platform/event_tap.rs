@@ -11,8 +11,8 @@ use crate::ui::state::MENU_BAR_MODE;
 use objc2_app_kit::NSApplication;
 use objc2_core_foundation::{kCFRunLoopCommonModes, CFMachPort, CFRetained, CFString};
 use objc2_core_graphics::{
-    CGEvent, CGEventField, CGEventMask, CGEventTapLocation, CGEventTapOptions,
-    CGEventTapPlacement, CGEventTapProxy, CGEventType,
+    CGEvent, CGEventField, CGEventMask, CGEventTapLocation, CGEventTapOptions, CGEventTapPlacement,
+    CGEventTapProxy, CGEventType,
 };
 use objc2_foundation::MainThreadMarker;
 use std::ffi::c_void;

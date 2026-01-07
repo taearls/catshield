@@ -1,6 +1,8 @@
 //! Timer display view for the shield overlay
 
-use crate::timer::{format_duration, get_remaining_seconds, WARNING_SECONDS, AUTO_EXIT_DURATION_SECS};
+use crate::timer::{
+    format_duration, get_remaining_seconds, AUTO_EXIT_DURATION_SECS, WARNING_SECONDS,
+};
 use crate::ui::helpers::create_label;
 use crate::ui::state::{TIMER_HEADER_LABEL, TIMER_TIME_LABEL, TIMER_WARNING_LABEL};
 use objc2::rc::Retained;
