@@ -29,6 +29,7 @@ fn is_process_running(pid: u32) -> bool {
 }
 
 /// Result of attempting to acquire the single-instance lock
+#[must_use]
 pub enum LockResult {
     /// Successfully acquired the lock
     Acquired,

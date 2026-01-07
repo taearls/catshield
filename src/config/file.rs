@@ -11,12 +11,14 @@ pub fn get_current_config() -> Config {
     CURRENT_CONFIG
         .get_or_init(|| Mutex::new(Config::load()))
         .lock()
-        .unwrap()
+        .unwrap_or_else(|e| panic!("Config mutex poisoned: {}", e))
         .clone()
 }
 
 /// Update the current config
 pub fn set_current_config(config: Config) {
     let mutex = CURRENT_CONFIG.get_or_init(|| Mutex::new(Config::load()));
-    *mutex.lock().unwrap() = config;
+    *mutex
+        .lock()
+        .unwrap_or_else(|e| panic!("Config mutex poisoned: {}", e)) = config;
 }
