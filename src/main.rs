@@ -37,7 +37,7 @@ use cat_shield::platform::{
 };
 use cat_shield::timer::{format_duration, get_remaining_seconds, init_auto_exit_timer};
 use cat_shield::ui::menu_bar::setup_menu_bar;
-use cat_shield::ui::shield::stop_close_button_timer;
+use cat_shield::ui::shield::{stop_close_button_timer, timer_callback};
 use cat_shield::ui::state::{
     CLOSE_BUTTON_LABEL_HEIGHT, CLOSE_BUTTON_LABEL_VIEW, CLOSE_BUTTON_LABEL_WIDTH,
     CLOSE_BUTTON_MARGIN, CLOSE_BUTTON_SIZE, CLOSE_BUTTON_VIEW, MENU_BAR_MODE,
@@ -64,78 +64,7 @@ use std::sync::atomic::Ordering;
 use cat_shield::platform::{
     CFAbsoluteTimeGetCurrent, CFRunLoopAddTimer, CFRunLoopGetCurrent, CFRunLoopTimerCreate,
 };
-use cat_shield::timer::{AUTO_EXIT_ENABLED, WARNING_SECONDS, WARNING_SHOWN};
-use cat_shield::ui::state::{
-    is_hold_complete, HOLD_DURATION_SECS, IS_MOUSE_INSIDE, MOUSE_DOWN_TIME, TIMER_INTERVAL_SECS,
-};
-
-// Timer callback to update progress, check for exit condition, and trigger redraw
-// This is duplicated from shield.rs for the immediate mode path
-unsafe extern "C" fn timer_callback(_timer: *mut c_void, _info: *mut c_void) {
-    use objc2_app_kit::NSView;
-
-    // Check if hold duration has been exceeded (close button)
-    let should_exit_from_button = MOUSE_DOWN_TIME.with(|time| {
-        if let Some(start) = time.get() {
-            let is_inside = IS_MOUSE_INSIDE.with(|inside| inside.get());
-            is_inside && is_hold_complete(start.elapsed().as_secs_f64(), HOLD_DURATION_SECS)
-        } else {
-            false
-        }
-    });
-
-    if should_exit_from_button {
-        if let Some(mtm) = MainThreadMarker::new() {
-            let app = NSApplication::sharedApplication(mtm);
-            app.terminate(None);
-        }
-        return;
-    }
-
-    // Check auto-exit timer
-    if AUTO_EXIT_ENABLED.load(Ordering::SeqCst) {
-        let remaining = get_remaining_seconds();
-
-        // Show warning when approaching exit
-        if remaining <= WARNING_SECONDS && !WARNING_SHOWN.swap(true, Ordering::SeqCst) {
-            println!();
-            println!("  ⚠️  Auto-exit in {} seconds!", remaining);
-            println!();
-        }
-
-        // Check if timer has expired
-        if remaining == 0 {
-            println!();
-            println!("  ⏰ Timer expired - auto-exiting...");
-            if let Some(mtm) = MainThreadMarker::new() {
-                let app = NSApplication::sharedApplication(mtm);
-                app.terminate(None);
-            }
-            return;
-        }
-    }
-
-    // Trigger redraw of close button
-    let view_ptr = CLOSE_BUTTON_VIEW.load(Ordering::SeqCst);
-    if !view_ptr.is_null() {
-        let view: &NSView = &*(view_ptr as *const NSView);
-        view.setNeedsDisplay(true);
-    }
-
-    // Trigger redraw of close button label (for countdown during hold)
-    let label_view_ptr = CLOSE_BUTTON_LABEL_VIEW.load(Ordering::SeqCst);
-    if !label_view_ptr.is_null() {
-        let view: &NSView = &*(label_view_ptr as *const NSView);
-        view.setNeedsDisplay(true);
-    }
-
-    // Trigger redraw of timer display
-    let timer_view_ptr = TIMER_DISPLAY_VIEW.load(Ordering::SeqCst);
-    if !timer_view_ptr.is_null() {
-        let view: &NSView = &*(timer_view_ptr as *const NSView);
-        view.setNeedsDisplay(true);
-    }
-}
+use cat_shield::ui::state::TIMER_INTERVAL_SECS;
 
 /// Start the animation timer for immediate mode
 fn start_close_button_timer() {

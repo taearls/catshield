@@ -35,8 +35,14 @@ use crate::platform::{
 use crate::timer::{get_remaining_seconds, WARNING_SECONDS};
 use crate::ui::state::TIMER_INTERVAL_SECS;
 
-// Timer callback to update progress, check for exit condition, and trigger redraw
-unsafe extern "C" fn timer_callback(_timer: *mut c_void, _info: *mut c_void) {
+/// Timer callback to update progress, check for exit condition, and trigger redraw.
+///
+/// This callback handles both menu bar mode (returns to menu bar) and immediate mode
+/// (terminates the app) based on the MENU_BAR_MODE flag.
+///
+/// # Safety
+/// This function is called from the CFRunLoop timer and must be `unsafe extern "C"`.
+pub unsafe extern "C" fn timer_callback(_timer: *mut c_void, _info: *mut c_void) {
     use crate::ui::state::{is_hold_complete, HOLD_DURATION_SECS};
     use objc2_app_kit::{NSApplication, NSView};
 

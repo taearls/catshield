@@ -14,5 +14,5 @@ pub mod views;
 pub mod windows;
 
 pub use helpers::create_label;
-pub use shield::{activate_shield, deactivate_shield};
+pub use shield::{activate_shield, deactivate_shield, timer_callback};
 pub use state::*;
