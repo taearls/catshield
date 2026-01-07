@@ -150,6 +150,18 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
                     └── #19: About Panel (optional)
 ```
 
+### Code Quality & Architecture
+- [x] **Issue #35**: Split main.rs into multiple modules
+  - Extracted `src/input/` module with keycodes and exit key handling
+  - Extracted `src/timer/` module with duration parsing, formatting, and state
+  - Extracted `src/config/` module with Config struct, file I/O, and CLI args
+  - Extracted `src/platform/` module with FFI bindings, accessibility, power, and event tap
+  - Extracted `src/ui/` module with views, windows, menu bar, and shield activation
+  - Extracted `src/lock/` module with single-instance enforcement
+  - Created `src/lib.rs` with public API re-exports
+  - Reduced main.rs from ~4354 lines to ~530 lines (88% reduction)
+  - All 50 tests pass, clippy clean, build successful
+
 ### Other Open Issues
 
 | Priority | Issue | Title | Effort |
@@ -163,7 +175,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 | Status | Count | Issues |
 |--------|-------|--------|
 | Open | 5 | #11, #13, #19, #28, #30 |
-| Closed | 13 | #3, #5, #6, #7, #10, #14, #15, #16, #17, #18, #24, #25, #31 |
+| Closed | 14 | #3, #5, #6, #7, #10, #14, #15, #16, #17, #18, #24, #25, #31, #35 |
 
 ### By Priority
 - 🔴 Critical: 0
@@ -219,6 +231,20 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-07
+- Completed Issue #35: Split main.rs into multiple modules
+  - Created modular architecture with 6 top-level modules: input, timer, config, platform, ui, lock
+  - `src/input/`: keycodes.rs (macOS virtual keycode mappings), exit_key.rs (exit key parsing and state)
+  - `src/timer/`: parsing.rs, formatting.rs, state.rs (auto-exit timer management)
+  - `src/config/`: types.rs (Config struct), file.rs (I/O), args.rs (CLI parsing with clap)
+  - `src/platform/`: bindings.rs (FFI), accessibility.rs, power.rs, event_tap.rs
+  - `src/ui/`: state.rs, helpers.rs, shield.rs, views/ (CloseButtonView, TimerDisplayView), windows/ (settings), menu_bar/ (setup, handlers)
+  - `src/lock/`: single-instance PID lock mechanism
+  - `src/lib.rs`: public API with re-exports for convenient usage
+  - Reduced main.rs from ~4354 lines to ~530 lines (88% reduction)
+  - All 50 tests pass with no modifications needed
+  - Clippy passes with no warnings
+  - Improved code organization, discoverability, and maintainability
+- Updated issue counts: 5 open, 14 closed
 - Completed Issue #24: Fix multiple menu bar icons bug (single-instance enforcement)
   - Implemented PID-based lock file mechanism at `~/.config/catshield/catshield.lock`
   - Added `acquire_instance_lock()` function to check for existing instances

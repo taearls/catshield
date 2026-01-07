@@ -46,6 +46,9 @@ Temporary Items
 *.swo
 *~
 
+# Testing artifacts
+.playwright-mcp/
+
 # Release builds
 *.dmg
 *.app
