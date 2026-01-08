@@ -42,7 +42,7 @@ sudo chmod +x /usr/local/bin/catshield
 ### Prerequisites
 
 - **macOS 10.12+**
-- **Rust 1.70+** - Install from [rustup.rs](https://rustup.rs)
+- **Rust 1.71+** - Install from [rustup.rs](https://rustup.rs)
 
 ### Uninstall
 

@@ -33,6 +33,15 @@ fi
 
 echo -e "${GREEN}[1/4]${NC} Rust/Cargo detected: $(cargo --version)"
 
+# Check Rust version (1.71+ required for objc2)
+RUST_VERSION=$(rustc --version | grep -oE '[0-9]+\.[0-9]+' | head -1)
+REQUIRED_VERSION="1.71"
+if [ "$(printf '%s\n' "$REQUIRED_VERSION" "$RUST_VERSION" | sort -V | head -n1)" != "$REQUIRED_VERSION" ]; then
+    echo -e "${YELLOW}Warning: Rust $RUST_VERSION detected. Rust $REQUIRED_VERSION+ is required.${NC}"
+    echo "Update with: rustup update stable"
+    echo ""
+fi
+
 # Build release binary
 echo ""
 echo -e "${GREEN}[2/4]${NC} Building release binary..."
