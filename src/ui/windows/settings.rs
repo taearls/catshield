@@ -244,37 +244,19 @@ fn save_settings_from_window() {
     // Get exit key value and validate
     let exit_key_ptr = SETTINGS_EXIT_KEY_FIELD.load(Ordering::SeqCst);
     if !exit_key_ptr.is_null() {
-        unsafe {
+        let value = unsafe {
             let field: &NSTextField = &*(exit_key_ptr as *const NSTextField);
-            let value = field.stringValue().to_string();
-            let trimmed = value.trim();
+            field.stringValue().to_string()
+        };
+        let result = validate_exit_key_input(&value);
+        update_exit_key_validation_label(&result);
 
-            if !trimmed.is_empty() {
-                match ExitKey::parse(trimmed) {
-                    Ok(_) => {
-                        config.exit_key = Some(trimmed.to_string());
-                        update_validation_label(
-                            SETTINGS_EXIT_KEY_VALIDATION_LABEL.load(Ordering::SeqCst),
-                            true,
-                            "✓ Valid",
-                        );
-                    }
-                    Err(e) => {
-                        update_validation_label(
-                            SETTINGS_EXIT_KEY_VALIDATION_LABEL.load(Ordering::SeqCst),
-                            false,
-                            &e,
-                        );
-                        has_errors = true;
-                    }
-                }
-            } else {
-                config.exit_key = None;
-                update_validation_label(
-                    SETTINGS_EXIT_KEY_VALIDATION_LABEL.load(Ordering::SeqCst),
-                    true,
-                    "Using default",
-                );
+        match result {
+            ExitKeyValidation::Valid(key) => {
+                config.exit_key = key;
+            }
+            ExitKeyValidation::Invalid(_) => {
+                has_errors = true;
             }
         }
     }
@@ -417,27 +399,51 @@ fn update_validation_label(label_ptr: *mut c_void, is_valid: bool, message: &str
     }
 }
 
-/// Validate exit key field in real-time as user types
-fn validate_exit_key_realtime(value: &str) {
-    let trimmed = value.trim();
-    let label_ptr = SETTINGS_EXIT_KEY_VALIDATION_LABEL.load(Ordering::SeqCst);
+/// Result of validating an exit key input string
+enum ExitKeyValidation {
+    /// Valid input: Some(key_string) for custom key, None for empty (use default)
+    Valid(Option<String>),
+    /// Invalid input with error message
+    Invalid(String),
+}
 
+/// Validate an exit key input string
+fn validate_exit_key_input(value: &str) -> ExitKeyValidation {
+    let trimmed = value.trim();
     if trimmed.is_empty() {
-        update_validation_label(
-            label_ptr,
-            true,
-            &format!("Using default: {}", DEFAULT_EXIT_KEY),
-        );
+        ExitKeyValidation::Valid(None)
     } else {
         match ExitKey::parse(trimmed) {
-            Ok(_) => {
-                update_validation_label(label_ptr, true, "✓ Valid");
-            }
-            Err(e) => {
-                update_validation_label(label_ptr, false, &e);
-            }
+            Ok(_) => ExitKeyValidation::Valid(Some(trimmed.to_string())),
+            Err(e) => ExitKeyValidation::Invalid(e),
         }
     }
+}
+
+/// Update the exit key validation label based on validation result
+fn update_exit_key_validation_label(result: &ExitKeyValidation) {
+    let label_ptr = SETTINGS_EXIT_KEY_VALIDATION_LABEL.load(Ordering::SeqCst);
+    match result {
+        ExitKeyValidation::Valid(None) => {
+            update_validation_label(
+                label_ptr,
+                true,
+                &format!("Using default: {}", DEFAULT_EXIT_KEY),
+            );
+        }
+        ExitKeyValidation::Valid(Some(_)) => {
+            update_validation_label(label_ptr, true, "✓ Valid");
+        }
+        ExitKeyValidation::Invalid(e) => {
+            update_validation_label(label_ptr, false, e);
+        }
+    }
+}
+
+/// Validate exit key field in real-time as user types
+fn validate_exit_key_realtime(value: &str) {
+    let result = validate_exit_key_input(value);
+    update_exit_key_validation_label(&result);
 }
 
 /// Show the settings window
