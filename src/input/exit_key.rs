@@ -80,7 +80,8 @@ impl ExitKey {
         // Require at least one modifier
         if !requires_cmd && !requires_option && !requires_shift && !requires_ctrl {
             return Err(
-                "At least one modifier required (Cmd/Command, Option/Alt, Shift, or Ctrl)".to_string(),
+                "At least one modifier required (Cmd/Command, Option/Alt, Shift, or Ctrl)"
+                    .to_string(),
             );
         }
 
