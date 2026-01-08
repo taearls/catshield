@@ -78,6 +78,8 @@ pub static SETTINGS_EXIT_KEY_VALIDATION_LABEL: AtomicPtr<c_void> =
 pub static SETTINGS_TIMER_VALIDATION_LABEL: AtomicPtr<c_void> =
     AtomicPtr::new(std::ptr::null_mut());
 pub static SETTINGS_WINDOW_DELEGATE: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+pub static SETTINGS_EXIT_KEY_FIELD_DELEGATE: AtomicPtr<c_void> =
+    AtomicPtr::new(std::ptr::null_mut());
 
 // Global reference to the about action handler to keep it alive
 pub static ABOUT_ACTION_HANDLER: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());

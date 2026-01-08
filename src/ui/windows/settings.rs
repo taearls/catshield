@@ -7,18 +7,20 @@ use crate::input::{set_exit_key, ExitKey, DEFAULT_EXIT_KEY};
 use crate::timer::{parse_duration, parse_timer_value_and_unit};
 use crate::ui::helpers::create_label;
 use crate::ui::state::{
-    SETTINGS_ACTION_HANDLER, SETTINGS_EXIT_KEY_FIELD, SETTINGS_EXIT_KEY_VALIDATION_LABEL,
-    SETTINGS_MENU_ITEM, SETTINGS_OPACITY_LABEL, SETTINGS_OPACITY_SLIDER, SETTINGS_TIMER_CHECKBOX,
-    SETTINGS_TIMER_UNIT_DROPDOWN, SETTINGS_TIMER_VALIDATION_LABEL, SETTINGS_TIMER_VALUE_FIELD,
-    SETTINGS_WINDOW, SETTINGS_WINDOW_DELEGATE,
+    SETTINGS_ACTION_HANDLER, SETTINGS_EXIT_KEY_FIELD, SETTINGS_EXIT_KEY_FIELD_DELEGATE,
+    SETTINGS_EXIT_KEY_VALIDATION_LABEL, SETTINGS_MENU_ITEM, SETTINGS_OPACITY_LABEL,
+    SETTINGS_OPACITY_SLIDER, SETTINGS_TIMER_CHECKBOX, SETTINGS_TIMER_UNIT_DROPDOWN,
+    SETTINGS_TIMER_VALIDATION_LABEL, SETTINGS_TIMER_VALUE_FIELD, SETTINGS_WINDOW,
+    SETTINGS_WINDOW_DELEGATE,
 };
 use objc2::rc::Retained;
 use objc2::runtime::ProtocolObject;
 use objc2::{define_class, msg_send, MainThreadOnly};
 use objc2_app_kit::{
     NSApplication, NSBackingStoreType, NSButton, NSButtonType, NSColor, NSControlSize,
-    NSControlStateValueOff, NSControlStateValueOn, NSFont, NSMenuItem, NSPanel, NSPopUpButton,
-    NSScreen, NSSlider, NSTextAlignment, NSTextField, NSWindowDelegate, NSWindowStyleMask,
+    NSControlStateValueOff, NSControlStateValueOn, NSControlTextEditingDelegate, NSFont,
+    NSMenuItem, NSPanel, NSPopUpButton, NSScreen, NSSlider, NSTextAlignment, NSTextField,
+    NSTextFieldDelegate, NSWindowDelegate, NSWindowStyleMask,
 };
 use objc2_core_foundation::{CGFloat, CGPoint, CGRect, CGSize};
 use objc2_foundation::{
@@ -32,6 +34,47 @@ pub struct SettingsActionHandlerIvars {}
 
 /// Empty ivars for the SettingsWindowDelegate
 pub struct SettingsWindowDelegateIvars {}
+
+/// Empty ivars for the ExitKeyFieldDelegate
+pub struct ExitKeyFieldDelegateIvars {}
+
+// Delegate for exit key text field to handle real-time text changes
+define_class!(
+    #[unsafe(super(NSObject))]
+    #[thread_kind = MainThreadOnly]
+    #[name = "ExitKeyFieldDelegate"]
+    #[ivars = ExitKeyFieldDelegateIvars]
+    pub struct ExitKeyFieldDelegate;
+
+    unsafe impl NSObjectProtocol for ExitKeyFieldDelegate {}
+
+    // NSTextFieldDelegate is required for setDelegate on NSTextField
+    unsafe impl NSTextFieldDelegate for ExitKeyFieldDelegate {}
+
+    unsafe impl NSControlTextEditingDelegate for ExitKeyFieldDelegate {
+        /// Called when text changes in the control (real-time, on every keystroke)
+        #[unsafe(method(controlTextDidChange:))]
+        fn control_text_did_change(&self, _notification: &NSNotification) {
+            // Read the current value from the exit key field
+            let field_ptr = SETTINGS_EXIT_KEY_FIELD.load(Ordering::SeqCst);
+            if !field_ptr.is_null() {
+                unsafe {
+                    let field: &NSTextField = &*(field_ptr as *const NSTextField);
+                    let value = field.stringValue().to_string();
+                    validate_exit_key_realtime(&value);
+                }
+            }
+        }
+    }
+);
+
+impl ExitKeyFieldDelegate {
+    pub fn new(mtm: MainThreadMarker) -> Retained<Self> {
+        let this = mtm.alloc::<ExitKeyFieldDelegate>();
+        let this = this.set_ivars(ExitKeyFieldDelegateIvars {});
+        unsafe { msg_send![super(this), init] }
+    }
+}
 
 // Window delegate to handle window close events
 define_class!(
@@ -102,14 +145,6 @@ define_class!(
             if let Some(checkbox) = sender {
                 let is_enabled = checkbox.state() == NSControlStateValueOn;
                 update_timer_field_enabled(is_enabled);
-            }
-        }
-
-        /// Action method called when exit key field text changes
-        #[unsafe(method(exitKeyChanged:))]
-        unsafe fn exit_key_changed(&self, sender: Option<&NSTextField>) {
-            if let Some(field) = sender {
-                validate_exit_key_realtime(&field.stringValue().to_string());
             }
         }
     }
@@ -388,7 +423,11 @@ fn validate_exit_key_realtime(value: &str) {
     let label_ptr = SETTINGS_EXIT_KEY_VALIDATION_LABEL.load(Ordering::SeqCst);
 
     if trimmed.is_empty() {
-        update_validation_label(label_ptr, true, "Using default");
+        update_validation_label(
+            label_ptr,
+            true,
+            &format!("Using default: {}", DEFAULT_EXIT_KEY),
+        );
     } else {
         match ExitKey::parse(trimmed) {
             Ok(_) => {
@@ -559,10 +598,24 @@ pub fn show_settings_window(mtm: MainThreadMarker) {
             config.exit_key.as_deref().unwrap_or(DEFAULT_EXIT_KEY),
         ));
         exit_key_field.setPlaceholderString(Some(ns_string!("e.g., Cmd+Option+U")));
-        // Set up real-time validation on text changes
+        // Set up delegate for real-time validation on text changes
+        let exit_key_delegate = unsafe {
+            let delegate_ptr = SETTINGS_EXIT_KEY_FIELD_DELEGATE.load(Ordering::SeqCst);
+            if delegate_ptr.is_null() {
+                let new_delegate = ExitKeyFieldDelegate::new(mtm);
+                SETTINGS_EXIT_KEY_FIELD_DELEGATE.store(
+                    Retained::as_ptr(&new_delegate) as *mut c_void,
+                    Ordering::SeqCst,
+                );
+                std::mem::forget(new_delegate);
+                &*(SETTINGS_EXIT_KEY_FIELD_DELEGATE.load(Ordering::SeqCst)
+                    as *const ExitKeyFieldDelegate)
+            } else {
+                &*(delegate_ptr as *const ExitKeyFieldDelegate)
+            }
+        };
         unsafe {
-            exit_key_field.setTarget(Some(handler));
-            exit_key_field.setAction(Some(objc2::sel!(exitKeyChanged:)));
+            exit_key_field.setDelegate(Some(ProtocolObject::from_ref(exit_key_delegate)));
         }
         content_view.addSubview(&exit_key_field);
         SETTINGS_EXIT_KEY_FIELD.store(
