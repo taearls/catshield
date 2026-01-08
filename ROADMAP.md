@@ -183,21 +183,21 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #38 | Menu items not visually disabled when windows are open | 2026-01-08 |
 | #30 | Add real-time validation for Exit Key field in Settings Window | 2026-01-08 |
 
 ## Issue Summary
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 3 | #11, #13, #28 |
-| Closed | 16 | #3, #5, #6, #7, #10, #14, #15, #16, #17, #18, #19, #24, #25, #30, #31, #35 |
+| Open | 2 | #11, #28 |
+| Closed | 18 | #3, #5, #6, #7, #10, #13, #14, #15, #16, #17, #18, #19, #24, #25, #30, #31, #35, #38 |
 
 ### By Priority
 - 🔴 Critical: 0
 - 🟡 High: 0
 - 🟢 Medium: 1 (#28)
 - 🔵 Low: 1 (#11)
-- Epic: 1 (#13)
 
 ## Recommended Implementation Order
 
@@ -246,6 +246,14 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-08
+- Completed Issue #38: Fix menu items not visually disabled when windows are open
+  - Settings and About menu items now appear visually grayed out when their windows are open
+  - Root cause: NSMenu's `autoenablesItems` was overriding manual `setEnabled(false)` calls
+  - Fix: Added `menu.setAutoenablesItems(false)` in menu bar setup (`src/ui/menu_bar/setup.rs`)
+  - This allows the existing `setEnabled()` calls in settings/about window code to work correctly
+  - Menu items properly re-enable (visually and functionally) when windows are closed
+  - Updated issue counts: 2 open, 18 closed
+
 - Completed Issue #30: Add real-time validation for Exit Key field in Settings Window
   - Exit Key text field now validates input as the user types
   - Added `exitKeyChanged:` action method to `SettingsActionHandler`
