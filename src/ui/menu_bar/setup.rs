@@ -50,6 +50,10 @@ pub fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
     // Create the main dropdown menu
     let menu = NSMenu::new(mtm);
 
+    // Disable auto-enabling of menu items so our manual setEnabled calls work
+    // This ensures Settings/About menu items appear visually grayed when their windows are open
+    menu.setAutoenablesItems(false);
+
     // ============================================
     // HEADER SECTION
     // ============================================
