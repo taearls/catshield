@@ -94,7 +94,7 @@ This project aims to create a simple macOS utility written in Rust that:
 
 ## Technical Stack
 
-- **Language**: Rust (1.70+)
+- **Language**: Rust (1.71+)
 - **Platform**: macOS 10.12+
 - **Frameworks**:
   - Cocoa/AppKit (window management)
