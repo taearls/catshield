@@ -7,8 +7,8 @@ use super::keycodes::{keycode_from_name, keycode_to_name};
 use objc2_core_graphics::CGEventFlags;
 use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 
-/// Default exit key configuration
-pub const DEFAULT_EXIT_KEY: &str = "Cmd+Option+U";
+/// Default exit key configuration (Cmd+Q is standard macOS quit shortcut)
+pub const DEFAULT_EXIT_KEY: &str = "Cmd+Q";
 
 /// Represents a parsed exit key combination
 #[derive(Debug, Clone)]
@@ -23,11 +23,11 @@ pub struct ExitKey {
 
 impl Default for ExitKey {
     fn default() -> Self {
-        // Default: Cmd+Option+U
+        // Default: Cmd+Q (standard macOS quit shortcut)
         ExitKey {
-            keycode: 32, // U
+            keycode: 12, // Q
             requires_cmd: true,
-            requires_option: true,
+            requires_option: false,
             requires_shift: false,
             requires_ctrl: false,
             display_name: DEFAULT_EXIT_KEY.to_string(),
@@ -80,7 +80,8 @@ impl ExitKey {
         // Require at least one modifier
         if !requires_cmd && !requires_option && !requires_shift && !requires_ctrl {
             return Err(
-                "At least one modifier key required (Cmd, Option, Shift, or Ctrl)".to_string(),
+                "At least one modifier required (Cmd/Command, Option/Alt, Shift, or Ctrl)"
+                    .to_string(),
             );
         }
 
@@ -96,9 +97,9 @@ impl ExitKey {
 }
 
 // Global storage for exit key configuration (atomic for thread safety)
-pub static EXIT_KEY_KEYCODE: AtomicI64 = AtomicI64::new(32); // Default: U
+pub static EXIT_KEY_KEYCODE: AtomicI64 = AtomicI64::new(12); // Default: Q
 pub static EXIT_KEY_REQUIRES_CMD: AtomicBool = AtomicBool::new(true);
-pub static EXIT_KEY_REQUIRES_OPTION: AtomicBool = AtomicBool::new(true);
+pub static EXIT_KEY_REQUIRES_OPTION: AtomicBool = AtomicBool::new(false);
 pub static EXIT_KEY_REQUIRES_SHIFT: AtomicBool = AtomicBool::new(false);
 pub static EXIT_KEY_REQUIRES_CTRL: AtomicBool = AtomicBool::new(false);
 
@@ -173,7 +174,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_exit_key_parse_default() {
+    fn test_exit_key_parse_cmd_option_u() {
         let key = ExitKey::parse("Cmd+Option+U").unwrap();
         assert_eq!(key.keycode, 32);
         assert!(key.requires_cmd);
@@ -251,11 +252,11 @@ mod tests {
     #[test]
     fn test_exit_key_default() {
         let key = ExitKey::default();
-        assert_eq!(key.keycode, 32);
+        assert_eq!(key.keycode, 12); // Q
         assert!(key.requires_cmd);
-        assert!(key.requires_option);
+        assert!(!key.requires_option);
         assert!(!key.requires_shift);
         assert!(!key.requires_ctrl);
-        assert_eq!(key.display_name, "Cmd+Option+U");
+        assert_eq!(key.display_name, "Cmd+Q");
     }
 }
