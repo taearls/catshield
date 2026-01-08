@@ -2,6 +2,74 @@
 
 A cat-proof screen overlay for macOS that protects your work from curious felines walking on your keyboard.
 
+## Installation
+
+### Quick Install (Recommended)
+
+```bash
+# Clone the repository
+git clone https://github.com/taearls/catshield.git
+cd catshield
+
+# Run the install script
+./install.sh
+```
+
+The install script will:
+1. Check for Rust/Cargo (required)
+2. Build the release binary
+3. Install to `/usr/local/bin/catshield` (may require sudo)
+
+### Custom Install Location
+
+To install to a different location:
+
+```bash
+INSTALL_DIR=~/.local/bin ./install.sh
+```
+
+### Manual Installation
+
+```bash
+# Build the release binary
+cargo build --release
+
+# Copy to your preferred location
+sudo cp target/release/cat_shield /usr/local/bin/catshield
+sudo chmod +x /usr/local/bin/catshield
+```
+
+### Prerequisites
+
+- **macOS 10.12+**
+- **Rust 1.70+** - Install from [rustup.rs](https://rustup.rs)
+
+### Uninstall
+
+```bash
+./uninstall.sh
+```
+
+## Usage
+
+```bash
+# Start in menu bar mode
+catshield
+
+# Start with a timer (auto-exit after duration)
+catshield --timer 30m
+catshield -t 2h
+
+# Start with custom exit key
+catshield --exit-key "Cmd+Shift+Q"
+
+# Combine options
+catshield --timer 1h --hide-timer
+
+# Show help
+catshield --help
+```
+
 ## Project Goals
 
 This project aims to create a simple macOS utility written in Rust that:
