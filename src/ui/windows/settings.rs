@@ -104,6 +104,14 @@ define_class!(
                 update_timer_field_enabled(is_enabled);
             }
         }
+
+        /// Action method called when exit key field text changes
+        #[unsafe(method(exitKeyChanged:))]
+        unsafe fn exit_key_changed(&self, sender: Option<&NSTextField>) {
+            if let Some(field) = sender {
+                validate_exit_key_realtime(&field.stringValue().to_string());
+            }
+        }
     }
 );
 
@@ -374,6 +382,25 @@ fn update_validation_label(label_ptr: *mut c_void, is_valid: bool, message: &str
     }
 }
 
+/// Validate exit key field in real-time as user types
+fn validate_exit_key_realtime(value: &str) {
+    let trimmed = value.trim();
+    let label_ptr = SETTINGS_EXIT_KEY_VALIDATION_LABEL.load(Ordering::SeqCst);
+
+    if trimmed.is_empty() {
+        update_validation_label(label_ptr, true, "Using default");
+    } else {
+        match ExitKey::parse(trimmed) {
+            Ok(_) => {
+                update_validation_label(label_ptr, true, "✓ Valid");
+            }
+            Err(e) => {
+                update_validation_label(label_ptr, false, &e);
+            }
+        }
+    }
+}
+
 /// Show the settings window
 pub fn show_settings_window(mtm: MainThreadMarker) {
     // Check if settings window is already open
@@ -532,6 +559,11 @@ pub fn show_settings_window(mtm: MainThreadMarker) {
             config.exit_key.as_deref().unwrap_or(DEFAULT_EXIT_KEY),
         ));
         exit_key_field.setPlaceholderString(Some(ns_string!("e.g., Cmd+Option+U")));
+        // Set up real-time validation on text changes
+        unsafe {
+            exit_key_field.setTarget(Some(handler));
+            exit_key_field.setAction(Some(objc2::sel!(exitKeyChanged:)));
+        }
         content_view.addSubview(&exit_key_field);
         SETTINGS_EXIT_KEY_FIELD.store(
             Retained::as_ptr(&exit_key_field) as *mut c_void,
@@ -563,6 +595,9 @@ pub fn show_settings_window(mtm: MainThreadMarker) {
             Ordering::SeqCst,
         );
         std::mem::forget(exit_key_validation);
+
+        // Show initial validation state for the pre-filled exit key value
+        validate_exit_key_realtime(config.exit_key.as_deref().unwrap_or(DEFAULT_EXIT_KEY));
 
         // ========================================
         // Default Timer Section

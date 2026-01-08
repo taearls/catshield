@@ -176,21 +176,26 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 
 | Priority | Issue | Title | Effort |
 |----------|-------|-------|--------|
-| 🟢 Medium | #30 | Add real-time validation for Exit Key field in Settings Window | ~0.5 day |
 | 🟢 Medium | #28 | Migrate from raw objc2 bindings to Cacao library | ~1-2 weeks |
 | 🔵 Low | #11 | Add install script for easy CLI access | ~0.5 day |
+
+### Recently Completed
+
+| Issue | Title | Completed |
+|-------|-------|-----------|
+| #30 | Add real-time validation for Exit Key field in Settings Window | 2026-01-08 |
 
 ## Issue Summary
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 4 | #11, #13, #28, #30 |
-| Closed | 15 | #3, #5, #6, #7, #10, #14, #15, #16, #17, #18, #19, #24, #25, #31, #35 |
+| Open | 3 | #11, #13, #28 |
+| Closed | 16 | #3, #5, #6, #7, #10, #14, #15, #16, #17, #18, #19, #24, #25, #30, #31, #35 |
 
 ### By Priority
 - 🔴 Critical: 0
 - 🟡 High: 0
-- 🟢 Medium: 2 (#28, #30)
+- 🟢 Medium: 1 (#28)
 - 🔵 Low: 1 (#11)
 - Epic: 1 (#13)
 
@@ -206,7 +211,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 ### Next Up
 6. ~~**#24** - Fix multiple menu bar icons bug~~ ✅ COMPLETED
 7. ~~**#19** - About Panel~~ ✅ COMPLETED
-8. **#30** - Add real-time Exit Key validation in Settings (enhances #16)
+8. ~~**#30** - Add real-time Exit Key validation in Settings (enhances #16)~~ ✅ COMPLETED
 9. **#11** - Install Script (can be done anytime)
 
 ### Future
@@ -219,7 +224,7 @@ Foundation:     #14 (Menu Bar) ✅ ──┬── #17 (Refactor Overlay) ✅
                                     │
                                     └── #15 (Dropdown Menu) ✅ ── #16 (Settings) ✅ ─┬─ #19 (About) ✅
                                                  │                                    │
-Parallel:       #18 (Config) ✅ ────────────────┘                                    └─ #30 (Exit Key Validation)
+Parallel:       #18 (Config) ✅ ────────────────┘                                    └─ #30 (Exit Key Validation) ✅
 
 Bug Fix:        #24 (Multiple Menu Icons) ✅
 
@@ -239,6 +244,17 @@ Potential future enhancements (not yet tracked as issues):
 - Custom overlay themes
 
 ## Changelog
+
+### 2026-01-08
+- Completed Issue #30: Add real-time validation for Exit Key field in Settings Window
+  - Exit Key text field now validates input as the user types
+  - Added `exitKeyChanged:` action method to `SettingsActionHandler`
+  - Created `validate_exit_key_realtime()` function to check input and update validation label
+  - Uses existing `ExitKey::parse()` for validation logic
+  - Validation label shows "✓ Valid" (green), "Using default" (green for empty), or error message (red)
+  - Initial validation displayed when settings window opens (pre-filled value is validated)
+  - Improves UX by providing immediate feedback instead of waiting until Save button is clicked
+  - Updated issue counts: 3 open, 16 closed
 
 ### 2026-01-07
 - Completed Issue #19: Add About Panel
