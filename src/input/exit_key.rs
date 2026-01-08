@@ -174,7 +174,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_exit_key_parse_default() {
+    fn test_exit_key_parse_cmd_option_u() {
         let key = ExitKey::parse("Cmd+Option+U").unwrap();
         assert_eq!(key.keycode, 32);
         assert!(key.requires_cmd);
