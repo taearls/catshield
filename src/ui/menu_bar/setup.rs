@@ -2,9 +2,10 @@
 
 use super::handlers::MenuActionHandler;
 use crate::ui::state::{
-    MENU_ACTION_HANDLER, SETTINGS_ACTION_HANDLER, SETTINGS_MENU_ITEM, START_MENU_ITEM,
+    ABOUT_ACTION_HANDLER, ABOUT_MENU_ITEM, MENU_ACTION_HANDLER, SETTINGS_ACTION_HANDLER,
+    SETTINGS_MENU_ITEM, START_MENU_ITEM,
 };
-use crate::ui::windows::SettingsActionHandler;
+use crate::ui::windows::{AboutActionHandler, SettingsActionHandler};
 use objc2::rc::Retained;
 use objc2_app_kit::{NSMenu, NSMenuItem, NSStatusBar, NSStatusItem};
 use objc2_foundation::{ns_string, MainThreadMarker};
@@ -151,15 +152,38 @@ pub fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
     // INFORMATION SECTION
     // ============================================
 
-    // Add "About Cat Shield" item (will be functional in Issue #19)
+    // Create about action handler and wire it to the About item
+    let about_handler = AboutActionHandler::new(mtm);
+
+    // Add "About Cat Shield" item
     // Shows version, credits, and app information
     let about_item = NSMenuItem::new(mtm);
     about_item.setTitle(ns_string!("About Cat Shield"));
-    about_item.setToolTip(Some(ns_string!(
-        "About this application (Available in Issue #19)"
-    )));
-    about_item.setEnabled(false); // Disabled until Issue #19 implements about panel
+    about_item.setToolTip(Some(ns_string!("View application information and version")));
+
+    // Set the target and action for the about menu item
+    unsafe {
+        about_item.setTarget(Some(&about_handler));
+        about_item.setAction(Some(objc2::sel!(showAbout:)));
+    }
+
+    // Store the about menu item reference for enabling/disabling
+    ABOUT_MENU_ITEM.store(
+        Retained::as_ptr(&about_item) as *mut c_void,
+        Ordering::SeqCst,
+    );
+
+    // Store handler globally to keep it alive
+    ABOUT_ACTION_HANDLER.store(
+        Retained::as_ptr(&about_handler) as *mut c_void,
+        Ordering::SeqCst,
+    );
+
     menu.addItem(&about_item);
+
+    // Keep handler and menu item alive
+    std::mem::forget(about_handler);
+    std::mem::forget(about_item);
 
     // Add "Help" submenu
     // Contains links to documentation, GitHub, and support resources

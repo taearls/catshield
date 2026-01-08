@@ -124,6 +124,16 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
   - Cleans up stale lock files from crashed instances
   - Shows friendly error message if already running with existing PID
   - Lock is released on normal application exit
+- [x] **Issue #19**: Add About Panel
+  - "About Cat Shield" menu item added between "Settings..." and Help submenu
+  - About panel displays:
+    - Large cat emoji (🐱)
+    - "Cat Shield" app name in bold
+    - Version number (from Cargo.toml via `env!("CARGO_PKG_VERSION")`)
+    - Brief description: "Protect your work from curious cats and keyboard-walking pets."
+  - Close button dismisses the panel (Return key also works)
+  - Only one About panel can be open at a time (clicking menu again brings existing to front)
+  - Panel is centered on screen
 
 ## Open Issues
 
@@ -138,7 +148,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 | ✅ Done | #17 | Refactor Overlay to On-Demand Activation | ✅ #14 | ~2 days |
 | ✅ Done | #18 | Extend Config for New Settings | None | ~1 day |
 | ✅ Done | #16 | Create Settings Window | ✅ #15, ✅ #18 | ~3 days |
-| 🔵 Low | #19 | Add About Panel | ✅ #15 | ~0.5 day |
+| ✅ Done | #19 | Add About Panel | ✅ #15 | ~0.5 day |
 
 **Implementation Order:**
 ```
@@ -147,7 +157,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
     └── #15: Dropdown Menu ✅
             ├── #18: Extend Config ✅ (parallel)
             └── #16: Settings Window ✅
-                    └── #19: About Panel (optional)
+                    └── #19: About Panel ✅
 ```
 
 ### Code Quality & Architecture
@@ -174,14 +184,14 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 5 | #11, #13, #19, #28, #30 |
-| Closed | 14 | #3, #5, #6, #7, #10, #14, #15, #16, #17, #18, #24, #25, #31, #35 |
+| Open | 4 | #11, #13, #28, #30 |
+| Closed | 15 | #3, #5, #6, #7, #10, #14, #15, #16, #17, #18, #19, #24, #25, #31, #35 |
 
 ### By Priority
 - 🔴 Critical: 0
 - 🟡 High: 0
 - 🟢 Medium: 2 (#28, #30)
-- 🔵 Low: 2 (#11, #19)
+- 🔵 Low: 1 (#11)
 - Epic: 1 (#13)
 
 ## Recommended Implementation Order
@@ -195,8 +205,8 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 
 ### Next Up
 6. ~~**#24** - Fix multiple menu bar icons bug~~ ✅ COMPLETED
-7. **#30** - Add real-time Exit Key validation in Settings (enhances #16)
-8. **#19** - About Panel (polish, low priority)
+7. ~~**#19** - About Panel~~ ✅ COMPLETED
+8. **#30** - Add real-time Exit Key validation in Settings (enhances #16)
 9. **#11** - Install Script (can be done anytime)
 
 ### Future
@@ -207,7 +217,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 ```
 Foundation:     #14 (Menu Bar) ✅ ──┬── #17 (Refactor Overlay) ✅
                                     │
-                                    └── #15 (Dropdown Menu) ✅ ── #16 (Settings) ✅ ─┬─ #19 (About)
+                                    └── #15 (Dropdown Menu) ✅ ── #16 (Settings) ✅ ─┬─ #19 (About) ✅
                                                  │                                    │
 Parallel:       #18 (Config) ✅ ────────────────┘                                    └─ #30 (Exit Key Validation)
 
@@ -231,6 +241,18 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-07
+- Completed Issue #19: Add About Panel
+  - "About Cat Shield" menu item now functional between Settings and Help
+  - About panel displays cat emoji (🐱), app name, version, and description
+  - Version pulled from Cargo.toml using `env!("CARGO_PKG_VERSION")`
+  - Close button dismisses panel (Return key also works)
+  - Only one About panel can be open at a time (clicking menu again brings existing to front)
+  - Panel centered on screen using NSPanel
+  - Created `src/ui/windows/about.rs` with AboutWindowDelegate and AboutActionHandler
+  - Added state variables: ABOUT_WINDOW, ABOUT_MENU_ITEM, ABOUT_ACTION_HANDLER, ABOUT_WINDOW_DELEGATE
+  - Updated issue counts: 4 open, 15 closed
+  - Phase 4 (Menu-Based Application Interface) now fully complete
+- Created Issue #38: Menu items not visually disabled when windows are open (follow-up)
 - Completed Issue #35: Split main.rs into multiple modules
   - Created modular architecture with 6 top-level modules: input, timer, config, platform, ui, lock
   - `src/input/`: keycodes.rs (macOS virtual keycode mappings), exit_key.rs (exit key parsing and state)

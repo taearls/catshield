@@ -79,6 +79,18 @@ pub static SETTINGS_TIMER_VALIDATION_LABEL: AtomicPtr<c_void> =
     AtomicPtr::new(std::ptr::null_mut());
 pub static SETTINGS_WINDOW_DELEGATE: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 
+// Global reference to the about action handler to keep it alive
+pub static ABOUT_ACTION_HANDLER: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+
+// Global reference to the about window to prevent multiple instances
+pub static ABOUT_WINDOW: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+
+// Global reference to the about menu item for enabling/disabling
+pub static ABOUT_MENU_ITEM: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+
+// Global reference to the about window delegate
+pub static ABOUT_WINDOW_DELEGATE: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+
 // Close button state stored in thread-local for the view
 thread_local! {
     pub static MOUSE_DOWN_TIME: Cell<Option<Instant>> = const { Cell::new(None) };
