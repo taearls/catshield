@@ -234,7 +234,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 
 | Priority | Issue | Title | Effort |
 |----------|-------|-------|--------|
-| 🟡 High | #58 | Test: Add unit tests for lock module (single-instance enforcement) | ~4-6 hours |
+| ✅ Done | #58 | Test: Add unit tests for lock module (single-instance enforcement) | ~4-6 hours |
 | 🟡 High | #59 | Test: Add unit tests for timer state module | ~3-4 hours |
 | 🟢 Medium | #60 | Test: Expand UI state and settings validation tests | ~2-3 hours |
 
@@ -251,7 +251,7 @@ Code Quality (can be done in parallel):
     #57: Safety Documentation
 
 Testing (can be done in parallel):
-    #58: Lock Module Tests
+    #58: Lock Module Tests ✅
     #59: Timer State Tests
     #60: UI State & Validation Tests
 ```
@@ -266,6 +266,7 @@ Testing (can be done in parallel):
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #58 | Add unit tests for lock module (single-instance enforcement) | 2026-01-09 |
 | #49 | Add real-time validation for Timer duration field in Settings | 2026-01-09 |
 | #48 | Exit Key validation should not show on initial Settings window open | 2026-01-09 |
 | #46 | Add 'Reset to Default' button and improve spacing in Settings window | 2026-01-09 |
@@ -279,12 +280,12 @@ Testing (can be done in parallel):
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 10 | #28, #52, #53, #54, #55, #56, #57, #58, #59, #60 |
-| Closed | 24 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #30, #31, #35, #38, #42, #44, #46, #48, #49 |
+| Open | 9 | #28, #52, #53, #54, #55, #56, #57, #59, #60 |
+| Closed | 25 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #30, #31, #35, #38, #42, #44, #46, #48, #49, #58 |
 
 ### By Priority
 - 🔴 Critical: 0
-- 🟡 High: 3 (#55, #58, #59)
+- 🟡 High: 2 (#55, #59)
 - 🟢 Medium: 5 (#52, #53, #56, #57, #60)
 - 🔵 Low: 2 (#28, #54)
 
@@ -304,7 +305,7 @@ Testing (can be done in parallel):
 ### Current Sprint: Phase 5 - Performance & Quality
 
 **High Priority (Start Here):**
-1. **#58** - Add unit tests for lock module (security-critical, 0 tests currently)
+1. ~~**#58** - Add unit tests for lock module (security-critical, 0 tests currently)~~ ✅
 2. **#59** - Add unit tests for timer state module (core functionality, 0 tests)
 3. **#55** - Refactor show_settings_window() into smaller functions (600+ lines)
 
@@ -332,7 +333,7 @@ Foundation:     #14 (Menu Bar) ✅ ──┬── #17 (Refactor Overlay) ✅
 Parallel:       #18 (Config) ✅ ────────────────┘                                    └─ #30 (Exit Key Validation) ✅
 
 Phase 5 (CURRENT):
-Testing:        #58 (Lock Tests) ─────┬─── All independent, can run in parallel
+Testing:        #58 (Lock Tests) ✅ ──┬─── All independent, can run in parallel
                 #59 (Timer Tests) ────┤
                 #60 (UI State Tests) ─┘
 
@@ -358,6 +359,22 @@ Potential future enhancements (not yet tracked as issues):
 - Custom overlay themes
 
 ## Changelog
+
+### 2026-01-09
+- Completed Issue #58: Add unit tests for lock module (single-instance enforcement)
+  - Added 22 comprehensive unit tests for the lock module (`src/lock/mod.rs`)
+  - Tests cover all lock functions: `lock_file_path()`, `is_process_running()`, `acquire_instance_lock()`, `release_instance_lock()`
+  - Test categories:
+    - Path tests: verify lock file path is correct on macOS
+    - Process detection: current process, non-existent PIDs, system processes
+    - Lock lifecycle: acquisition, release, re-acquisition cycles
+    - Edge cases: stale locks, invalid PIDs, empty files, whitespace, overflow values
+    - Error handling: negative PIDs, invalid content, permission scenarios
+  - Tests use `tempfile` crate for isolated temp directories (no interference with real lock file)
+  - Made `lock_file_path()` and `is_process_running()` `pub(crate)` for testability
+  - Total tests: 78 (was 56, +22 new lock module tests)
+  - Updated issue counts: 9 open, 25 closed
+  - Updated priority counts: 2 High, 5 Medium, 2 Low
 
 ### 2026-01-09 (Roadmap Update)
 - Added 9 new issues for Phase 5: Performance & Code Quality Improvements
