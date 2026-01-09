@@ -1,9 +1,9 @@
 //! Menu bar setup for Cat Shield
 
-use super::handlers::MenuActionHandler;
+use super::handlers::{HelpActionHandler, MenuActionHandler};
 use crate::ui::state::{
-    ABOUT_ACTION_HANDLER, ABOUT_MENU_ITEM, MENU_ACTION_HANDLER, SETTINGS_ACTION_HANDLER,
-    SETTINGS_MENU_ITEM, START_MENU_ITEM,
+    ABOUT_ACTION_HANDLER, ABOUT_MENU_ITEM, HELP_ACTION_HANDLER, MENU_ACTION_HANDLER,
+    SETTINGS_ACTION_HANDLER, SETTINGS_MENU_ITEM, START_MENU_ITEM,
 };
 use crate::ui::windows::{AboutActionHandler, SettingsActionHandler};
 use objc2::rc::Retained;
@@ -197,26 +197,37 @@ pub fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
     // Create Help submenu
     let help_submenu = NSMenu::new(mtm);
 
+    // Create help action handler for URL opening
+    let help_handler = HelpActionHandler::new(mtm);
+
     // Help -> View Documentation
     let docs_item = NSMenuItem::new(mtm);
     docs_item.setTitle(ns_string!("View Documentation"));
     docs_item.setToolTip(Some(ns_string!("Open README on GitHub")));
-    docs_item.setEnabled(false); // Will need custom action handler to open URL
+    unsafe {
+        docs_item.setTarget(Some(&help_handler));
+        docs_item.setAction(Some(objc2::sel!(viewDocumentation:)));
+    }
     help_submenu.addItem(&docs_item);
 
     // Help -> Report Issue
     let issue_item = NSMenuItem::new(mtm);
     issue_item.setTitle(ns_string!("Report Issue"));
     issue_item.setToolTip(Some(ns_string!("Report a bug on GitHub")));
-    issue_item.setEnabled(false); // Will need custom action handler to open URL
+    unsafe {
+        issue_item.setTarget(Some(&help_handler));
+        issue_item.setAction(Some(objc2::sel!(reportIssue:)));
+    }
     help_submenu.addItem(&issue_item);
 
-    // Help -> Release Notes
-    let release_item = NSMenuItem::new(mtm);
-    release_item.setTitle(ns_string!("Release Notes"));
-    release_item.setToolTip(Some(ns_string!("View ROADMAP and release notes")));
-    release_item.setEnabled(false); // Will need custom action handler to open URL
-    help_submenu.addItem(&release_item);
+    // Store handler globally to keep it alive
+    HELP_ACTION_HANDLER.store(
+        Retained::as_ptr(&help_handler) as *mut c_void,
+        Ordering::SeqCst,
+    );
+
+    // Keep handler alive
+    std::mem::forget(help_handler);
 
     help_item.setSubmenu(Some(&help_submenu));
     menu.addItem(&help_item);
