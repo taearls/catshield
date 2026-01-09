@@ -42,7 +42,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
   - Support for common modifier keys (Cmd, Option, Shift, Ctrl) with aliases
   - Support for letters (A-Z), numbers (0-9), function keys (F1-F12), and special keys
   - CLI argument takes precedence over config file
-  - Default remains Cmd+Option+U for backwards compatibility
+  - Default is Cmd+Q (standard macOS quit shortcut)
 
 ### Configuration Improvements
 - [x] **Issue #25**: Limit Claude GitHub Action to only respond to comments
