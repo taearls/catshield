@@ -7,6 +7,7 @@
 //! - [`input`]: Keyboard input handling and exit key parsing
 //! - [`lock`]: Single-instance lock mechanism
 //! - [`platform`]: macOS platform bindings (IOKit, CoreGraphics, etc.)
+//! - [`shield_core`]: Shared shield activation logic
 //! - [`timer`]: Timer parsing, formatting, and auto-exit state
 //! - [`ui`]: User interface components (views, windows, menu bar)
 
@@ -14,6 +15,7 @@ pub mod config;
 pub mod input;
 pub mod lock;
 pub mod platform;
+pub mod shield_core;
 pub mod timer;
 pub mod ui;
 

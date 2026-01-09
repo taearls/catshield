@@ -30,33 +30,25 @@
 use cat_shield::config::{has_immediate_start_args, Args, Config};
 use cat_shield::input::{set_exit_key, ExitKey, DEFAULT_EXIT_KEY};
 use cat_shield::lock::{acquire_instance_lock, release_instance_lock, LockResult};
-use cat_shield::platform::CFRunLoopRunInMode;
-use cat_shield::platform::{
-    allow_sleep, check_accessibility, check_accessibility_with_prompt, open_accessibility_settings,
-    prevent_sleep, setup_event_tap,
+use cat_shield::platform::{allow_sleep, prevent_sleep, setup_event_tap};
+use cat_shield::shield_core::{
+    create_shield_window, ensure_accessibility, print_activation_banner, print_shield_active,
+    setup_close_button,
 };
 use cat_shield::timer::{format_duration, get_remaining_seconds, init_auto_exit_timer};
 use cat_shield::ui::menu_bar::setup_menu_bar;
 use cat_shield::ui::shield::{stop_close_button_timer, timer_callback};
 use cat_shield::ui::state::{
-    CLOSE_BUTTON_LABEL_HEIGHT, CLOSE_BUTTON_LABEL_VIEW, CLOSE_BUTTON_LABEL_WIDTH,
-    CLOSE_BUTTON_MARGIN, CLOSE_BUTTON_SIZE, CLOSE_BUTTON_VIEW, MENU_BAR_MODE,
-    NS_SCREEN_SAVER_WINDOW_LEVEL, TIMER_DISPLAY_HEIGHT, TIMER_DISPLAY_MARGIN, TIMER_DISPLAY_VIEW,
-    TIMER_DISPLAY_WIDTH, TIMER_REF,
+    CLOSE_BUTTON_LABEL_VIEW, CLOSE_BUTTON_VIEW, MENU_BAR_MODE, TIMER_DISPLAY_HEIGHT,
+    TIMER_DISPLAY_MARGIN, TIMER_DISPLAY_VIEW, TIMER_DISPLAY_WIDTH, TIMER_REF,
 };
-use cat_shield::ui::views::{CloseButtonLabelView, CloseButtonView, TimerDisplayView};
+use cat_shield::ui::views::TimerDisplayView;
 
 use clap::Parser;
 use objc2::rc::Retained;
-use objc2::MainThreadOnly;
-use objc2_app_kit::{
-    NSApplication, NSApplicationActivationPolicy, NSBackingStoreType, NSColor, NSScreen, NSWindow,
-    NSWindowCollectionBehavior, NSWindowStyleMask,
-};
-use objc2_core_foundation::{
-    kCFRunLoopCommonModes, kCFRunLoopDefaultMode, CFString, CGPoint, CGRect, CGSize,
-};
-use objc2_foundation::{ns_string, MainThreadMarker};
+use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy, NSScreen};
+use objc2_core_foundation::{kCFRunLoopCommonModes, CFString, CGPoint, CGRect, CGSize};
+use objc2_foundation::MainThreadMarker;
 use std::ffi::c_void;
 use std::process;
 use std::sync::atomic::Ordering;
@@ -179,65 +171,11 @@ fn main() {
     }
 
     // Immediate shield mode: CLI args provided, start protection now
-    // Check accessibility permissions FIRST, before any UI
-    let mut has_accessibility = check_accessibility();
+    // Ensure accessibility permissions (uses shared logic from shield_core)
+    ensure_accessibility(&exit_key);
 
-    if !has_accessibility {
-        println!();
-        println!("  🐱 CAT SHIELD 🛡️");
-        println!("  ════════════════════════════════════════");
-        println!();
-        eprintln!("  ⚠️  ACCESSIBILITY PERMISSION REQUIRED");
-        eprintln!();
-        eprintln!("  To block keyboard/mouse input and use the exit");
-        eprintln!(
-            "  shortcut ({}), this app needs Accessibility permissions.",
-            exit_key.display_name
-        );
-        eprintln!();
-
-        // Try to prompt user with native dialog
-        println!("  Requesting accessibility permissions...");
-        has_accessibility = check_accessibility_with_prompt();
-
-        if has_accessibility {
-            println!("  ✓ Permissions granted!");
-            println!();
-        } else {
-            eprintln!();
-            eprintln!("  Opening System Settings → Accessibility...");
-
-            if open_accessibility_settings() {
-                eprintln!("  ✓ System Settings opened");
-            }
-            eprintln!();
-            eprintln!("  Please add Cat Shield to the Accessibility list.");
-            eprintln!("  Waiting for permissions...");
-            eprintln!();
-
-            // Poll for permissions every 1 second using CFRunLoopRunInMode
-            // This allows the run loop to process events while waiting,
-            // which is necessary for macOS to update accessibility permission state
-            const POLL_INTERVAL_SECS: f64 = 1.0;
-            loop {
-                unsafe {
-                    let mode = kCFRunLoopDefaultMode.expect("kCFRunLoopDefaultMode should exist");
-                    CFRunLoopRunInMode((mode as *const CFString).cast(), POLL_INTERVAL_SECS, false);
-                }
-                if check_accessibility() {
-                    println!("  ✓ Permissions granted! Starting Cat Shield...");
-                    println!();
-                    break;
-                }
-            }
-        }
-    }
-
-    println!();
-    println!("  🐱 CAT SHIELD 🛡️");
-    println!("  ════════════════════════════════════════");
-    println!("  Protecting your work from curious cats!");
-    println!();
+    // Print activation banner (shared)
+    print_activation_banner();
 
     // Get the main screen dimensions
     let screen = NSScreen::mainScreen(mtm);
@@ -250,71 +188,18 @@ fn main() {
     };
     let screen_frame = screen.frame();
 
-    // Create a fullscreen, borderless window
-    let window = unsafe {
-        let window = NSWindow::alloc(mtm);
-        NSWindow::initWithContentRect_styleMask_backing_defer(
-            window,
-            screen_frame,
-            NSWindowStyleMask::Borderless,
-            NSBackingStoreType::Buffered,
-            false,
-        )
-    };
-
-    // Configure window to be topmost
-    window.setLevel(NS_SCREEN_SAVER_WINDOW_LEVEL);
-
-    // Set window to appear on all spaces and stay visible
-    window.setCollectionBehavior(
-        NSWindowCollectionBehavior::CanJoinAllSpaces
-            | NSWindowCollectionBehavior::Stationary
-            | NSWindowCollectionBehavior::IgnoresCycle,
-    );
-
-    // Window must be non-opaque to allow transparent background, but keep alphaValue at 1.0
-    // so that subviews (like label containers) can render fully opaque
-    window.setOpaque(false);
-    window.setAlphaValue(1.0);
-
-    // Set a semi-transparent dark background color (the overlay effect)
-    let bg_color = NSColor::colorWithRed_green_blue_alpha(0.1, 0.1, 0.15, 0.5);
-    window.setBackgroundColor(Some(&bg_color));
-
-    // Keep window visible
-    window.setHidesOnDeactivate(false);
-
-    // Accept mouse events (needed for blocking)
-    window.setIgnoresMouseEvents(false);
-
-    // Set title
-    window.setTitle(ns_string!("Cat Shield"));
-
-    // Required when creating NSWindow outside a window controller
-    unsafe {
-        window.setReleasedWhenClosed(false);
-    }
+    // Create the shield window using shared logic
+    let window = create_shield_window(mtm, screen_frame);
 
     // Show the window
     window.makeKeyAndOrderFront(None);
 
     println!("  ✓ Overlay window active");
 
-    // Create and add the close button in top-right corner
-    let close_button_frame = CGRect {
-        origin: CGPoint {
-            x: screen_frame.size.width - CLOSE_BUTTON_SIZE - CLOSE_BUTTON_MARGIN,
-            y: screen_frame.size.height - CLOSE_BUTTON_SIZE - CLOSE_BUTTON_MARGIN,
-        },
-        size: CGSize {
-            width: CLOSE_BUTTON_SIZE,
-            height: CLOSE_BUTTON_SIZE,
-        },
-    };
+    // Create close button and label using shared logic
+    let (close_button, close_button_label) = setup_close_button(mtm, screen_frame);
 
-    let close_button = CloseButtonView::new(mtm, close_button_frame);
-
-    // Store view reference for timer callback.
+    // Store view references for timer callback.
     // Safety: The view remains valid because contentView retains it and
     // app.run() blocks until we're ready to exit. The timer is stopped
     // before cleanup begins.
@@ -322,31 +207,6 @@ fn main() {
         Retained::as_ptr(&close_button) as *mut c_void,
         Ordering::SeqCst,
     );
-
-    // Create the close button label view (positioned below the button)
-    let label_x = screen_frame.size.width
-        - CLOSE_BUTTON_MARGIN
-        - CLOSE_BUTTON_SIZE / 2.0
-        - CLOSE_BUTTON_LABEL_WIDTH / 2.0;
-    let label_y = screen_frame.size.height
-        - CLOSE_BUTTON_SIZE
-        - CLOSE_BUTTON_MARGIN
-        - CLOSE_BUTTON_LABEL_HEIGHT
-        - 5.0; // 5px gap between button and label
-
-    let close_button_label_frame = CGRect {
-        origin: CGPoint {
-            x: label_x,
-            y: label_y,
-        },
-        size: CGSize {
-            width: CLOSE_BUTTON_LABEL_WIDTH,
-            height: CLOSE_BUTTON_LABEL_HEIGHT,
-        },
-    };
-    let close_button_label = CloseButtonLabelView::new(mtm, close_button_label_frame);
-
-    // Store label view reference for timer callback updates
     CLOSE_BUTTON_LABEL_VIEW.store(
         Retained::as_ptr(&close_button_label) as *mut c_void,
         Ordering::SeqCst,
@@ -425,20 +285,16 @@ fn main() {
     }
     println!("  ✓ Input blocking active");
 
-    println!();
-    println!("  ═══════════════════════════════════════");
-    println!("  🛡️  CAT SHIELD IS NOW ACTIVE!");
-    println!("  ═══════════════════════════════════════");
-    println!();
-    println!("  Exit: Hold X button (top-right) for 3 seconds");
-    println!("        Or press {}", exit_key.display_name);
-    if args.timer.is_some() {
-        println!(
-            "        Or wait for timer ({} remaining)",
+    // Print shield active status (shared)
+    let timer_info = if args.timer.is_some() {
+        Some(format!(
+            "{} remaining",
             format_duration(get_remaining_seconds())
-        );
-    }
-    println!();
+        ))
+    } else {
+        None
+    };
+    print_shield_active(&exit_key, timer_info.as_deref());
 
     // Run the NSApplication event loop (required for AppKit event handling)
     app.run();
