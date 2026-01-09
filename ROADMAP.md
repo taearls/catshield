@@ -195,6 +195,11 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
   - Reset does NOT auto-save - user must click Save to persist changes
   - Increased window height from 340 to 370 pixels for better visual spacing
   - Provides easy way to restore factory settings without manually editing each field
+- [x] **Issue #48**: Exit Key validation should not show on initial Settings window open
+  - Removed `validate_exit_key_realtime()` call that ran on window open
+  - Validation label now starts empty when Settings window opens
+  - Validation only appears after user modifies the Exit Key field
+  - Real-time validation still works via `controlTextDidChange:` delegate method
 
 ### Other Open Issues
 
@@ -206,6 +211,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #48 | Exit Key validation should not show on initial Settings window open | 2026-01-09 |
 | #46 | Add 'Reset to Default' button and improve spacing in Settings window | 2026-01-09 |
 | #44 | Refactoring - Improve code safety, reduce duplication, consolidate state | 2026-01-09 |
 | #42 | Enable Help menu links (Documentation & Report Issue) | 2026-01-09 |
@@ -218,7 +224,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 | Status | Count | Issues |
 |--------|-------|--------|
 | Open | 1 | #28 |
-| Closed | 22 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #30, #31, #35, #38, #42, #44, #46 |
+| Closed | 23 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #30, #31, #35, #38, #42, #44, #46, #48 |
 
 ### By Priority
 - 🔴 Critical: 0
@@ -273,6 +279,13 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-09
+- Completed Issue #48: Exit Key validation should not show on initial Settings window open
+  - Removed the `validate_exit_key_realtime()` call that ran immediately when Settings window opens
+  - Validation label now starts empty (no "✓ Valid" message on open)
+  - Validation only appears after user modifies the Exit Key field
+  - The `controlTextDidChange:` delegate method still handles real-time validation on edits
+  - Updated issue counts: 1 open, 23 closed
+
 - Completed Issue #46: Add 'Reset to Default' button and improve spacing in Settings window
   - Added "Reset to Default" button on the left side of the button row
   - Button resets all settings fields to their default values:
