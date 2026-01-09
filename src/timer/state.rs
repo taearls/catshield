@@ -35,3 +35,392 @@ pub fn get_remaining_seconds() -> u64 {
     let elapsed = now.saturating_sub(start);
     duration.saturating_sub(elapsed)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    // ============================================================
+    // Helper function for resetting global timer state between tests
+    // ============================================================
+
+    /// Reset all timer state globals to their initial values
+    /// This is necessary because tests run in parallel and share global state
+    fn reset_timer_state() {
+        AUTO_EXIT_ENABLED.store(false, Ordering::SeqCst);
+        AUTO_EXIT_DURATION_SECS.store(0, Ordering::SeqCst);
+        AUTO_EXIT_START_TIME.store(0, Ordering::SeqCst);
+        WARNING_SHOWN.store(false, Ordering::SeqCst);
+    }
+
+    // ============================================================
+    // Tests for init_auto_exit_timer()
+    // ============================================================
+
+    #[test]
+    fn test_init_auto_exit_timer_sets_enabled() {
+        reset_timer_state();
+        assert!(!AUTO_EXIT_ENABLED.load(Ordering::SeqCst));
+
+        init_auto_exit_timer(3600);
+
+        assert!(
+            AUTO_EXIT_ENABLED.load(Ordering::SeqCst),
+            "AUTO_EXIT_ENABLED should be true after init"
+        );
+    }
+
+    #[test]
+    fn test_init_auto_exit_timer_sets_duration() {
+        reset_timer_state();
+        assert_eq!(AUTO_EXIT_DURATION_SECS.load(Ordering::SeqCst), 0);
+
+        init_auto_exit_timer(3600);
+
+        assert_eq!(
+            AUTO_EXIT_DURATION_SECS.load(Ordering::SeqCst),
+            3600,
+            "Duration should be 3600 seconds"
+        );
+    }
+
+    #[test]
+    fn test_init_auto_exit_timer_sets_start_time() {
+        reset_timer_state();
+        let before = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        init_auto_exit_timer(3600);
+
+        let start = AUTO_EXIT_START_TIME.load(Ordering::SeqCst);
+        let after = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        assert!(
+            start >= before && start <= after,
+            "Start time {} should be between {} and {}",
+            start,
+            before,
+            after
+        );
+    }
+
+    #[test]
+    fn test_init_auto_exit_timer_with_zero_duration() {
+        reset_timer_state();
+
+        init_auto_exit_timer(0);
+
+        assert!(AUTO_EXIT_ENABLED.load(Ordering::SeqCst));
+        assert_eq!(AUTO_EXIT_DURATION_SECS.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn test_init_auto_exit_timer_with_max_duration() {
+        reset_timer_state();
+
+        init_auto_exit_timer(u64::MAX);
+
+        assert!(AUTO_EXIT_ENABLED.load(Ordering::SeqCst));
+        assert_eq!(AUTO_EXIT_DURATION_SECS.load(Ordering::SeqCst), u64::MAX);
+    }
+
+    #[test]
+    fn test_init_auto_exit_timer_overwrites_previous() {
+        reset_timer_state();
+
+        // First initialization
+        init_auto_exit_timer(100);
+        assert_eq!(AUTO_EXIT_DURATION_SECS.load(Ordering::SeqCst), 100);
+
+        // Second initialization should overwrite
+        init_auto_exit_timer(200);
+        assert_eq!(
+            AUTO_EXIT_DURATION_SECS.load(Ordering::SeqCst),
+            200,
+            "Duration should be overwritten to 200"
+        );
+    }
+
+    // ============================================================
+    // Tests for get_remaining_seconds()
+    // ============================================================
+
+    #[test]
+    fn test_get_remaining_seconds_disabled_returns_max() {
+        reset_timer_state();
+        AUTO_EXIT_ENABLED.store(false, Ordering::SeqCst);
+
+        let remaining = get_remaining_seconds();
+
+        assert_eq!(
+            remaining,
+            u64::MAX,
+            "Should return u64::MAX when timer is disabled"
+        );
+    }
+
+    #[test]
+    fn test_get_remaining_seconds_just_started() {
+        reset_timer_state();
+
+        init_auto_exit_timer(60);
+        let remaining = get_remaining_seconds();
+
+        // Should be very close to 60, allow 1-2 seconds tolerance for execution time
+        assert!(
+            remaining >= 58 && remaining <= 60,
+            "Remaining {} should be between 58 and 60",
+            remaining
+        );
+    }
+
+    #[test]
+    fn test_get_remaining_seconds_expired() {
+        reset_timer_state();
+
+        // Manually set up an expired timer
+        AUTO_EXIT_ENABLED.store(true, Ordering::SeqCst);
+        AUTO_EXIT_DURATION_SECS.store(10, Ordering::SeqCst);
+        // Set start time far in the past (Unix epoch + 1 second)
+        AUTO_EXIT_START_TIME.store(1, Ordering::SeqCst);
+
+        let remaining = get_remaining_seconds();
+
+        assert_eq!(remaining, 0, "Expired timer should return 0");
+    }
+
+    #[test]
+    fn test_get_remaining_seconds_halfway_through() {
+        reset_timer_state();
+
+        // Set up a timer that started 30 seconds ago with 60 second duration
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        AUTO_EXIT_ENABLED.store(true, Ordering::SeqCst);
+        AUTO_EXIT_DURATION_SECS.store(60, Ordering::SeqCst);
+        AUTO_EXIT_START_TIME.store(now - 30, Ordering::SeqCst);
+
+        let remaining = get_remaining_seconds();
+
+        // Should be around 30 seconds, allow some tolerance
+        assert!(
+            remaining >= 28 && remaining <= 32,
+            "Remaining {} should be around 30",
+            remaining
+        );
+    }
+
+    #[test]
+    fn test_get_remaining_seconds_near_end() {
+        reset_timer_state();
+
+        // Set up a timer that's almost expired (started 59 seconds ago, 60 second duration)
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        AUTO_EXIT_ENABLED.store(true, Ordering::SeqCst);
+        AUTO_EXIT_DURATION_SECS.store(60, Ordering::SeqCst);
+        AUTO_EXIT_START_TIME.store(now - 59, Ordering::SeqCst);
+
+        let remaining = get_remaining_seconds();
+
+        // Should be around 1 second
+        assert!(
+            remaining <= 3,
+            "Remaining {} should be 3 or less (near end)",
+            remaining
+        );
+    }
+
+    #[test]
+    fn test_get_remaining_seconds_with_zero_duration() {
+        reset_timer_state();
+
+        init_auto_exit_timer(0);
+        let remaining = get_remaining_seconds();
+
+        assert_eq!(remaining, 0, "Zero duration timer should return 0");
+    }
+
+    // ============================================================
+    // Tests for WARNING_SHOWN state
+    // ============================================================
+
+    #[test]
+    fn test_warning_shown_initially_false() {
+        reset_timer_state();
+
+        init_auto_exit_timer(3600);
+
+        assert!(
+            !WARNING_SHOWN.load(Ordering::SeqCst),
+            "WARNING_SHOWN should be false after init"
+        );
+    }
+
+    #[test]
+    fn test_warning_shown_can_be_set() {
+        reset_timer_state();
+
+        WARNING_SHOWN.store(true, Ordering::SeqCst);
+
+        assert!(
+            WARNING_SHOWN.load(Ordering::SeqCst),
+            "WARNING_SHOWN should be settable to true"
+        );
+    }
+
+    #[test]
+    fn test_warning_shown_reset_clears_value() {
+        reset_timer_state();
+
+        WARNING_SHOWN.store(true, Ordering::SeqCst);
+        assert!(WARNING_SHOWN.load(Ordering::SeqCst));
+
+        reset_timer_state();
+
+        assert!(
+            !WARNING_SHOWN.load(Ordering::SeqCst),
+            "WARNING_SHOWN should be false after reset"
+        );
+    }
+
+    // ============================================================
+    // Tests for edge cases and boundary conditions
+    // ============================================================
+
+    #[test]
+    fn test_elapsed_time_overflow_protection() {
+        reset_timer_state();
+
+        // Set start time to a future time (should result in 0 elapsed)
+        let future_time = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            + 3600;
+
+        AUTO_EXIT_ENABLED.store(true, Ordering::SeqCst);
+        AUTO_EXIT_DURATION_SECS.store(60, Ordering::SeqCst);
+        AUTO_EXIT_START_TIME.store(future_time, Ordering::SeqCst);
+
+        let remaining = get_remaining_seconds();
+
+        // saturating_sub should prevent underflow
+        // When start is in future, now - start = 0 (saturating)
+        // So remaining = duration - 0 = duration
+        assert_eq!(
+            remaining, 60,
+            "Should return full duration when start time is in future"
+        );
+    }
+
+    #[test]
+    fn test_duration_saturating_sub_protection() {
+        reset_timer_state();
+
+        // Set up a timer where elapsed > duration
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        AUTO_EXIT_ENABLED.store(true, Ordering::SeqCst);
+        AUTO_EXIT_DURATION_SECS.store(10, Ordering::SeqCst);
+        // Started 100 seconds ago, but duration is only 10
+        AUTO_EXIT_START_TIME.store(now - 100, Ordering::SeqCst);
+
+        let remaining = get_remaining_seconds();
+
+        assert_eq!(
+            remaining, 0,
+            "Should return 0 when elapsed exceeds duration (saturating_sub)"
+        );
+    }
+
+    #[test]
+    fn test_timer_state_independence() {
+        reset_timer_state();
+
+        // Modify each atomic independently
+        AUTO_EXIT_ENABLED.store(true, Ordering::SeqCst);
+        assert!(AUTO_EXIT_ENABLED.load(Ordering::SeqCst));
+        assert_eq!(AUTO_EXIT_DURATION_SECS.load(Ordering::SeqCst), 0);
+        assert_eq!(AUTO_EXIT_START_TIME.load(Ordering::SeqCst), 0);
+        assert!(!WARNING_SHOWN.load(Ordering::SeqCst));
+
+        AUTO_EXIT_DURATION_SECS.store(3600, Ordering::SeqCst);
+        assert!(AUTO_EXIT_ENABLED.load(Ordering::SeqCst));
+        assert_eq!(AUTO_EXIT_DURATION_SECS.load(Ordering::SeqCst), 3600);
+        assert_eq!(AUTO_EXIT_START_TIME.load(Ordering::SeqCst), 0);
+        assert!(!WARNING_SHOWN.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn test_long_duration_timer() {
+        reset_timer_state();
+
+        // Test with 24 hours (max allowed by the app)
+        let seconds_in_24_hours = 24 * 60 * 60;
+        init_auto_exit_timer(seconds_in_24_hours);
+
+        let remaining = get_remaining_seconds();
+
+        // Should be very close to 24 hours
+        assert!(
+            remaining >= seconds_in_24_hours - 2 && remaining <= seconds_in_24_hours,
+            "Remaining {} should be close to {}",
+            remaining,
+            seconds_in_24_hours
+        );
+    }
+
+    #[test]
+    fn test_one_second_timer() {
+        reset_timer_state();
+
+        init_auto_exit_timer(1);
+
+        let remaining = get_remaining_seconds();
+
+        // Should be 0 or 1
+        assert!(
+            remaining <= 1,
+            "1-second timer remaining {} should be 0 or 1",
+            remaining
+        );
+    }
+
+    // ============================================================
+    // Tests for global state module exports
+    // ============================================================
+
+    #[test]
+    fn test_static_atomics_are_accessible() {
+        // Verify that all static atomics can be accessed
+        let _ = AUTO_EXIT_ENABLED.load(Ordering::SeqCst);
+        let _ = AUTO_EXIT_DURATION_SECS.load(Ordering::SeqCst);
+        let _ = AUTO_EXIT_START_TIME.load(Ordering::SeqCst);
+        let _ = WARNING_SHOWN.load(Ordering::SeqCst);
+    }
+
+    #[test]
+    fn test_functions_are_callable() {
+        reset_timer_state();
+
+        // Just verify the functions can be called without panicking
+        init_auto_exit_timer(60);
+        let _ = get_remaining_seconds();
+    }
+}
