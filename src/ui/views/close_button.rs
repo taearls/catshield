@@ -1,8 +1,6 @@
 //! Close button view for the shield overlay
 
-use crate::ui::state::{
-    calculate_hold_progress, HOLD_DURATION_SECS, IS_MOUSE_INSIDE, MOUSE_DOWN_TIME,
-};
+use crate::ui::state::{calculate_hold_progress, close_button, IS_MOUSE_INSIDE, MOUSE_DOWN_TIME};
 use objc2::rc::Retained;
 use objc2::{define_class, msg_send};
 use objc2_app_kit::{NSBezierPath, NSColor, NSEvent, NSView};
@@ -96,7 +94,10 @@ fn draw_close_button(view: &NSView) {
     // Calculate progress (0.0 to 1.0)
     let progress = MOUSE_DOWN_TIME.with(|time| {
         if let Some(start) = time.get() {
-            calculate_hold_progress(start.elapsed().as_secs_f64(), HOLD_DURATION_SECS)
+            calculate_hold_progress(
+                start.elapsed().as_secs_f64(),
+                close_button::HOLD_DURATION_SECS,
+            )
         } else {
             0.0
         }

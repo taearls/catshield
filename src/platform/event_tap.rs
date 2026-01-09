@@ -7,7 +7,7 @@ use super::bindings::{
     CFRunLoopRemoveSource, CGEventTapEnable,
 };
 use crate::input::check_exit_key;
-use crate::ui::state::MENU_BAR_MODE;
+use crate::ui::state::shield;
 use objc2_app_kit::NSApplication;
 use objc2_core_foundation::{kCFRunLoopCommonModes, CFMachPort, CFRetained, CFString};
 use objc2_core_graphics::{
@@ -58,7 +58,7 @@ unsafe extern "C-unwind" fn event_tap_callback(
 
             // In menu bar mode, deactivate shield and return to menu bar
             // In immediate mode, terminate the app
-            if MENU_BAR_MODE.load(Ordering::SeqCst) {
+            if shield::MODE_MENU_BAR.load(Ordering::SeqCst) {
                 crate::ui::shield::deactivate_shield();
             } else if let Some(mtm) = MainThreadMarker::new() {
                 let app = NSApplication::sharedApplication(mtm);

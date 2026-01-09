@@ -4,7 +4,7 @@ use crate::timer::{
     format_duration, get_remaining_seconds, AUTO_EXIT_DURATION_SECS, WARNING_SECONDS,
 };
 use crate::ui::helpers::create_label;
-use crate::ui::state::{TIMER_HEADER_LABEL, TIMER_TIME_LABEL, TIMER_WARNING_LABEL};
+use crate::ui::state::shield;
 use objc2::rc::Retained;
 use objc2::{define_class, msg_send};
 use objc2_app_kit::{NSBezierPath, NSColor, NSTextField, NSView};
@@ -88,9 +88,9 @@ fn draw_timer_display(view: &NSView) {
     let mtm = unsafe { MainThreadMarker::new_unchecked() };
 
     // Create or update NSTextField labels
-    let header_ptr = TIMER_HEADER_LABEL.load(Ordering::SeqCst);
-    let time_ptr = TIMER_TIME_LABEL.load(Ordering::SeqCst);
-    let warning_ptr = TIMER_WARNING_LABEL.load(Ordering::SeqCst);
+    let header_ptr = shield::TIMER_HEADER.load(Ordering::SeqCst);
+    let time_ptr = shield::TIMER_TIME.load(Ordering::SeqCst);
+    let warning_ptr = shield::TIMER_WARNING.load(Ordering::SeqCst);
 
     // Header label "Time Remaining:"
     let header_y = bounds.size.height - 22.0;
@@ -115,7 +115,7 @@ fn draw_timer_display(view: &NSView) {
             &label_color,
             false,
         );
-        TIMER_HEADER_LABEL.store(
+        shield::TIMER_HEADER.store(
             Retained::as_ptr(&header_label) as *mut c_void,
             Ordering::SeqCst,
         );
@@ -137,7 +137,7 @@ fn draw_timer_display(view: &NSView) {
     if time_ptr.is_null() {
         // Create the time label
         let time_label = create_label(mtm, &time_str, time_frame, 20.0, &text_color, true);
-        TIMER_TIME_LABEL.store(
+        shield::TIMER_TIME.store(
             Retained::as_ptr(&time_label) as *mut c_void,
             Ordering::SeqCst,
         );
@@ -180,7 +180,7 @@ fn draw_timer_display(view: &NSView) {
             false,
         );
         warning_label.setHidden(!is_warning);
-        TIMER_WARNING_LABEL.store(
+        shield::TIMER_WARNING.store(
             Retained::as_ptr(&warning_label) as *mut c_void,
             Ordering::SeqCst,
         );

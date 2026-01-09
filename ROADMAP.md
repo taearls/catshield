@@ -173,6 +173,20 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
   - Created `src/lib.rs` with public API re-exports
   - Reduced main.rs from ~4354 lines to ~530 lines (88% reduction)
   - All 50 tests pass, clippy clean, build successful
+- [x] **Issue #44**: Refactoring - Improve code safety, reduce duplication, and consolidate global state
+  - Created `src/shield_core.rs` with shared shield activation logic
+  - Extracted `ensure_accessibility()`, `create_shield_window()`, `setup_close_button()` functions
+  - Removed ~150 lines of duplicated code between `main.rs` and `ui/shield.rs`
+  - Consolidated 25+ global `AtomicPtr` variables into structured modules:
+    - `shield::` - Shield window, close button, timer display state
+    - `menu_bar::` - Menu bar items and action handlers
+    - `settings::` - Settings window UI elements
+    - `about::` - About panel state
+  - Centralized UI constants into submodules: `close_button::`, `timer_display::`, `animation::`, `window_level::`
+  - Config opacity now actually applied to shield overlay background
+  - Fixed mutex poison handling to recover gracefully instead of panicking
+  - Legacy aliases maintained for backwards compatibility
+  - All 52 tests pass, clippy clean, build successful
 
 ### Other Open Issues
 
@@ -184,6 +198,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #44 | Refactoring - Improve code safety, reduce duplication, consolidate state | 2026-01-09 |
 | #42 | Enable Help menu links (Documentation & Report Issue) | 2026-01-09 |
 | #11 | Add install script for easy CLI access | 2026-01-08 |
 | #38 | Menu items not visually disabled when windows are open | 2026-01-08 |
@@ -194,7 +209,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 | Status | Count | Issues |
 |--------|-------|--------|
 | Open | 1 | #28 |
-| Closed | 20 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #30, #31, #35, #38, #42 |
+| Closed | 21 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #30, #31, #35, #38, #42, #44 |
 
 ### By Priority
 - 🔴 Critical: 0
@@ -249,6 +264,28 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-09
+- Completed Issue #44: Refactoring - Improve code safety, reduce duplication, consolidate global state
+  - Created new `src/shield_core.rs` module with shared shield activation logic
+  - Extracted reusable functions: `ensure_accessibility()`, `create_shield_window()`, `setup_close_button()`
+  - Removed ~150 lines of duplicated code between `main.rs` and `ui/shield.rs`
+  - Consolidated 25+ individual `AtomicPtr<c_void>` globals into structured modules:
+    - `shield::` - Shield window, close button, timer display, sleep assertion state
+    - `menu_bar::` - Menu bar items and action handlers
+    - `settings::` - Settings window UI element references
+    - `about::` - About panel state
+  - Centralized UI constants into organized submodules:
+    - `close_button::` - SIZE, MARGIN, LABEL_HEIGHT, LABEL_WIDTH, HOLD_DURATION_SECS
+    - `timer_display::` - HEIGHT, WIDTH, MARGIN
+    - `animation::` - INTERVAL_SECS
+    - `window_level::` - SCREEN_SAVER
+  - Created `shield_core::theme` module with background color constants (BG_RED, BG_GREEN, BG_BLUE, BUTTON_LABEL_GAP)
+  - Config opacity is now actually applied to shield overlay (was hardcoded to 0.5 before)
+  - Fixed mutex poison handling in `config/file.rs` to recover gracefully instead of panicking
+  - Legacy aliases maintained for backwards compatibility - existing code continues to work
+  - Added new test: `test_constants_consistency` verifies legacy aliases match new module constants
+  - All 52 tests pass, clippy clean, build successful
+  - Updated issue counts: 1 open, 21 closed
+
 - Completed Issue #42: Enable Help menu links (Documentation & Report Issue)
   - "View Documentation" menu item now opens the GitHub README in the default browser
   - "Report Issue" menu item now opens the GitHub new issue page in the default browser
