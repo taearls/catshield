@@ -624,52 +624,6 @@ fn validate_timer_realtime(value: &str) {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_validate_timer_input_valid() {
-        assert_eq!(TimerValidation::Valid(30), validate_timer_input("30"));
-        assert_eq!(TimerValidation::Valid(1), validate_timer_input("1"));
-        assert_eq!(TimerValidation::Valid(999), validate_timer_input("999"));
-    }
-
-    #[test]
-    fn test_validate_timer_input_valid_with_whitespace() {
-        assert_eq!(TimerValidation::Valid(30), validate_timer_input("  30  "));
-        assert_eq!(TimerValidation::Valid(5), validate_timer_input("\t5\n"));
-    }
-
-    #[test]
-    fn test_validate_timer_input_empty() {
-        assert_eq!(TimerValidation::Empty, validate_timer_input(""));
-        assert_eq!(TimerValidation::Empty, validate_timer_input("   "));
-        assert_eq!(TimerValidation::Empty, validate_timer_input("\t\n"));
-    }
-
-    #[test]
-    fn test_validate_timer_input_zero() {
-        assert_eq!(TimerValidation::Zero, validate_timer_input("0"));
-        assert_eq!(TimerValidation::Zero, validate_timer_input("  0  "));
-    }
-
-    #[test]
-    fn test_validate_timer_input_negative() {
-        assert_eq!(TimerValidation::Negative, validate_timer_input("-5"));
-        assert_eq!(TimerValidation::Negative, validate_timer_input("-1"));
-        assert_eq!(TimerValidation::Negative, validate_timer_input("  -10  "));
-    }
-
-    #[test]
-    fn test_validate_timer_input_not_a_number() {
-        assert_eq!(TimerValidation::NotANumber, validate_timer_input("abc"));
-        assert_eq!(TimerValidation::NotANumber, validate_timer_input("12.5"));
-        assert_eq!(TimerValidation::NotANumber, validate_timer_input("30m"));
-        assert_eq!(TimerValidation::NotANumber, validate_timer_input("hello"));
-    }
-}
-
 /// Show the settings window
 pub fn show_settings_window(mtm: MainThreadMarker) {
     // Check if settings window is already open
@@ -1275,4 +1229,50 @@ pub fn show_settings_window(mtm: MainThreadMarker) {
     std::mem::forget(panel);
 
     println!("  Settings window opened");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_timer_input_valid() {
+        assert_eq!(TimerValidation::Valid(30), validate_timer_input("30"));
+        assert_eq!(TimerValidation::Valid(1), validate_timer_input("1"));
+        assert_eq!(TimerValidation::Valid(999), validate_timer_input("999"));
+    }
+
+    #[test]
+    fn test_validate_timer_input_valid_with_whitespace() {
+        assert_eq!(TimerValidation::Valid(30), validate_timer_input("  30  "));
+        assert_eq!(TimerValidation::Valid(5), validate_timer_input("\t5\n"));
+    }
+
+    #[test]
+    fn test_validate_timer_input_empty() {
+        assert_eq!(TimerValidation::Empty, validate_timer_input(""));
+        assert_eq!(TimerValidation::Empty, validate_timer_input("   "));
+        assert_eq!(TimerValidation::Empty, validate_timer_input("\t\n"));
+    }
+
+    #[test]
+    fn test_validate_timer_input_zero() {
+        assert_eq!(TimerValidation::Zero, validate_timer_input("0"));
+        assert_eq!(TimerValidation::Zero, validate_timer_input("  0  "));
+    }
+
+    #[test]
+    fn test_validate_timer_input_negative() {
+        assert_eq!(TimerValidation::Negative, validate_timer_input("-5"));
+        assert_eq!(TimerValidation::Negative, validate_timer_input("-1"));
+        assert_eq!(TimerValidation::Negative, validate_timer_input("  -10  "));
+    }
+
+    #[test]
+    fn test_validate_timer_input_not_a_number() {
+        assert_eq!(TimerValidation::NotANumber, validate_timer_input("abc"));
+        assert_eq!(TimerValidation::NotANumber, validate_timer_input("12.5"));
+        assert_eq!(TimerValidation::NotANumber, validate_timer_input("30m"));
+        assert_eq!(TimerValidation::NotANumber, validate_timer_input("hello"));
+    }
 }
