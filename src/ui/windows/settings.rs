@@ -33,6 +33,9 @@ pub struct SettingsWindowDelegateIvars {}
 /// Empty ivars for the ExitKeyFieldDelegate
 pub struct ExitKeyFieldDelegateIvars {}
 
+/// Empty ivars for the TimerFieldDelegate
+pub struct TimerFieldDelegateIvars {}
+
 // Delegate for exit key text field to handle real-time text changes
 define_class!(
     #[unsafe(super(NSObject))]
@@ -67,6 +70,55 @@ impl ExitKeyFieldDelegate {
     pub fn new(mtm: MainThreadMarker) -> Retained<Self> {
         let this = mtm.alloc::<ExitKeyFieldDelegate>();
         let this = this.set_ivars(ExitKeyFieldDelegateIvars {});
+        unsafe { msg_send![super(this), init] }
+    }
+}
+
+// Delegate for timer value text field to handle real-time text changes
+define_class!(
+    #[unsafe(super(NSObject))]
+    #[thread_kind = MainThreadOnly]
+    #[name = "TimerFieldDelegate"]
+    #[ivars = TimerFieldDelegateIvars]
+    pub struct TimerFieldDelegate;
+
+    unsafe impl NSObjectProtocol for TimerFieldDelegate {}
+
+    // NSTextFieldDelegate is required for setDelegate on NSTextField
+    unsafe impl NSTextFieldDelegate for TimerFieldDelegate {}
+
+    unsafe impl NSControlTextEditingDelegate for TimerFieldDelegate {
+        /// Called when text changes in the control (real-time, on every keystroke)
+        #[unsafe(method(controlTextDidChange:))]
+        fn control_text_did_change(&self, _notification: &NSNotification) {
+            // Only validate if the timer checkbox is enabled
+            let checkbox_ptr = settings::TIMER_CHECKBOX.load(Ordering::SeqCst);
+            if !checkbox_ptr.is_null() {
+                unsafe {
+                    let checkbox: &NSButton = &*(checkbox_ptr as *const NSButton);
+                    if checkbox.state() != NSControlStateValueOn {
+                        return; // Don't validate when checkbox is unchecked
+                    }
+                }
+            }
+
+            // Read the current value from the timer field
+            let field_ptr = settings::TIMER_VALUE_FIELD.load(Ordering::SeqCst);
+            if !field_ptr.is_null() {
+                unsafe {
+                    let field: &NSTextField = &*(field_ptr as *const NSTextField);
+                    let value = field.stringValue().to_string();
+                    validate_timer_realtime(&value);
+                }
+            }
+        }
+    }
+);
+
+impl TimerFieldDelegate {
+    pub fn new(mtm: MainThreadMarker) -> Retained<Self> {
+        let this = mtm.alloc::<TimerFieldDelegate>();
+        let this = this.set_ivars(TimerFieldDelegateIvars {});
         unsafe { msg_send![super(this), init] }
     }
 }
@@ -194,6 +246,11 @@ fn update_timer_field_enabled(enabled: bool) {
             let dropdown: &NSPopUpButton = &*(dropdown_ptr as *const NSPopUpButton);
             dropdown.setEnabled(enabled);
         }
+    }
+
+    // Clear validation label when checkbox is unchecked (disabled state)
+    if !enabled {
+        update_validation_label(settings::TIMER_VALIDATION.load(Ordering::SeqCst), true, "");
     }
 }
 
@@ -509,6 +566,32 @@ fn validate_exit_key_realtime(value: &str) {
     update_exit_key_validation_label(&result);
 }
 
+/// Validate timer duration field in real-time as user types
+fn validate_timer_realtime(value: &str) {
+    let label_ptr = settings::TIMER_VALIDATION.load(Ordering::SeqCst);
+    let trimmed = value.trim();
+
+    // Empty field - don't show validation (let Save button handle "Duration required")
+    if trimmed.is_empty() {
+        update_validation_label(label_ptr, true, "");
+        return;
+    }
+
+    // Try to parse as a number
+    match trimmed.parse::<u64>() {
+        Ok(num) if num > 0 => {
+            update_validation_label(label_ptr, true, "✓ Valid");
+        }
+        Ok(_) => {
+            // num is 0
+            update_validation_label(label_ptr, false, "Must be greater than 0");
+        }
+        Err(_) => {
+            update_validation_label(label_ptr, false, "Enter a number");
+        }
+    }
+}
+
 /// Show the settings window
 pub fn show_settings_window(mtm: MainThreadMarker) {
     // Check if settings window is already open
@@ -811,6 +894,25 @@ pub fn show_settings_window(mtm: MainThreadMarker) {
         timer_value_field.setEnabled(config.default_timer.is_some());
         if config.default_timer.is_none() {
             timer_value_field.setTextColor(Some(&NSColor::disabledControlTextColor()));
+        }
+        // Set up delegate for real-time validation on text changes
+        let timer_field_delegate = unsafe {
+            let delegate_ptr = settings::TIMER_FIELD_DELEGATE.load(Ordering::SeqCst);
+            if delegate_ptr.is_null() {
+                let new_delegate = TimerFieldDelegate::new(mtm);
+                settings::TIMER_FIELD_DELEGATE.store(
+                    Retained::as_ptr(&new_delegate) as *mut c_void,
+                    Ordering::SeqCst,
+                );
+                std::mem::forget(new_delegate);
+                &*(settings::TIMER_FIELD_DELEGATE.load(Ordering::SeqCst)
+                    as *const TimerFieldDelegate)
+            } else {
+                &*(delegate_ptr as *const TimerFieldDelegate)
+            }
+        };
+        unsafe {
+            timer_value_field.setDelegate(Some(ProtocolObject::from_ref(timer_field_delegate)));
         }
         content_view.addSubview(&timer_value_field);
         settings::TIMER_VALUE_FIELD.store(
