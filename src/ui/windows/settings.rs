@@ -566,29 +566,107 @@ fn validate_exit_key_realtime(value: &str) {
     update_exit_key_validation_label(&result);
 }
 
+/// Result of validating a timer duration input
+#[derive(Debug, PartialEq)]
+enum TimerValidation {
+    /// Valid input with the parsed number
+    Valid(u64),
+    /// Empty input (no validation message shown)
+    Empty,
+    /// Invalid: negative number
+    Negative,
+    /// Invalid: zero value
+    Zero,
+    /// Invalid: not a number
+    NotANumber,
+}
+
+/// Validate a timer duration string
+fn validate_timer_input(value: &str) -> TimerValidation {
+    let trimmed = value.trim();
+
+    if trimmed.is_empty() {
+        return TimerValidation::Empty;
+    }
+
+    if trimmed.starts_with('-') {
+        return TimerValidation::Negative;
+    }
+
+    match trimmed.parse::<u64>() {
+        Ok(num) if num > 0 => TimerValidation::Valid(num),
+        Ok(_) => TimerValidation::Zero,
+        Err(_) => TimerValidation::NotANumber,
+    }
+}
+
 /// Validate timer duration field in real-time as user types
 fn validate_timer_realtime(value: &str) {
     let label_ptr = settings::TIMER_VALIDATION.load(Ordering::SeqCst);
-    let trimmed = value.trim();
 
-    // Empty field - don't show validation (let Save button handle "Duration required")
-    if trimmed.is_empty() {
-        update_validation_label(label_ptr, true, "");
-        return;
-    }
-
-    // Try to parse as a number
-    match trimmed.parse::<u64>() {
-        Ok(num) if num > 0 => {
+    match validate_timer_input(value) {
+        TimerValidation::Valid(_) => {
             update_validation_label(label_ptr, true, "✓ Valid");
         }
-        Ok(_) => {
-            // num is 0
+        TimerValidation::Empty => {
+            // Don't show validation (let Save button handle "Duration required")
+            update_validation_label(label_ptr, true, "");
+        }
+        TimerValidation::Negative => {
+            update_validation_label(label_ptr, false, "Must be a positive number");
+        }
+        TimerValidation::Zero => {
             update_validation_label(label_ptr, false, "Must be greater than 0");
         }
-        Err(_) => {
+        TimerValidation::NotANumber => {
             update_validation_label(label_ptr, false, "Enter a number");
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_timer_input_valid() {
+        assert_eq!(TimerValidation::Valid(30), validate_timer_input("30"));
+        assert_eq!(TimerValidation::Valid(1), validate_timer_input("1"));
+        assert_eq!(TimerValidation::Valid(999), validate_timer_input("999"));
+    }
+
+    #[test]
+    fn test_validate_timer_input_valid_with_whitespace() {
+        assert_eq!(TimerValidation::Valid(30), validate_timer_input("  30  "));
+        assert_eq!(TimerValidation::Valid(5), validate_timer_input("\t5\n"));
+    }
+
+    #[test]
+    fn test_validate_timer_input_empty() {
+        assert_eq!(TimerValidation::Empty, validate_timer_input(""));
+        assert_eq!(TimerValidation::Empty, validate_timer_input("   "));
+        assert_eq!(TimerValidation::Empty, validate_timer_input("\t\n"));
+    }
+
+    #[test]
+    fn test_validate_timer_input_zero() {
+        assert_eq!(TimerValidation::Zero, validate_timer_input("0"));
+        assert_eq!(TimerValidation::Zero, validate_timer_input("  0  "));
+    }
+
+    #[test]
+    fn test_validate_timer_input_negative() {
+        assert_eq!(TimerValidation::Negative, validate_timer_input("-5"));
+        assert_eq!(TimerValidation::Negative, validate_timer_input("-1"));
+        assert_eq!(TimerValidation::Negative, validate_timer_input("  -10  "));
+    }
+
+    #[test]
+    fn test_validate_timer_input_not_a_number() {
+        assert_eq!(TimerValidation::NotANumber, validate_timer_input("abc"));
+        assert_eq!(TimerValidation::NotANumber, validate_timer_input("12.5"));
+        assert_eq!(TimerValidation::NotANumber, validate_timer_input("30m"));
+        assert_eq!(TimerValidation::NotANumber, validate_timer_input("hello"));
     }
 }
 
