@@ -200,6 +200,15 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
   - Validation label now starts empty when Settings window opens
   - Validation only appears after user modifies the Exit Key field
   - Real-time validation still works via `controlTextDidChange:` delegate method
+- [x] **Issue #49**: Add real-time validation for Timer duration field in Settings
+  - Timer field now validates input as user types (when checkbox is enabled)
+  - Created `TimerFieldDelegate` class implementing `NSControlTextEditingDelegate`
+  - Created `validate_timer_realtime()` function for number validation
+  - Valid input shows "✓ Valid" (green), invalid shows error (red)
+  - "Must be greater than 0" for zero values, "Enter a number" for non-numeric input
+  - No validation when field is empty (let Save handle "Duration required")
+  - Validation cleared when checkbox is unchecked (disabled state)
+  - No validation message on initial window open (matches Issue #48 pattern)
 
 ### Other Open Issues
 
@@ -211,6 +220,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #49 | Add real-time validation for Timer duration field in Settings | 2026-01-09 |
 | #48 | Exit Key validation should not show on initial Settings window open | 2026-01-09 |
 | #46 | Add 'Reset to Default' button and improve spacing in Settings window | 2026-01-09 |
 | #44 | Refactoring - Improve code safety, reduce duplication, consolidate state | 2026-01-09 |
@@ -224,7 +234,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 | Status | Count | Issues |
 |--------|-------|--------|
 | Open | 1 | #28 |
-| Closed | 23 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #30, #31, #35, #38, #42, #44, #46, #48 |
+| Closed | 24 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #30, #31, #35, #38, #42, #44, #46, #48, #49 |
 
 ### By Priority
 - 🔴 Critical: 0
@@ -279,6 +289,19 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-09
+- Completed Issue #49: Add real-time validation for Timer duration field in Settings
+  - Created `TimerFieldDelegate` class implementing `NSControlTextEditingDelegate` protocol
+  - Added `validate_timer_realtime()` function for validating numeric timer input
+  - Timer field now validates as user types when the "Enable auto-exit timer" checkbox is enabled
+  - Valid numeric input (>0) shows "✓ Valid" (green)
+  - Zero value shows "Must be greater than 0" (red)
+  - Non-numeric input shows "Enter a number" (red)
+  - Empty field shows no message (Save button handles "Duration required")
+  - Validation label cleared when checkbox is unchecked (disabled state)
+  - No validation on initial window open (follows Issue #48 pattern)
+  - Added `TIMER_FIELD_DELEGATE` to `settings` state module
+  - Updated issue counts: 1 open, 24 closed
+
 - Completed Issue #48: Exit Key validation should not show on initial Settings window open
   - Removed the `validate_exit_key_realtime()` call that ran immediately when Settings window opens
   - Validation label now starts empty (no "✓ Valid" message on open)

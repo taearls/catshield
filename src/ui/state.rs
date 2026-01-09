@@ -160,6 +160,9 @@ pub mod settings {
     /// Timer enable checkbox
     pub static TIMER_CHECKBOX: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 
+    /// Timer field delegate for real-time validation
+    pub static TIMER_FIELD_DELEGATE: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+
     /// Timer validation label
     pub static TIMER_VALIDATION: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 

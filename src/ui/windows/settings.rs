@@ -33,6 +33,9 @@ pub struct SettingsWindowDelegateIvars {}
 /// Empty ivars for the ExitKeyFieldDelegate
 pub struct ExitKeyFieldDelegateIvars {}
 
+/// Empty ivars for the TimerFieldDelegate
+pub struct TimerFieldDelegateIvars {}
+
 // Delegate for exit key text field to handle real-time text changes
 define_class!(
     #[unsafe(super(NSObject))]
@@ -67,6 +70,55 @@ impl ExitKeyFieldDelegate {
     pub fn new(mtm: MainThreadMarker) -> Retained<Self> {
         let this = mtm.alloc::<ExitKeyFieldDelegate>();
         let this = this.set_ivars(ExitKeyFieldDelegateIvars {});
+        unsafe { msg_send![super(this), init] }
+    }
+}
+
+// Delegate for timer value text field to handle real-time text changes
+define_class!(
+    #[unsafe(super(NSObject))]
+    #[thread_kind = MainThreadOnly]
+    #[name = "TimerFieldDelegate"]
+    #[ivars = TimerFieldDelegateIvars]
+    pub struct TimerFieldDelegate;
+
+    unsafe impl NSObjectProtocol for TimerFieldDelegate {}
+
+    // NSTextFieldDelegate is required for setDelegate on NSTextField
+    unsafe impl NSTextFieldDelegate for TimerFieldDelegate {}
+
+    unsafe impl NSControlTextEditingDelegate for TimerFieldDelegate {
+        /// Called when text changes in the control (real-time, on every keystroke)
+        #[unsafe(method(controlTextDidChange:))]
+        fn control_text_did_change(&self, _notification: &NSNotification) {
+            // Only validate if the timer checkbox is enabled
+            let checkbox_ptr = settings::TIMER_CHECKBOX.load(Ordering::SeqCst);
+            if !checkbox_ptr.is_null() {
+                unsafe {
+                    let checkbox: &NSButton = &*(checkbox_ptr as *const NSButton);
+                    if checkbox.state() != NSControlStateValueOn {
+                        return; // Don't validate when checkbox is unchecked
+                    }
+                }
+            }
+
+            // Read the current value from the timer field
+            let field_ptr = settings::TIMER_VALUE_FIELD.load(Ordering::SeqCst);
+            if !field_ptr.is_null() {
+                unsafe {
+                    let field: &NSTextField = &*(field_ptr as *const NSTextField);
+                    let value = field.stringValue().to_string();
+                    validate_timer_realtime(&value);
+                }
+            }
+        }
+    }
+);
+
+impl TimerFieldDelegate {
+    pub fn new(mtm: MainThreadMarker) -> Retained<Self> {
+        let this = mtm.alloc::<TimerFieldDelegate>();
+        let this = this.set_ivars(TimerFieldDelegateIvars {});
         unsafe { msg_send![super(this), init] }
     }
 }
@@ -194,6 +246,11 @@ fn update_timer_field_enabled(enabled: bool) {
             let dropdown: &NSPopUpButton = &*(dropdown_ptr as *const NSPopUpButton);
             dropdown.setEnabled(enabled);
         }
+    }
+
+    // Clear validation label when checkbox is unchecked (disabled state)
+    if !enabled {
+        update_validation_label(settings::TIMER_VALIDATION.load(Ordering::SeqCst), true, "");
     }
 }
 
@@ -509,6 +566,64 @@ fn validate_exit_key_realtime(value: &str) {
     update_exit_key_validation_label(&result);
 }
 
+/// Result of validating a timer duration input
+#[derive(Debug, PartialEq)]
+enum TimerValidation {
+    /// Valid input with the parsed number
+    Valid(u64),
+    /// Empty input (no validation message shown)
+    Empty,
+    /// Invalid: negative number
+    Negative,
+    /// Invalid: zero value
+    Zero,
+    /// Invalid: not a number
+    NotANumber,
+}
+
+/// Validate a timer duration string
+fn validate_timer_input(value: &str) -> TimerValidation {
+    let trimmed = value.trim();
+
+    if trimmed.is_empty() {
+        return TimerValidation::Empty;
+    }
+
+    if trimmed.starts_with('-') {
+        return TimerValidation::Negative;
+    }
+
+    match trimmed.parse::<u64>() {
+        Ok(num) if num > 0 => TimerValidation::Valid(num),
+        Ok(_) => TimerValidation::Zero,
+        Err(_) => TimerValidation::NotANumber,
+    }
+}
+
+/// Validate timer duration field in real-time as user types
+fn validate_timer_realtime(value: &str) {
+    let label_ptr = settings::TIMER_VALIDATION.load(Ordering::SeqCst);
+
+    match validate_timer_input(value) {
+        TimerValidation::Valid(_) => {
+            update_validation_label(label_ptr, true, "✓ Valid");
+        }
+        TimerValidation::Empty => {
+            // Don't show validation (let Save button handle "Duration required")
+            update_validation_label(label_ptr, true, "");
+        }
+        TimerValidation::Negative => {
+            update_validation_label(label_ptr, false, "Must be a positive number");
+        }
+        TimerValidation::Zero => {
+            update_validation_label(label_ptr, false, "Must be greater than 0");
+        }
+        TimerValidation::NotANumber => {
+            update_validation_label(label_ptr, false, "Enter a number");
+        }
+    }
+}
+
 /// Show the settings window
 pub fn show_settings_window(mtm: MainThreadMarker) {
     // Check if settings window is already open
@@ -812,6 +927,25 @@ pub fn show_settings_window(mtm: MainThreadMarker) {
         if config.default_timer.is_none() {
             timer_value_field.setTextColor(Some(&NSColor::disabledControlTextColor()));
         }
+        // Set up delegate for real-time validation on text changes
+        let timer_field_delegate = unsafe {
+            let delegate_ptr = settings::TIMER_FIELD_DELEGATE.load(Ordering::SeqCst);
+            if delegate_ptr.is_null() {
+                let new_delegate = TimerFieldDelegate::new(mtm);
+                settings::TIMER_FIELD_DELEGATE.store(
+                    Retained::as_ptr(&new_delegate) as *mut c_void,
+                    Ordering::SeqCst,
+                );
+                std::mem::forget(new_delegate);
+                &*(settings::TIMER_FIELD_DELEGATE.load(Ordering::SeqCst)
+                    as *const TimerFieldDelegate)
+            } else {
+                &*(delegate_ptr as *const TimerFieldDelegate)
+            }
+        };
+        unsafe {
+            timer_value_field.setDelegate(Some(ProtocolObject::from_ref(timer_field_delegate)));
+        }
         content_view.addSubview(&timer_value_field);
         settings::TIMER_VALUE_FIELD.store(
             Retained::as_ptr(&timer_value_field) as *mut c_void,
@@ -1095,4 +1229,50 @@ pub fn show_settings_window(mtm: MainThreadMarker) {
     std::mem::forget(panel);
 
     println!("  Settings window opened");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_timer_input_valid() {
+        assert_eq!(TimerValidation::Valid(30), validate_timer_input("30"));
+        assert_eq!(TimerValidation::Valid(1), validate_timer_input("1"));
+        assert_eq!(TimerValidation::Valid(999), validate_timer_input("999"));
+    }
+
+    #[test]
+    fn test_validate_timer_input_valid_with_whitespace() {
+        assert_eq!(TimerValidation::Valid(30), validate_timer_input("  30  "));
+        assert_eq!(TimerValidation::Valid(5), validate_timer_input("\t5\n"));
+    }
+
+    #[test]
+    fn test_validate_timer_input_empty() {
+        assert_eq!(TimerValidation::Empty, validate_timer_input(""));
+        assert_eq!(TimerValidation::Empty, validate_timer_input("   "));
+        assert_eq!(TimerValidation::Empty, validate_timer_input("\t\n"));
+    }
+
+    #[test]
+    fn test_validate_timer_input_zero() {
+        assert_eq!(TimerValidation::Zero, validate_timer_input("0"));
+        assert_eq!(TimerValidation::Zero, validate_timer_input("  0  "));
+    }
+
+    #[test]
+    fn test_validate_timer_input_negative() {
+        assert_eq!(TimerValidation::Negative, validate_timer_input("-5"));
+        assert_eq!(TimerValidation::Negative, validate_timer_input("-1"));
+        assert_eq!(TimerValidation::Negative, validate_timer_input("  -10  "));
+    }
+
+    #[test]
+    fn test_validate_timer_input_not_a_number() {
+        assert_eq!(TimerValidation::NotANumber, validate_timer_input("abc"));
+        assert_eq!(TimerValidation::NotANumber, validate_timer_input("12.5"));
+        assert_eq!(TimerValidation::NotANumber, validate_timer_input("30m"));
+        assert_eq!(TimerValidation::NotANumber, validate_timer_input("hello"));
+    }
 }
