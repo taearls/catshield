@@ -177,12 +177,12 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 | Priority | Issue | Title | Effort |
 |----------|-------|-------|--------|
 | 🟢 Medium | #28 | Migrate from raw objc2 bindings to Cacao library | ~1-2 weeks |
-| 🔵 Low | #11 | Add install script for easy CLI access | ~0.5 day |
 
 ### Recently Completed
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #11 | Add install script for easy CLI access | 2026-01-08 |
 | #38 | Menu items not visually disabled when windows are open | 2026-01-08 |
 | #30 | Add real-time validation for Exit Key field in Settings Window | 2026-01-08 |
 
@@ -190,14 +190,14 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 2 | #11, #28 |
-| Closed | 18 | #3, #5, #6, #7, #10, #13, #14, #15, #16, #17, #18, #19, #24, #25, #30, #31, #35, #38 |
+| Open | 1 | #28 |
+| Closed | 19 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #30, #31, #35, #38 |
 
 ### By Priority
 - 🔴 Critical: 0
 - 🟡 High: 0
 - 🟢 Medium: 1 (#28)
-- 🔵 Low: 1 (#11)
+- 🔵 Low: 0
 
 ## Recommended Implementation Order
 
@@ -212,7 +212,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 6. ~~**#24** - Fix multiple menu bar icons bug~~ ✅ COMPLETED
 7. ~~**#19** - About Panel~~ ✅ COMPLETED
 8. ~~**#30** - Add real-time Exit Key validation in Settings (enhances #16)~~ ✅ COMPLETED
-9. **#11** - Install Script (can be done anytime)
+9. ~~**#11** - Install Script~~ ✅ COMPLETED
 
 ### Future
 10. **#28** - Migrate to Cacao library (major refactor, low priority)
@@ -228,7 +228,7 @@ Parallel:       #18 (Config) ✅ ───────────────�
 
 Bug Fix:        #24 (Multiple Menu Icons) ✅
 
-Independent:    #10 (UI Labels) ✅, #11 (Install Script), #31 (CI) ✅
+Independent:    #10 (UI Labels) ✅, #11 (Install Script) ✅, #31 (CI) ✅
 
 Major Refactor: #28 (Cacao Migration) - Future consideration
 ```
@@ -246,6 +246,18 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-08
+- Completed Issue #11: Add install script for easy CLI access
+  - Created `install.sh` script that builds and installs Cat Shield
+  - Script checks for Rust/Cargo availability before building
+  - Builds release binary with `cargo build --release`
+  - Installs to `/usr/local/bin/catshield` by default (configurable via `INSTALL_DIR` env var)
+  - Handles permissions correctly (uses sudo when needed for system directories)
+  - Provides clear success/error messages with colored output
+  - Created `uninstall.sh` script to remove the binary and optionally config files
+  - Updated README.md with comprehensive installation instructions
+  - Users can now run `catshield` from anywhere in their terminal
+  - Updated issue counts: 1 open, 19 closed
+
 - Completed Issue #38: Fix menu items not visually disabled when windows are open
   - Settings and About menu items now appear visually grayed out when their windows are open
   - Root cause: NSMenu's `autoenablesItems` was overriding manual `setEnabled(false)` calls
