@@ -718,8 +718,9 @@ pub fn show_settings_window(mtm: MainThreadMarker) {
         );
         std::mem::forget(exit_key_validation);
 
-        // Show initial validation state for the pre-filled exit key value
-        validate_exit_key_realtime(config.exit_key.as_deref().unwrap_or(DEFAULT_EXIT_KEY));
+        // Note: Do NOT call validate_exit_key_realtime() here.
+        // Validation should only appear after user modifies the field.
+        // The delegate's controlTextDidChange: handles real-time validation on edits.
 
         // ========================================
         // Default Timer Section
