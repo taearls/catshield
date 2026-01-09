@@ -41,21 +41,20 @@ pub mod theme {
 
 /// Ensure accessibility permissions are granted, prompting the user if necessary.
 ///
-/// This function:
-/// 1. Checks if accessibility is already granted
+/// This function blocks until accessibility permissions are granted:
+/// 1. Checks if accessibility is already granted (returns immediately if so)
 /// 2. If not, prompts the user with the system dialog
 /// 3. If still not granted, opens System Settings and polls until granted
 ///
 /// # Arguments
 /// * `exit_key` - The configured exit key for display in messages
 ///
-/// # Returns
-/// Always returns `true` (loops until permission is granted)
-pub fn ensure_accessibility(exit_key: &ExitKey) -> bool {
-    let mut has_accessibility = check_accessibility();
-
-    if has_accessibility {
-        return true;
+/// # Note
+/// This function will loop indefinitely until permissions are granted.
+/// It does not return until the user grants accessibility access.
+pub fn ensure_accessibility(exit_key: &ExitKey) {
+    if check_accessibility() {
+        return;
     }
 
     println!();
@@ -73,12 +72,10 @@ pub fn ensure_accessibility(exit_key: &ExitKey) -> bool {
 
     // Try to prompt user with native dialog
     println!("  Requesting accessibility permissions...");
-    has_accessibility = check_accessibility_with_prompt();
-
-    if has_accessibility {
+    if check_accessibility_with_prompt() {
         println!("  ✓ Permissions granted!");
         println!();
-        return true;
+        return;
     }
 
     eprintln!();
@@ -102,7 +99,7 @@ pub fn ensure_accessibility(exit_key: &ExitKey) -> bool {
         if check_accessibility() {
             println!("  ✓ Permissions granted! Starting Cat Shield...");
             println!();
-            return true;
+            return;
         }
     }
 }
