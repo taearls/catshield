@@ -1,7 +1,8 @@
 //! Settings window for Cat Shield
 
 use crate::config::{
-    get_current_config, set_current_config, MAX_OVERLAY_OPACITY, MIN_OVERLAY_OPACITY,
+    get_current_config, set_current_config, DEFAULT_OVERLAY_OPACITY, MAX_OVERLAY_OPACITY,
+    MIN_OVERLAY_OPACITY,
 };
 use crate::input::{set_exit_key, ExitKey, DEFAULT_EXIT_KEY};
 use crate::timer::{parse_duration, parse_timer_value_and_unit};
@@ -141,6 +142,12 @@ define_class!(
                 update_timer_field_enabled(is_enabled);
             }
         }
+
+        /// Action method called when "Reset to Default" button is clicked
+        #[unsafe(method(resetDefaults:))]
+        unsafe fn reset_defaults(&self, _sender: Option<&NSButton>) {
+            reset_settings_to_defaults();
+        }
     }
 );
 
@@ -188,6 +195,68 @@ fn update_timer_field_enabled(enabled: bool) {
             dropdown.setEnabled(enabled);
         }
     }
+}
+
+/// Reset all settings fields to their default values
+/// Does NOT auto-save; user must click Save to persist
+fn reset_settings_to_defaults() {
+    // Reset Exit Key field to default
+    let exit_key_ptr = settings::EXIT_KEY_FIELD.load(Ordering::SeqCst);
+    if !exit_key_ptr.is_null() {
+        unsafe {
+            let field: &NSTextField = &*(exit_key_ptr as *const NSTextField);
+            field.setStringValue(&NSString::from_str(DEFAULT_EXIT_KEY));
+        }
+        // Update validation label
+        validate_exit_key_realtime(DEFAULT_EXIT_KEY);
+    }
+
+    // Reset Timer checkbox to disabled (unchecked)
+    let timer_checkbox_ptr = settings::TIMER_CHECKBOX.load(Ordering::SeqCst);
+    if !timer_checkbox_ptr.is_null() {
+        unsafe {
+            let checkbox: &NSButton = &*(timer_checkbox_ptr as *const NSButton);
+            checkbox.setState(NSControlStateValueOff);
+        }
+    }
+
+    // Reset Timer value field to empty
+    let timer_value_ptr = settings::TIMER_VALUE_FIELD.load(Ordering::SeqCst);
+    if !timer_value_ptr.is_null() {
+        unsafe {
+            let field: &NSTextField = &*(timer_value_ptr as *const NSTextField);
+            field.setStringValue(ns_string!(""));
+        }
+    }
+
+    // Reset Timer unit dropdown to Minutes (index 0)
+    let timer_unit_ptr = settings::TIMER_UNIT_DROPDOWN.load(Ordering::SeqCst);
+    if !timer_unit_ptr.is_null() {
+        unsafe {
+            let dropdown: &NSPopUpButton = &*(timer_unit_ptr as *const NSPopUpButton);
+            dropdown.selectItemAtIndex(0);
+        }
+    }
+
+    // Update timer field enabled state (disabled since checkbox is unchecked)
+    update_timer_field_enabled(false);
+
+    // Clear timer validation label
+    update_validation_label(settings::TIMER_VALIDATION.load(Ordering::SeqCst), true, "");
+
+    // Reset Opacity slider to 50% (0.5)
+    let opacity_ptr = settings::OPACITY_SLIDER.load(Ordering::SeqCst);
+    if !opacity_ptr.is_null() {
+        unsafe {
+            let slider: &NSSlider = &*(opacity_ptr as *const NSSlider);
+            slider.setDoubleValue(DEFAULT_OVERLAY_OPACITY);
+        }
+    }
+
+    // Update opacity label to 50%
+    update_opacity_label(DEFAULT_OVERLAY_OPACITY);
+
+    println!("  Settings reset to defaults (not saved)");
 }
 
 /// Clean up settings window UI element references
@@ -464,7 +533,7 @@ pub fn show_settings_window(mtm: MainThreadMarker) {
 
     // Window dimensions
     let window_width: CGFloat = 400.0;
-    let window_height: CGFloat = 340.0;
+    let window_height: CGFloat = 370.0;
 
     // Calculate center position on screen
     let screen_frame = NSScreen::mainScreen(mtm)
@@ -933,10 +1002,35 @@ pub fn show_settings_window(mtm: MainThreadMarker) {
         // ========================================
         let button_height: CGFloat = 28.0;
         let button_width: CGFloat = 80.0;
+        let reset_button_width: CGFloat = 120.0;
         let button_spacing: CGFloat = 12.0;
         let button_y: CGFloat = margin;
 
-        // Cancel button (left)
+        // Reset to Default button (left side)
+        let reset_button = unsafe {
+            let button = NSButton::buttonWithTitle_target_action(
+                ns_string!("Reset to Default"),
+                Some(handler),
+                Some(objc2::sel!(resetDefaults:)),
+                mtm,
+            );
+            button.setFrame(CGRect {
+                origin: CGPoint {
+                    x: margin,
+                    y: button_y,
+                },
+                size: CGSize {
+                    width: reset_button_width,
+                    height: button_height,
+                },
+            });
+            button.setButtonType(NSButtonType::MomentaryPushIn);
+            button
+        };
+        content_view.addSubview(&reset_button);
+        std::mem::forget(reset_button);
+
+        // Cancel button (right side, before Save)
         let cancel_button = unsafe {
             let button = NSButton::buttonWithTitle_target_action(
                 ns_string!("Cancel"),

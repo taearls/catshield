@@ -188,6 +188,14 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
   - Legacy aliases maintained for backwards compatibility
   - All 52 tests pass, clippy clean, build successful
 
+### Settings Window Improvements
+- [x] **Issue #46**: Add 'Reset to Default' button and improve spacing in Settings window
+  - Added "Reset to Default" button on the left side of the button row
+  - When clicked, resets all fields to defaults: Exit Key (Cmd+Q), Timer (disabled/cleared), Opacity (50%)
+  - Reset does NOT auto-save - user must click Save to persist changes
+  - Increased window height from 340 to 370 pixels for better visual spacing
+  - Provides easy way to restore factory settings without manually editing each field
+
 ### Other Open Issues
 
 | Priority | Issue | Title | Effort |
@@ -198,6 +206,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #46 | Add 'Reset to Default' button and improve spacing in Settings window | 2026-01-09 |
 | #44 | Refactoring - Improve code safety, reduce duplication, consolidate state | 2026-01-09 |
 | #42 | Enable Help menu links (Documentation & Report Issue) | 2026-01-09 |
 | #11 | Add install script for easy CLI access | 2026-01-08 |
@@ -209,7 +218,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 | Status | Count | Issues |
 |--------|-------|--------|
 | Open | 1 | #28 |
-| Closed | 21 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #30, #31, #35, #38, #42, #44 |
+| Closed | 22 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #30, #31, #35, #38, #42, #44, #46 |
 
 ### By Priority
 - 🔴 Critical: 0
@@ -264,6 +273,18 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-09
+- Completed Issue #46: Add 'Reset to Default' button and improve spacing in Settings window
+  - Added "Reset to Default" button on the left side of the button row
+  - Button resets all settings fields to their default values:
+    - Exit Key: Cmd+Q (DEFAULT_EXIT_KEY constant)
+    - Timer: disabled (checkbox unchecked) and value cleared
+    - Opacity: 50% (DEFAULT_OVERLAY_OPACITY constant)
+  - Reset does NOT auto-save - user must explicitly click Save to persist changes
+  - Increased window height from 340 to 370 pixels for improved visual spacing
+  - Added `resetDefaults:` action method to `SettingsActionHandler`
+  - Created `reset_settings_to_defaults()` function to update all UI fields
+  - Updated issue counts: 1 open, 22 closed
+
 - Completed Issue #44: Refactoring - Improve code safety, reduce duplication, consolidate global state
   - Created new `src/shield_core.rs` module with shared shield activation logic
   - Extracted reusable functions: `ensure_accessibility()`, `create_shield_window()`, `setup_close_button()`
