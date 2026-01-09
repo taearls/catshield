@@ -79,11 +79,19 @@ impl HelpActionHandler {
 }
 
 /// Open a URL in the default browser using NSWorkspace
-fn open_url(url_str: &str) {
+///
+/// Returns `true` if the URL was successfully opened, `false` otherwise.
+fn open_url(url_str: &str) -> bool {
     // Create NSURL from the string
     let ns_url_str = objc2_foundation::NSString::from_str(url_str);
-    if let Some(url) = NSURL::URLWithString(&ns_url_str) {
-        let workspace = NSWorkspace::sharedWorkspace();
-        workspace.openURL(&url);
+    let Some(url) = NSURL::URLWithString(&ns_url_str) else {
+        eprintln!("HelpActionHandler: invalid URL: {url_str}");
+        return false;
+    };
+    let workspace = NSWorkspace::sharedWorkspace();
+    let ok = workspace.openURL(&url);
+    if !ok {
+        eprintln!("HelpActionHandler: failed to open URL: {url_str}");
     }
+    ok
 }

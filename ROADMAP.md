@@ -157,6 +157,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
     ├── #17: Refactor Overlay ✅ (parallel with #15)
     └── #15: Dropdown Menu ✅
             ├── #18: Extend Config ✅ (parallel)
+            ├── #42: Help Menu Links ✅
             └── #16: Settings Window ✅
                     └── #19: About Panel ✅
 ```
