@@ -262,16 +262,10 @@ pub fn print_shield_active(exit_key: &ExitKey, timer_info: Option<&str>) {
     println!();
 }
 
-#[cfg(test)]
-mod tests {
-    use super::theme;
-
-    #[test]
-    fn test_theme_constants() {
-        // Verify theme constants are in valid ranges
-        assert!(theme::BG_RED >= 0.0 && theme::BG_RED <= 1.0);
-        assert!(theme::BG_GREEN >= 0.0 && theme::BG_GREEN <= 1.0);
-        assert!(theme::BG_BLUE >= 0.0 && theme::BG_BLUE <= 1.0);
-        assert!(theme::BUTTON_LABEL_GAP > 0.0);
-    }
-}
+// Compile-time validation of theme constants using const assertions
+const _: () = {
+    assert!(theme::BG_RED >= 0.0 && theme::BG_RED <= 1.0);
+    assert!(theme::BG_GREEN >= 0.0 && theme::BG_GREEN <= 1.0);
+    assert!(theme::BG_BLUE >= 0.0 && theme::BG_BLUE <= 1.0);
+    assert!(theme::BUTTON_LABEL_GAP > 0.0);
+};
