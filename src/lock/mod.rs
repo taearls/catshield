@@ -631,10 +631,7 @@ mod tests {
     fn test_constants_are_reasonable() {
         // Verify our constants have sensible values
         assert_eq!(LOCK_FILE_NAME, "catshield.lock");
-        assert!(
-            LOCK_RETRY_LIMIT >= 1 && LOCK_RETRY_LIMIT <= 10,
-            "Retry limit should be reasonable: {}",
-            LOCK_RETRY_LIMIT
-        );
+        // Use const block for compile-time constant assertion
+        const _: () = assert!(LOCK_RETRY_LIMIT >= 1 && LOCK_RETRY_LIMIT <= 10);
     }
 }
