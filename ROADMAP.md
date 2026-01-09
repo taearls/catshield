@@ -210,11 +210,57 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
   - Validation cleared when checkbox is unchecked (disabled state)
   - No validation message on initial window open (matches Issue #48 pattern)
 
+### Phase 5: Performance & Code Quality Improvements
+
+**Summary**: Identified opportunities to improve performance, code maintainability, and test coverage.
+
+#### Performance Optimizations
+
+| Priority | Issue | Title | Effort |
+|----------|-------|-------|--------|
+| 🟢 Medium | #52 | Optimize atomic orderings from SeqCst to appropriate weaker orderings | ~1 day |
+| 🟢 Medium | #53 | Cache redundant atomic loads in timer callback | ~2 hours |
+| 🔵 Low | #54 | Cache formatted duration string in timer display | ~2-3 hours |
+
+#### Code Maintenance
+
+| Priority | Issue | Title | Effort |
+|----------|-------|-------|--------|
+| 🟡 High | #55 | Refactor: Break show_settings_window() into smaller functions | ~4-6 hours |
+| 🟢 Medium | #56 | Refactor: Create pointer helper to reduce null-check duplication | ~4-6 hours |
+| 🟢 Medium | #57 | Docs: Add safety documentation to std::mem::forget and unsafe blocks | ~4-6 hours |
+
+#### Testing Improvements
+
+| Priority | Issue | Title | Effort |
+|----------|-------|-------|--------|
+| 🟡 High | #58 | Test: Add unit tests for lock module (single-instance enforcement) | ~4-6 hours |
+| 🟡 High | #59 | Test: Add unit tests for timer state module | ~3-4 hours |
+| 🟢 Medium | #60 | Test: Expand UI state and settings validation tests | ~2-3 hours |
+
+**Implementation Order:**
+```text
+Performance (can be done in parallel):
+    #52: Atomic Ordering Optimization
+    #53: Timer Callback Cache
+    #54: Duration Format Cache
+
+Code Quality (can be done in parallel):
+    #55: Settings Window Refactor
+    #56: Pointer Helper
+    #57: Safety Documentation
+
+Testing (can be done in parallel):
+    #58: Lock Module Tests
+    #59: Timer State Tests
+    #60: UI State & Validation Tests
+```
+
 ### Other Open Issues
 
 | Priority | Issue | Title | Effort |
 |----------|-------|-------|--------|
-| 🟢 Medium | #28 | Migrate from raw objc2 bindings to Cacao library | ~1-2 weeks |
+| 🔵 Low | #28 | Migrate from raw objc2 bindings to Cacao library | ~1-2 weeks |
 
 ### Recently Completed
 
@@ -233,29 +279,44 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 1 | #28 |
+| Open | 10 | #28, #52, #53, #54, #55, #56, #57, #58, #59, #60 |
 | Closed | 24 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #30, #31, #35, #38, #42, #44, #46, #48, #49 |
 
 ### By Priority
 - 🔴 Critical: 0
-- 🟡 High: 0
-- 🟢 Medium: 1 (#28)
-- 🔵 Low: 0
+- 🟡 High: 3 (#55, #58, #59)
+- 🟢 Medium: 5 (#52, #53, #56, #57, #60)
+- 🔵 Low: 2 (#28, #54)
 
 ## Recommended Implementation Order
 
-### Current Sprint: Phase 4 Foundation - COMPLETE
-1. ~~**#14** - Menu Bar Infrastructure~~ ✅ COMPLETED
-2. ~~**#15** - Main Dropdown Menu~~ ✅ COMPLETED
-3. ~~**#17** - Refactor Overlay~~ ✅ COMPLETED
-4. ~~**#18** - Extend Config~~ ✅ COMPLETED
-5. ~~**#16** - Settings Window~~ ✅ COMPLETED
+### Previous Sprint: Phase 4 Foundation - COMPLETE ✅
+1. ~~**#14** - Menu Bar Infrastructure~~ ✅
+2. ~~**#15** - Main Dropdown Menu~~ ✅
+3. ~~**#17** - Refactor Overlay~~ ✅
+4. ~~**#18** - Extend Config~~ ✅
+5. ~~**#16** - Settings Window~~ ✅
+6. ~~**#24** - Fix multiple menu bar icons bug~~ ✅
+7. ~~**#19** - About Panel~~ ✅
+8. ~~**#30** - Add real-time Exit Key validation in Settings~~ ✅
+9. ~~**#11** - Install Script~~ ✅
 
-### Next Up
-6. ~~**#24** - Fix multiple menu bar icons bug~~ ✅ COMPLETED
-7. ~~**#19** - About Panel~~ ✅ COMPLETED
-8. ~~**#30** - Add real-time Exit Key validation in Settings (enhances #16)~~ ✅ COMPLETED
-9. ~~**#11** - Install Script~~ ✅ COMPLETED
+### Current Sprint: Phase 5 - Performance & Quality
+
+**High Priority (Start Here):**
+1. **#58** - Add unit tests for lock module (security-critical, 0 tests currently)
+2. **#59** - Add unit tests for timer state module (core functionality, 0 tests)
+3. **#55** - Refactor show_settings_window() into smaller functions (600+ lines)
+
+**Medium Priority:**
+4. **#52** - Optimize atomic orderings (158 SeqCst → weaker orderings)
+5. **#56** - Create pointer helper (reduces 50+ duplicated patterns)
+6. **#57** - Add safety documentation (80 unsafe blocks need SAFETY comments)
+7. **#60** - Expand UI state and validation tests
+8. **#53** - Cache timer callback atomic loads
+
+**Lower Priority:**
+9. **#54** - Cache formatted duration string
 
 ### Future
 10. **#28** - Migrate to Cacao library (major refactor, low priority)
@@ -263,17 +324,27 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 ## Critical Path
 
 ```
+Phase 4 (COMPLETE):
 Foundation:     #14 (Menu Bar) ✅ ──┬── #17 (Refactor Overlay) ✅
                                     │
                                     └── #15 (Dropdown Menu) ✅ ── #16 (Settings) ✅ ─┬─ #19 (About) ✅
                                                  │                                    │
 Parallel:       #18 (Config) ✅ ────────────────┘                                    └─ #30 (Exit Key Validation) ✅
 
-Bug Fix:        #24 (Multiple Menu Icons) ✅
+Phase 5 (CURRENT):
+Testing:        #58 (Lock Tests) ─────┬─── All independent, can run in parallel
+                #59 (Timer Tests) ────┤
+                #60 (UI State Tests) ─┘
 
-Independent:    #10 (UI Labels) ✅, #11 (Install Script) ✅, #31 (CI) ✅
+Performance:    #52 (Atomic Ordering) ─┬── All independent, can run in parallel
+                #53 (Timer Cache) ─────┤
+                #54 (Duration Cache) ──┘
 
-Major Refactor: #28 (Cacao Migration) - Future consideration
+Maintenance:    #55 (Settings Refactor) ─┬── Independent
+                #56 (Pointer Helper) ────┤
+                #57 (Safety Docs) ───────┘
+
+Future:         #28 (Cacao Migration) - Low priority, major refactor
 ```
 
 ## Future Considerations
@@ -287,6 +358,18 @@ Potential future enhancements (not yet tracked as issues):
 - Custom overlay themes
 
 ## Changelog
+
+### 2026-01-09 (Roadmap Update)
+- Added 9 new issues for Phase 5: Performance & Code Quality Improvements
+  - Performance: #52 (atomic orderings), #53 (timer callback cache), #54 (duration format cache)
+  - Maintenance: #55 (settings refactor), #56 (pointer helper), #57 (safety docs)
+  - Testing: #58 (lock tests), #59 (timer state tests), #60 (UI state tests)
+- Updated issue counts: 10 open, 24 closed
+- Updated priority breakdown: 3 High, 5 Medium, 2 Low
+- Added Phase 5 section with categorized improvements
+- Updated recommended implementation order for Phase 5
+- Updated critical path diagram to show Phase 4 complete and Phase 5 current
+- Total estimated effort for Phase 5: ~30-40 hours
 
 ### 2026-01-09
 - Completed Issue #49: Add real-time validation for Timer duration field in Settings
