@@ -3,5 +3,5 @@
 mod handlers;
 mod setup;
 
-pub use handlers::MenuActionHandler;
+pub use handlers::{HelpActionHandler, MenuActionHandler};
 pub use setup::setup_menu_bar;

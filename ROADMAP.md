@@ -149,6 +149,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 | ✅ Done | #18 | Extend Config for New Settings | None | ~1 day |
 | ✅ Done | #16 | Create Settings Window | ✅ #15, ✅ #18 | ~3 days |
 | ✅ Done | #19 | Add About Panel | ✅ #15 | ~0.5 day |
+| ✅ Done | #42 | Enable Help Menu Links (Documentation & Report Issue) | ✅ #15 | ~0.5 day |
 
 **Implementation Order:**
 ```
@@ -182,6 +183,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #42 | Enable Help menu links (Documentation & Report Issue) | 2026-01-09 |
 | #11 | Add install script for easy CLI access | 2026-01-08 |
 | #38 | Menu items not visually disabled when windows are open | 2026-01-08 |
 | #30 | Add real-time validation for Exit Key field in Settings Window | 2026-01-08 |
@@ -191,7 +193,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 | Status | Count | Issues |
 |--------|-------|--------|
 | Open | 1 | #28 |
-| Closed | 19 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #30, #31, #35, #38 |
+| Closed | 20 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #30, #31, #35, #38, #42 |
 
 ### By Priority
 - 🔴 Critical: 0
@@ -244,6 +246,16 @@ Potential future enhancements (not yet tracked as issues):
 - Custom overlay themes
 
 ## Changelog
+
+### 2026-01-09
+- Completed Issue #42: Enable Help menu links (Documentation & Report Issue)
+  - "View Documentation" menu item now opens the GitHub README in the default browser
+  - "Report Issue" menu item now opens the GitHub new issue page in the default browser
+  - Both menu items are now enabled and clickable
+  - Created `HelpActionHandler` class with action methods for opening URLs
+  - Uses `NSWorkspace.openURL()` to open URLs in the default browser
+  - Removed unused "Release Notes" menu item (not in requirements)
+  - Updated issue counts: 1 open, 20 closed
 
 ### 2026-01-08
 - Completed Issue #11: Add install script for easy CLI access
