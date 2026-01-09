@@ -53,19 +53,6 @@ pub mod window_level {
     pub const SCREEN_SAVER: isize = 1000;
 }
 
-// Legacy constant aliases for backwards compatibility
-// These will be deprecated in favor of the module-based constants
-pub const CLOSE_BUTTON_SIZE: f64 = close_button::SIZE;
-pub const CLOSE_BUTTON_MARGIN: f64 = close_button::MARGIN;
-pub const CLOSE_BUTTON_LABEL_HEIGHT: f64 = close_button::LABEL_HEIGHT;
-pub const CLOSE_BUTTON_LABEL_WIDTH: f64 = close_button::LABEL_WIDTH;
-pub const HOLD_DURATION_SECS: f64 = close_button::HOLD_DURATION_SECS;
-pub const TIMER_INTERVAL_SECS: f64 = animation::INTERVAL_SECS;
-pub const NS_SCREEN_SAVER_WINDOW_LEVEL: isize = window_level::SCREEN_SAVER;
-pub const TIMER_DISPLAY_HEIGHT: f64 = timer_display::HEIGHT;
-pub const TIMER_DISPLAY_WIDTH: f64 = timer_display::WIDTH;
-pub const TIMER_DISPLAY_MARGIN: f64 = timer_display::MARGIN;
-
 // ============================================================================
 // SHIELD STATE
 // ============================================================================
@@ -114,21 +101,6 @@ pub mod shield {
     pub static HAS_SLEEP_ASSERTION: AtomicBool = AtomicBool::new(false);
 }
 
-// Legacy aliases for backwards compatibility
-pub static MENU_BAR_MODE: &AtomicBool = &shield::MODE_MENU_BAR;
-pub static SHIELD_ACTIVE: &AtomicBool = &shield::IS_ACTIVE;
-pub static SHIELD_WINDOW: &AtomicPtr<c_void> = &shield::WINDOW;
-pub static CLOSE_BUTTON_VIEW: &AtomicPtr<c_void> = &shield::CLOSE_BUTTON;
-pub static CLOSE_BUTTON_LABEL_VIEW: &AtomicPtr<c_void> = &shield::CLOSE_BUTTON_LABEL;
-pub static CLOSE_BUTTON_TEXT_LABEL: &AtomicPtr<c_void> = &shield::CLOSE_BUTTON_TEXT;
-pub static TIMER_DISPLAY_VIEW: &AtomicPtr<c_void> = &shield::TIMER_VIEW;
-pub static TIMER_REF: &AtomicPtr<c_void> = &shield::TIMER_REF;
-pub static TIMER_HEADER_LABEL: &AtomicPtr<c_void> = &shield::TIMER_HEADER;
-pub static TIMER_TIME_LABEL: &AtomicPtr<c_void> = &shield::TIMER_TIME;
-pub static TIMER_WARNING_LABEL: &AtomicPtr<c_void> = &shield::TIMER_WARNING;
-pub static SLEEP_ASSERTION_ID: &AtomicU64 = &shield::SLEEP_ASSERTION_ID;
-pub static HAS_SLEEP_ASSERTION: &AtomicBool = &shield::HAS_SLEEP_ASSERTION;
-
 // ============================================================================
 // MENU BAR STATE
 // ============================================================================
@@ -152,13 +124,6 @@ pub mod menu_bar {
     /// Reference to the help action handler (keeps it alive)
     pub static HELP_HANDLER: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 }
-
-// Legacy aliases for backwards compatibility
-pub static START_MENU_ITEM: &AtomicPtr<c_void> = &menu_bar::START_ITEM;
-pub static SETTINGS_MENU_ITEM: &AtomicPtr<c_void> = &menu_bar::SETTINGS_ITEM;
-pub static ABOUT_MENU_ITEM: &AtomicPtr<c_void> = &menu_bar::ABOUT_ITEM;
-pub static MENU_ACTION_HANDLER: &AtomicPtr<c_void> = &menu_bar::ACTION_HANDLER;
-pub static HELP_ACTION_HANDLER: &AtomicPtr<c_void> = &menu_bar::HELP_HANDLER;
 
 // ============================================================================
 // SETTINGS WINDOW STATE
@@ -205,21 +170,6 @@ pub mod settings {
     pub static OPACITY_LABEL: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 }
 
-// Legacy aliases for backwards compatibility
-pub static SETTINGS_WINDOW: &AtomicPtr<c_void> = &settings::WINDOW;
-pub static SETTINGS_WINDOW_DELEGATE: &AtomicPtr<c_void> = &settings::WINDOW_DELEGATE;
-pub static SETTINGS_ACTION_HANDLER: &AtomicPtr<c_void> = &settings::ACTION_HANDLER;
-pub static SETTINGS_EXIT_KEY_FIELD: &AtomicPtr<c_void> = &settings::EXIT_KEY_FIELD;
-pub static SETTINGS_EXIT_KEY_FIELD_DELEGATE: &AtomicPtr<c_void> =
-    &settings::EXIT_KEY_FIELD_DELEGATE;
-pub static SETTINGS_EXIT_KEY_VALIDATION_LABEL: &AtomicPtr<c_void> = &settings::EXIT_KEY_VALIDATION;
-pub static SETTINGS_TIMER_VALUE_FIELD: &AtomicPtr<c_void> = &settings::TIMER_VALUE_FIELD;
-pub static SETTINGS_TIMER_UNIT_DROPDOWN: &AtomicPtr<c_void> = &settings::TIMER_UNIT_DROPDOWN;
-pub static SETTINGS_TIMER_CHECKBOX: &AtomicPtr<c_void> = &settings::TIMER_CHECKBOX;
-pub static SETTINGS_TIMER_VALIDATION_LABEL: &AtomicPtr<c_void> = &settings::TIMER_VALIDATION;
-pub static SETTINGS_OPACITY_SLIDER: &AtomicPtr<c_void> = &settings::OPACITY_SLIDER;
-pub static SETTINGS_OPACITY_LABEL: &AtomicPtr<c_void> = &settings::OPACITY_LABEL;
-
 // ============================================================================
 // ABOUT WINDOW STATE
 // ============================================================================
@@ -237,11 +187,6 @@ pub mod about {
     /// Reference to the about action handler (keeps it alive)
     pub static ACTION_HANDLER: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 }
-
-// Legacy aliases for backwards compatibility
-pub static ABOUT_WINDOW: &AtomicPtr<c_void> = &about::WINDOW;
-pub static ABOUT_WINDOW_DELEGATE: &AtomicPtr<c_void> = &about::WINDOW_DELEGATE;
-pub static ABOUT_ACTION_HANDLER: &AtomicPtr<c_void> = &about::ACTION_HANDLER;
 
 // ============================================================================
 // CLOSE BUTTON INTERACTION STATE
@@ -326,20 +271,5 @@ mod tests {
     #[test]
     fn test_is_hold_complete_exceeds() {
         assert!(is_hold_complete(5.0, 3.0));
-    }
-
-    #[test]
-    fn test_constants_consistency() {
-        // Verify legacy aliases match new module constants
-        assert_eq!(CLOSE_BUTTON_SIZE, close_button::SIZE);
-        assert_eq!(CLOSE_BUTTON_MARGIN, close_button::MARGIN);
-        assert_eq!(CLOSE_BUTTON_LABEL_HEIGHT, close_button::LABEL_HEIGHT);
-        assert_eq!(CLOSE_BUTTON_LABEL_WIDTH, close_button::LABEL_WIDTH);
-        assert_eq!(HOLD_DURATION_SECS, close_button::HOLD_DURATION_SECS);
-        assert_eq!(TIMER_INTERVAL_SECS, animation::INTERVAL_SECS);
-        assert_eq!(NS_SCREEN_SAVER_WINDOW_LEVEL, window_level::SCREEN_SAVER);
-        assert_eq!(TIMER_DISPLAY_HEIGHT, timer_display::HEIGHT);
-        assert_eq!(TIMER_DISPLAY_WIDTH, timer_display::WIDTH);
-        assert_eq!(TIMER_DISPLAY_MARGIN, timer_display::MARGIN);
     }
 }

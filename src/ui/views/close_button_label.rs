@@ -2,8 +2,7 @@
 
 use crate::ui::helpers::create_label;
 use crate::ui::state::{
-    calculate_hold_progress, CLOSE_BUTTON_TEXT_LABEL, HOLD_DURATION_SECS, IS_MOUSE_INSIDE,
-    MOUSE_DOWN_TIME,
+    calculate_hold_progress, close_button, shield, IS_MOUSE_INSIDE, MOUSE_DOWN_TIME,
 };
 use objc2::rc::Retained;
 use objc2::{define_class, msg_send};
@@ -45,7 +44,10 @@ fn draw_close_button_label(view: &NSView) {
     // Get current hold progress
     let progress = MOUSE_DOWN_TIME.with(|time| {
         if let Some(start) = time.get() {
-            calculate_hold_progress(start.elapsed().as_secs_f64(), HOLD_DURATION_SECS)
+            calculate_hold_progress(
+                start.elapsed().as_secs_f64(),
+                close_button::HOLD_DURATION_SECS,
+            )
         } else {
             0.0
         }
@@ -91,7 +93,7 @@ fn draw_close_button_label(view: &NSView) {
     let mtm = unsafe { MainThreadMarker::new_unchecked() };
 
     // Create or update NSTextField label
-    let label_ptr = CLOSE_BUTTON_TEXT_LABEL.load(Ordering::SeqCst);
+    let label_ptr = shield::CLOSE_BUTTON_TEXT.load(Ordering::SeqCst);
 
     // Calculate centered frame for the label
     let label_frame = CGRect {
@@ -101,7 +103,7 @@ fn draw_close_button_label(view: &NSView) {
 
     // Determine text and color based on state
     let (text, color, font_size): (String, &NSColor, CGFloat) = if is_holding {
-        let remaining_secs = ((1.0 - progress) * HOLD_DURATION_SECS).ceil() as u32;
+        let remaining_secs = ((1.0 - progress) * close_button::HOLD_DURATION_SECS).ceil() as u32;
         (format!("{}s...", remaining_secs), &progress_color, 16.0)
     } else {
         ("Hold 3s to exit".to_string(), &hint_color, 12.0)
@@ -112,7 +114,7 @@ fn draw_close_button_label(view: &NSView) {
         let label = create_label(mtm, &text, label_frame, font_size, color, false);
         // Center the text horizontally
         label.setAlignment(NSTextAlignment::Center);
-        CLOSE_BUTTON_TEXT_LABEL.store(Retained::as_ptr(&label) as *mut c_void, Ordering::SeqCst);
+        shield::CLOSE_BUTTON_TEXT.store(Retained::as_ptr(&label) as *mut c_void, Ordering::SeqCst);
         view.addSubview(&label);
         std::mem::forget(label);
     } else {

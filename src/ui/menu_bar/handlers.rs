@@ -1,7 +1,7 @@
 //! Menu action handlers for Cat Shield
 
 use crate::ui::shield::activate_shield;
-use crate::ui::state::SHIELD_ACTIVE;
+use crate::ui::state::shield;
 use objc2::rc::Retained;
 use objc2::{define_class, msg_send};
 use objc2_app_kit::{NSMenuItem, NSWorkspace};
@@ -24,7 +24,7 @@ define_class!(
         #[unsafe(method(startProtection:))]
         unsafe fn start_protection(&self, _sender: Option<&NSMenuItem>) {
             // Prevent double-activation
-            if SHIELD_ACTIVE.load(Ordering::SeqCst) {
+            if shield::IS_ACTIVE.load(Ordering::SeqCst) {
                 return;
             }
 

@@ -1,10 +1,7 @@
 //! Menu bar setup for Cat Shield
 
 use super::handlers::{HelpActionHandler, MenuActionHandler};
-use crate::ui::state::{
-    ABOUT_ACTION_HANDLER, ABOUT_MENU_ITEM, HELP_ACTION_HANDLER, MENU_ACTION_HANDLER,
-    SETTINGS_ACTION_HANDLER, SETTINGS_MENU_ITEM, START_MENU_ITEM,
-};
+use crate::ui::state::{about, menu_bar, settings};
 use crate::ui::windows::{AboutActionHandler, SettingsActionHandler};
 use objc2::rc::Retained;
 use objc2_app_kit::{NSMenu, NSMenuItem, NSStatusBar, NSStatusItem};
@@ -74,7 +71,7 @@ pub fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
     let action_handler = MenuActionHandler::new(mtm);
 
     // Store the handler globally to keep it alive
-    MENU_ACTION_HANDLER.store(
+    menu_bar::ACTION_HANDLER.store(
         Retained::as_ptr(&action_handler) as *mut c_void,
         Ordering::SeqCst,
     );
@@ -91,7 +88,7 @@ pub fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
     }
 
     // Store the start menu item reference for enabling/disabling
-    START_MENU_ITEM.store(
+    menu_bar::START_ITEM.store(
         Retained::as_ptr(&start_item) as *mut c_void,
         Ordering::SeqCst,
     );
@@ -134,13 +131,13 @@ pub fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
     }
 
     // Store the settings menu item reference for enabling/disabling
-    SETTINGS_MENU_ITEM.store(
+    menu_bar::SETTINGS_ITEM.store(
         Retained::as_ptr(&settings_item) as *mut c_void,
         Ordering::SeqCst,
     );
 
     // Store handler globally to keep it alive
-    SETTINGS_ACTION_HANDLER.store(
+    settings::ACTION_HANDLER.store(
         Retained::as_ptr(&settings_handler) as *mut c_void,
         Ordering::SeqCst,
     );
@@ -172,13 +169,13 @@ pub fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
     }
 
     // Store the about menu item reference for enabling/disabling
-    ABOUT_MENU_ITEM.store(
+    menu_bar::ABOUT_ITEM.store(
         Retained::as_ptr(&about_item) as *mut c_void,
         Ordering::SeqCst,
     );
 
     // Store handler globally to keep it alive
-    ABOUT_ACTION_HANDLER.store(
+    about::ACTION_HANDLER.store(
         Retained::as_ptr(&about_handler) as *mut c_void,
         Ordering::SeqCst,
     );
@@ -221,7 +218,7 @@ pub fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
     help_submenu.addItem(&issue_item);
 
     // Store handler globally to keep it alive
-    HELP_ACTION_HANDLER.store(
+    menu_bar::HELP_HANDLER.store(
         Retained::as_ptr(&help_handler) as *mut c_void,
         Ordering::SeqCst,
     );

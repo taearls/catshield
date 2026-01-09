@@ -15,10 +15,7 @@ use crate::platform::{
     check_accessibility, check_accessibility_with_prompt, open_accessibility_settings,
     CFRunLoopRunInMode,
 };
-use crate::ui::state::{
-    CLOSE_BUTTON_LABEL_HEIGHT, CLOSE_BUTTON_LABEL_WIDTH, CLOSE_BUTTON_MARGIN, CLOSE_BUTTON_SIZE,
-    NS_SCREEN_SAVER_WINDOW_LEVEL,
-};
+use crate::ui::state::{close_button, window_level};
 use crate::ui::views::{CloseButtonLabelView, CloseButtonView};
 use objc2::rc::Retained;
 use objc2::MainThreadOnly;
@@ -132,7 +129,7 @@ pub fn create_shield_window(mtm: MainThreadMarker, frame: CGRect) -> Retained<NS
     };
 
     // Configure window to be topmost
-    window.setLevel(NS_SCREEN_SAVER_WINDOW_LEVEL);
+    window.setLevel(window_level::SCREEN_SAVER);
 
     // Set window to appear on all spaces and stay visible
     window.setCollectionBehavior(
@@ -194,12 +191,12 @@ pub fn setup_close_button(
     // Create close button in top-right corner
     let close_button_frame = CGRect {
         origin: CGPoint {
-            x: screen_frame.size.width - CLOSE_BUTTON_SIZE - CLOSE_BUTTON_MARGIN,
-            y: screen_frame.size.height - CLOSE_BUTTON_SIZE - CLOSE_BUTTON_MARGIN,
+            x: screen_frame.size.width - close_button::SIZE - close_button::MARGIN,
+            y: screen_frame.size.height - close_button::SIZE - close_button::MARGIN,
         },
         size: CGSize {
-            width: CLOSE_BUTTON_SIZE,
-            height: CLOSE_BUTTON_SIZE,
+            width: close_button::SIZE,
+            height: close_button::SIZE,
         },
     };
 
@@ -207,13 +204,13 @@ pub fn setup_close_button(
 
     // Create the close button label view (positioned below the button)
     let label_x = screen_frame.size.width
-        - CLOSE_BUTTON_MARGIN
-        - CLOSE_BUTTON_SIZE / 2.0
-        - CLOSE_BUTTON_LABEL_WIDTH / 2.0;
+        - close_button::MARGIN
+        - close_button::SIZE / 2.0
+        - close_button::LABEL_WIDTH / 2.0;
     let label_y = screen_frame.size.height
-        - CLOSE_BUTTON_SIZE
-        - CLOSE_BUTTON_MARGIN
-        - CLOSE_BUTTON_LABEL_HEIGHT
+        - close_button::SIZE
+        - close_button::MARGIN
+        - close_button::LABEL_HEIGHT
         - theme::BUTTON_LABEL_GAP;
 
     let close_button_label_frame = CGRect {
@@ -222,8 +219,8 @@ pub fn setup_close_button(
             y: label_y,
         },
         size: CGSize {
-            width: CLOSE_BUTTON_LABEL_WIDTH,
-            height: CLOSE_BUTTON_LABEL_HEIGHT,
+            width: close_button::LABEL_WIDTH,
+            height: close_button::LABEL_HEIGHT,
         },
     };
     let close_button_label = CloseButtonLabelView::new(mtm, close_button_label_frame);

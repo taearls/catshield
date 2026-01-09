@@ -38,10 +38,7 @@ use cat_shield::shield_core::{
 use cat_shield::timer::{format_duration, get_remaining_seconds, init_auto_exit_timer};
 use cat_shield::ui::menu_bar::setup_menu_bar;
 use cat_shield::ui::shield::{stop_close_button_timer, timer_callback};
-use cat_shield::ui::state::{
-    CLOSE_BUTTON_LABEL_VIEW, CLOSE_BUTTON_VIEW, MENU_BAR_MODE, TIMER_DISPLAY_HEIGHT,
-    TIMER_DISPLAY_MARGIN, TIMER_DISPLAY_VIEW, TIMER_DISPLAY_WIDTH, TIMER_REF,
-};
+use cat_shield::ui::state::{animation, shield, timer_display};
 use cat_shield::ui::views::TimerDisplayView;
 
 use clap::Parser;
@@ -56,15 +53,14 @@ use std::sync::atomic::Ordering;
 use cat_shield::platform::{
     CFAbsoluteTimeGetCurrent, CFRunLoopAddTimer, CFRunLoopGetCurrent, CFRunLoopTimerCreate,
 };
-use cat_shield::ui::state::TIMER_INTERVAL_SECS;
 
 /// Start the animation timer for immediate mode
 fn start_close_button_timer() {
     unsafe {
         let timer = CFRunLoopTimerCreate(
             std::ptr::null(),
-            CFAbsoluteTimeGetCurrent() + TIMER_INTERVAL_SECS,
-            TIMER_INTERVAL_SECS,
+            CFAbsoluteTimeGetCurrent() + animation::INTERVAL_SECS,
+            animation::INTERVAL_SECS,
             0,
             0,
             timer_callback,
@@ -75,7 +71,7 @@ fn start_close_button_timer() {
             let run_loop = CFRunLoopGetCurrent();
             let mode = kCFRunLoopCommonModes.expect("kCFRunLoopCommonModes should exist");
             CFRunLoopAddTimer(run_loop, timer, (mode as *const CFString) as *const c_void);
-            TIMER_REF.store(timer, Ordering::SeqCst);
+            shield::TIMER_REF.store(timer, Ordering::SeqCst);
         }
     }
 }
@@ -137,7 +133,7 @@ fn main() {
     // Check if we should enter menu bar mode (no CLI args that trigger immediate start)
     if !has_immediate_start_args(&args) {
         // Menu bar mode: show icon in menu bar and wait for user interaction
-        MENU_BAR_MODE.store(true, Ordering::SeqCst);
+        shield::MODE_MENU_BAR.store(true, Ordering::SeqCst);
 
         println!();
         println!("  🐱 CAT SHIELD 🛡️");
@@ -203,11 +199,11 @@ fn main() {
     // Safety: The view remains valid because contentView retains it and
     // app.run() blocks until we're ready to exit. The timer is stopped
     // before cleanup begins.
-    CLOSE_BUTTON_VIEW.store(
+    shield::CLOSE_BUTTON.store(
         Retained::as_ptr(&close_button) as *mut c_void,
         Ordering::SeqCst,
     );
-    CLOSE_BUTTON_LABEL_VIEW.store(
+    shield::CLOSE_BUTTON_LABEL.store(
         Retained::as_ptr(&close_button_label) as *mut c_void,
         Ordering::SeqCst,
     );
@@ -236,19 +232,19 @@ fn main() {
         if !args.hide_timer {
             let timer_display_frame = CGRect {
                 origin: CGPoint {
-                    x: TIMER_DISPLAY_MARGIN,
-                    y: screen_frame.size.height - TIMER_DISPLAY_HEIGHT - TIMER_DISPLAY_MARGIN,
+                    x: timer_display::MARGIN,
+                    y: screen_frame.size.height - timer_display::HEIGHT - timer_display::MARGIN,
                 },
                 size: CGSize {
-                    width: TIMER_DISPLAY_WIDTH,
-                    height: TIMER_DISPLAY_HEIGHT,
+                    width: timer_display::WIDTH,
+                    height: timer_display::HEIGHT,
                 },
             };
 
             let timer_display = TimerDisplayView::new(mtm, timer_display_frame);
 
             // Store view reference for timer callback
-            TIMER_DISPLAY_VIEW.store(
+            shield::TIMER_VIEW.store(
                 Retained::as_ptr(&timer_display) as *mut c_void,
                 Ordering::SeqCst,
             );

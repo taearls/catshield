@@ -1,7 +1,7 @@
 //! About window for Cat Shield
 
 use crate::ui::helpers::create_label;
-use crate::ui::state::{ABOUT_MENU_ITEM, ABOUT_WINDOW, ABOUT_WINDOW_DELEGATE};
+use crate::ui::state::{about, menu_bar};
 use objc2::rc::Retained;
 use objc2::runtime::ProtocolObject;
 use objc2::{define_class, msg_send, MainThreadOnly};
@@ -83,10 +83,10 @@ impl AboutActionHandler {
 /// Called both when window is closed programmatically and via X button
 fn cleanup_about_window_references() {
     // Clear window reference (swap to null to avoid double-cleanup)
-    ABOUT_WINDOW.store(std::ptr::null_mut(), Ordering::SeqCst);
+    about::WINDOW.store(std::ptr::null_mut(), Ordering::SeqCst);
 
     // Re-enable the about menu item
-    let menu_item_ptr = ABOUT_MENU_ITEM.load(Ordering::SeqCst);
+    let menu_item_ptr = menu_bar::ABOUT_ITEM.load(Ordering::SeqCst);
     if !menu_item_ptr.is_null() {
         unsafe {
             let menu_item: &NSMenuItem = &*(menu_item_ptr as *const NSMenuItem);
@@ -99,7 +99,7 @@ fn cleanup_about_window_references() {
 
 /// Close the about window (called by Close button)
 fn close_about_window() {
-    let window_ptr = ABOUT_WINDOW.load(Ordering::SeqCst);
+    let window_ptr = about::WINDOW.load(Ordering::SeqCst);
     if !window_ptr.is_null() {
         unsafe {
             let window: &NSPanel = &*(window_ptr as *const NSPanel);
@@ -112,7 +112,7 @@ fn close_about_window() {
 /// Show the about window
 pub fn show_about_window(mtm: MainThreadMarker) {
     // Check if about window is already open
-    let existing = ABOUT_WINDOW.load(Ordering::SeqCst);
+    let existing = about::WINDOW.load(Ordering::SeqCst);
     if !existing.is_null() {
         // Bring existing window to front
         unsafe {
@@ -123,7 +123,7 @@ pub fn show_about_window(mtm: MainThreadMarker) {
     }
 
     // Disable the about menu item while window is open
-    let menu_item_ptr = ABOUT_MENU_ITEM.load(Ordering::SeqCst);
+    let menu_item_ptr = menu_bar::ABOUT_ITEM.load(Ordering::SeqCst);
     if !menu_item_ptr.is_null() {
         unsafe {
             let menu_item: &NSMenuItem = &*(menu_item_ptr as *const NSMenuItem);
@@ -180,15 +180,15 @@ pub fn show_about_window(mtm: MainThreadMarker) {
 
     // Create and set window delegate to handle close button (X) cleanup
     let delegate = unsafe {
-        let delegate_ptr = ABOUT_WINDOW_DELEGATE.load(Ordering::SeqCst);
+        let delegate_ptr = about::WINDOW_DELEGATE.load(Ordering::SeqCst);
         if delegate_ptr.is_null() {
             let new_delegate = AboutWindowDelegate::new(mtm);
-            ABOUT_WINDOW_DELEGATE.store(
+            about::WINDOW_DELEGATE.store(
                 Retained::as_ptr(&new_delegate) as *mut c_void,
                 Ordering::SeqCst,
             );
             std::mem::forget(new_delegate);
-            &*(ABOUT_WINDOW_DELEGATE.load(Ordering::SeqCst) as *const AboutWindowDelegate)
+            &*(about::WINDOW_DELEGATE.load(Ordering::SeqCst) as *const AboutWindowDelegate)
         } else {
             &*(delegate_ptr as *const AboutWindowDelegate)
         }
@@ -196,20 +196,19 @@ pub fn show_about_window(mtm: MainThreadMarker) {
     panel.setDelegate(Some(ProtocolObject::from_ref(delegate)));
 
     // Store window reference
-    ABOUT_WINDOW.store(Retained::as_ptr(&panel) as *mut c_void, Ordering::SeqCst);
+    about::WINDOW.store(Retained::as_ptr(&panel) as *mut c_void, Ordering::SeqCst);
 
     // Get or create about action handler
     let handler = unsafe {
-        let handler_ptr = crate::ui::state::ABOUT_ACTION_HANDLER.load(Ordering::SeqCst);
+        let handler_ptr = about::ACTION_HANDLER.load(Ordering::SeqCst);
         if handler_ptr.is_null() {
             let new_handler = AboutActionHandler::new(mtm);
-            crate::ui::state::ABOUT_ACTION_HANDLER.store(
+            about::ACTION_HANDLER.store(
                 Retained::as_ptr(&new_handler) as *mut c_void,
                 Ordering::SeqCst,
             );
             std::mem::forget(new_handler);
-            &*(crate::ui::state::ABOUT_ACTION_HANDLER.load(Ordering::SeqCst)
-                as *const AboutActionHandler)
+            &*(about::ACTION_HANDLER.load(Ordering::SeqCst) as *const AboutActionHandler)
         } else {
             &*(handler_ptr as *const AboutActionHandler)
         }
