@@ -105,6 +105,49 @@ where
     }
 }
 
+/// Execute a closure with a mutable reference to a dereferenced atomic pointer if non-null.
+///
+/// Similar to [`with_ptr`], but provides a mutable reference to the dereferenced value.
+/// Use this when you need to mutate the object through the pointer.
+///
+/// # Returns
+///
+/// - `Some(R)` if the pointer is non-null and the closure was executed
+/// - `None` if the pointer is null
+///
+/// # Safety
+///
+/// The caller must ensure:
+/// - The pointer was originally stored from a valid `Retained<T>` or equivalent
+/// - The object is still alive (not cleaned up)
+/// - This is called from the main thread (for NSObject types)
+/// - The type `T` matches the actual stored object type
+/// - No other references to this object exist during the closure execution
+///
+/// # Example
+///
+/// ```ignore
+/// // When you need mutable access:
+/// unsafe {
+///     with_ptr_mut::<MyMutableType, _, _>(&state::MUTABLE_OBJECT, |obj| {
+///         obj.update_value(42);
+///         obj.get_result()
+///     })
+/// };
+/// ```
+#[inline]
+pub unsafe fn with_ptr_mut<T, F, R>(ptr: &AtomicPtr<c_void>, f: F) -> Option<R>
+where
+    F: FnOnce(&mut T) -> R,
+{
+    let raw = ptr.load(Ordering::Acquire);
+    if raw.is_null() {
+        None
+    } else {
+        Some(f(&mut *(raw as *mut T)))
+    }
+}
+
 /// Execute a closure with a raw pointer if non-null.
 ///
 /// This variant takes a raw `*mut c_void` pointer directly instead of an
@@ -224,5 +267,41 @@ mod tests {
             AtomicPtr::new(&value as *const String as *const c_void as *mut c_void);
         let result = unsafe { with_ptr::<String, _, _>(&ptr, |s| s.len()) };
         assert_eq!(result, Some(5));
+    }
+
+    #[test]
+    fn test_with_ptr_mut_null() {
+        let ptr: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+        let result = unsafe { with_ptr_mut::<u32, _, _>(&ptr, |v| *v) };
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_with_ptr_mut_non_null() {
+        let mut value: u32 = 42;
+        let ptr: AtomicPtr<c_void> =
+            AtomicPtr::new(&mut value as *mut u32 as *mut c_void);
+        let result = unsafe {
+            with_ptr_mut::<u32, _, _>(&ptr, |v| {
+                *v = 100;
+                *v
+            })
+        };
+        assert_eq!(result, Some(100));
+        assert_eq!(value, 100);
+    }
+
+    #[test]
+    fn test_with_ptr_mut_modifies_value() {
+        let mut value: Vec<i32> = vec![1, 2, 3];
+        let ptr: AtomicPtr<c_void> =
+            AtomicPtr::new(&mut value as *mut Vec<i32> as *mut c_void);
+        unsafe {
+            with_ptr_mut::<Vec<i32>, _, _>(&ptr, |v| {
+                v.push(4);
+                v.len()
+            });
+        }
+        assert_eq!(value, vec![1, 2, 3, 4]);
     }
 }

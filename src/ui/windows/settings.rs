@@ -7,7 +7,7 @@ use crate::config::{
 use crate::input::{set_exit_key, ExitKey, DEFAULT_EXIT_KEY};
 use crate::timer::{parse_duration, parse_timer_value_and_unit};
 use crate::ui::helpers::create_label;
-use crate::ui::ptr_helper::{with_ptr, with_ptr_void, with_raw_ptr};
+use crate::ui::ptr_helper::{with_ptr, with_ptr_void};
 use crate::ui::state::{menu_bar, settings};
 use objc2::rc::Retained;
 use objc2::runtime::ProtocolObject;
@@ -470,21 +470,7 @@ fn save_settings_from_window() {
     }
 }
 
-/// Update a validation label with success or error state (takes raw pointer)
-fn update_validation_label(label_ptr: *mut c_void, is_valid: bool, message: &str) {
-    unsafe {
-        with_raw_ptr::<NSTextField, _>(label_ptr, |label| {
-            label.setStringValue(&NSString::from_str(message));
-            if is_valid {
-                label.setTextColor(Some(&NSColor::systemGreenColor()));
-            } else {
-                label.setTextColor(Some(&NSColor::systemRedColor()));
-            }
-        });
-    }
-}
-
-/// Set a validation label with success or error state (takes AtomicPtr)
+/// Set a validation label with success or error state
 fn set_validation_label(ptr: &AtomicPtr<c_void>, is_valid: bool, message: &str) {
     unsafe {
         with_ptr_void::<NSTextField, _>(ptr, |label| {
@@ -521,20 +507,19 @@ fn validate_exit_key_input(value: &str) -> ExitKeyValidation {
 
 /// Update the exit key validation label based on validation result
 fn update_exit_key_validation_label(result: &ExitKeyValidation) {
-    let label_ptr = settings::EXIT_KEY_VALIDATION.load(Ordering::Acquire);
     match result {
         ExitKeyValidation::Valid(None) => {
-            update_validation_label(
-                label_ptr,
+            set_validation_label(
+                &settings::EXIT_KEY_VALIDATION,
                 true,
                 &format!("Using default: {}", DEFAULT_EXIT_KEY),
             );
         }
         ExitKeyValidation::Valid(Some(_)) => {
-            update_validation_label(label_ptr, true, "✓ Valid");
+            set_validation_label(&settings::EXIT_KEY_VALIDATION, true, "✓ Valid");
         }
         ExitKeyValidation::Invalid(e) => {
-            update_validation_label(label_ptr, false, e);
+            set_validation_label(&settings::EXIT_KEY_VALIDATION, false, e);
         }
     }
 }
@@ -581,24 +566,22 @@ fn validate_timer_input(value: &str) -> TimerValidation {
 
 /// Validate timer duration field in real-time as user types
 fn validate_timer_realtime(value: &str) {
-    let label_ptr = settings::TIMER_VALIDATION.load(Ordering::Acquire);
-
     match validate_timer_input(value) {
         TimerValidation::Valid(_) => {
-            update_validation_label(label_ptr, true, "✓ Valid");
+            set_validation_label(&settings::TIMER_VALIDATION, true, "✓ Valid");
         }
         TimerValidation::Empty => {
             // Don't show validation (let Save button handle "Duration required")
-            update_validation_label(label_ptr, true, "");
+            set_validation_label(&settings::TIMER_VALIDATION, true, "");
         }
         TimerValidation::Negative => {
-            update_validation_label(label_ptr, false, "Must be a positive number");
+            set_validation_label(&settings::TIMER_VALIDATION, false, "Must be a positive number");
         }
         TimerValidation::Zero => {
-            update_validation_label(label_ptr, false, "Must be greater than 0");
+            set_validation_label(&settings::TIMER_VALIDATION, false, "Must be greater than 0");
         }
         TimerValidation::NotANumber => {
-            update_validation_label(label_ptr, false, "Enter a number");
+            set_validation_label(&settings::TIMER_VALIDATION, false, "Enter a number");
         }
     }
 }

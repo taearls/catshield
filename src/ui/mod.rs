@@ -15,6 +15,6 @@ pub mod views;
 pub mod windows;
 
 pub use helpers::create_label;
-pub use ptr_helper::{with_ptr, with_ptr_void, with_raw_ptr};
+pub use ptr_helper::{with_ptr, with_ptr_mut, with_ptr_void, with_raw_ptr};
 pub use shield::{activate_shield, deactivate_shield, timer_callback};
 pub use state::*;
