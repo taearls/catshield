@@ -485,7 +485,8 @@ fn set_validation_label(ptr: &AtomicPtr<c_void>, is_valid: bool, message: &str) 
 }
 
 /// Result of validating an exit key input string
-enum ExitKeyValidation {
+#[derive(Debug, PartialEq)]
+pub(crate) enum ExitKeyValidation {
     /// Valid input: Some(key_string) for custom key, None for empty (use default)
     Valid(Option<String>),
     /// Invalid input with error message
@@ -493,7 +494,7 @@ enum ExitKeyValidation {
 }
 
 /// Validate an exit key input string
-fn validate_exit_key_input(value: &str) -> ExitKeyValidation {
+pub(crate) fn validate_exit_key_input(value: &str) -> ExitKeyValidation {
     let trimmed = value.trim();
     if trimmed.is_empty() {
         ExitKeyValidation::Valid(None)
@@ -1421,6 +1422,10 @@ pub fn show_settings_window(mtm: MainThreadMarker) {
 mod tests {
     use super::*;
 
+    // ========================================================================
+    // Timer Validation Tests
+    // ========================================================================
+
     #[test]
     fn test_validate_timer_input_valid() {
         assert_eq!(TimerValidation::Valid(30), validate_timer_input("30"));
@@ -1460,5 +1465,75 @@ mod tests {
         assert_eq!(TimerValidation::NotANumber, validate_timer_input("12.5"));
         assert_eq!(TimerValidation::NotANumber, validate_timer_input("30m"));
         assert_eq!(TimerValidation::NotANumber, validate_timer_input("hello"));
+    }
+
+    // ========================================================================
+    // Exit Key Validation Tests
+    // ========================================================================
+
+    #[test]
+    fn test_validate_exit_key_input_valid_key() {
+        match validate_exit_key_input("Cmd+Q") {
+            ExitKeyValidation::Valid(Some(_)) => {}
+            _ => panic!("Expected valid key"),
+        }
+    }
+
+    #[test]
+    fn test_validate_exit_key_input_valid_with_multiple_modifiers() {
+        match validate_exit_key_input("Cmd+Option+U") {
+            ExitKeyValidation::Valid(Some(key)) => {
+                assert_eq!(key, "Cmd+Option+U");
+            }
+            _ => panic!("Expected valid key with multiple modifiers"),
+        }
+    }
+
+    #[test]
+    fn test_validate_exit_key_input_empty_returns_none() {
+        match validate_exit_key_input("") {
+            ExitKeyValidation::Valid(None) => {}
+            _ => panic!("Expected Valid(None) for empty input"),
+        }
+    }
+
+    #[test]
+    fn test_validate_exit_key_input_whitespace_only() {
+        match validate_exit_key_input("   ") {
+            ExitKeyValidation::Valid(None) => {}
+            _ => panic!("Expected Valid(None) for whitespace"),
+        }
+    }
+
+    #[test]
+    fn test_validate_exit_key_input_whitespace_tabs_newlines() {
+        match validate_exit_key_input("\t\n  ") {
+            ExitKeyValidation::Valid(None) => {}
+            _ => panic!("Expected Valid(None) for tabs/newlines"),
+        }
+    }
+
+    #[test]
+    fn test_validate_exit_key_input_invalid_key() {
+        match validate_exit_key_input("InvalidKey") {
+            ExitKeyValidation::Invalid(_) => {}
+            _ => panic!("Expected Invalid for bad key"),
+        }
+    }
+
+    #[test]
+    fn test_validate_exit_key_input_missing_modifier() {
+        match validate_exit_key_input("Q") {
+            ExitKeyValidation::Invalid(_) => {}
+            _ => panic!("Expected Invalid for key without modifier"),
+        }
+    }
+
+    #[test]
+    fn test_validate_exit_key_input_invalid_modifier() {
+        match validate_exit_key_input("Super+Q") {
+            ExitKeyValidation::Invalid(_) => {}
+            _ => panic!("Expected Invalid for unknown modifier"),
+        }
     }
 }
