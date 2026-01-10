@@ -379,12 +379,16 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-10
-- Completed Issue #73: Reduce minimum auto-exit timer to 5 seconds
+- Completed Issue #73: Reduce minimum auto-exit timer to 5 seconds and fix timer exit behavior
   - Updated `MIN_TIMER_SECONDS` constant from 60 to 5 in `src/timer/mod.rs`
   - Updated validation error message to say "at least 5 seconds" instead of "1 minute"
   - Updated tests: `30s` (now valid), added `test_parse_duration_minimum_boundary` for edge cases
   - CLI now accepts `--timer 5s` (5 seconds minimum) and rejects `--timer 4s`
   - Settings window validation automatically uses the new minimum (uses `parse_duration`)
+  - **Fixed**: Timer expiry now returns to menu bar instead of quitting application
+    - Refactored `main.rs` to always set up menu bar (even with CLI args)
+    - `MODE_MENU_BAR` is now always true, so `deactivate_shield()` is called on timer expiry
+    - App stays running in menu bar after shield deactivation
   - All 111 tests pass, clippy clean, build successful
   - Updated issue counts: 4 open, 33 closed
 
