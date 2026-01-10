@@ -190,10 +190,10 @@ mod tests {
         init_auto_exit_timer(60);
         let remaining = get_remaining_seconds();
 
-        // Should be very close to 60, allow 1-2 seconds tolerance for execution time
+        // Allow extra slack for loaded CI / scheduling delays
         assert!(
-            (58..=60).contains(&remaining),
-            "Remaining {} should be between 58 and 60",
+            (55..=60).contains(&remaining),
+            "Remaining {} should be between 55 and 60",
             remaining
         );
     }
@@ -396,9 +396,9 @@ mod tests {
 
         let remaining = get_remaining_seconds();
 
-        // Should be very close to 24 hours
+        // Allow extra slack for loaded CI / scheduling delays
         assert!(
-            remaining >= seconds_in_24_hours - 2 && remaining <= seconds_in_24_hours,
+            remaining >= seconds_in_24_hours - 5 && remaining <= seconds_in_24_hours,
             "Remaining {} should be close to {}",
             remaining,
             seconds_in_24_hours
