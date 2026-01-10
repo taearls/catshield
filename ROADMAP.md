@@ -236,7 +236,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 |----------|-------|-------|--------|
 | ✅ Done | #58 | Test: Add unit tests for lock module (single-instance enforcement) | ~4-6 hours |
 | ✅ Done | #59 | Test: Add unit tests for timer state module | ~3-4 hours |
-| 🟢 Medium | #60 | Test: Expand UI state and settings validation tests | ~2-3 hours |
+| ✅ Done | #60 | Test: Expand UI state and settings validation tests | ~2-3 hours |
 | ✅ Done | #75 | Test: Add integration tests for menu bar timer functionality | ~4-6 hours |
 
 **Implementation Order:**
@@ -254,7 +254,7 @@ Code Quality (can be done in parallel):
 Testing (can be done in parallel):
     #58: Lock Module Tests ✅
     #59: Timer State Tests ✅
-    #60: UI State & Validation Tests
+    #60: UI State & Validation Tests ✅
     #75: Menu Bar Timer Integration Tests ✅
 ```
 
@@ -277,6 +277,7 @@ Testing (can be done in parallel):
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #60 | test: Expand UI state and settings validation tests | 2026-01-10 |
 | #75 | test: Add integration tests for menu bar timer functionality | 2026-01-10 |
 | #73 | feat: Reduce minimum auto-exit timer to 5 seconds | 2026-01-10 |
 | #53 | perf: Cache redundant atomic loads in timer callback | 2026-01-10 |
@@ -299,13 +300,13 @@ Testing (can be done in parallel):
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 4 | #54, #60, #64, #65 |
-| Closed | 34 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #55, #56, #57, #58, #59, #73, #75 |
+| Open | 3 | #54, #64, #65 |
+| Closed | 35 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #55, #56, #57, #58, #59, #60, #73, #75 |
 
 ### By Priority
 - 🔴 Critical: 0
 - 🟡 High: 0
-- 🟢 Medium: 2 (#60, #64)
+- 🟢 Medium: 1 (#64)
 - 🔵 Low: 2 (#54, #65)
 
 ## Recommended Implementation Order
@@ -332,8 +333,8 @@ Testing (can be done in parallel):
 6. ~~**#57** - Add safety documentation (35+ std::mem::forget and unsafe blocks)~~ ✅
 7. ~~**#53** - Cache timer callback atomic loads~~ ✅
 
-**Medium Priority (Start Here):**
-8. **#60** - Expand UI state and validation tests
+**Completed:**
+8. ~~**#60** - Expand UI state and validation tests~~ ✅
 
 **Lower Priority:**
 9. **#54** - Cache formatted duration string
@@ -353,9 +354,9 @@ Foundation:     #14 (Menu Bar) ✅ ──┬── #17 (Refactor Overlay) ✅
 Parallel:       #18 (Config) ✅ ────────────────┘                                    └─ #30 (Exit Key Validation) ✅
 
 Phase 5 (CURRENT):
-Testing:        #58 (Lock Tests) ✅ ──┬─── All independent, can run in parallel
+Testing:        #58 (Lock Tests) ✅ ──┬─── All Complete
                 #59 (Timer Tests) ✅ ─┤
-                #60 (UI State Tests) ─┘
+                #60 (UI State Tests) ✅ ┘
 
 Performance:    #52 (Atomic Ordering) ✅ ─┬── All independent, can run in parallel
                 #53 (Timer Cache) ✅ ─────┤
@@ -382,6 +383,31 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-10
+- Completed Issue #60: Expand UI state and settings validation tests
+  - Added 8 new tests to `src/ui/state.rs` for UI constants validation:
+    - `test_close_button_size_positive`: Verifies close button size is positive
+    - `test_close_button_margin_positive`: Verifies close button margin is positive
+    - `test_close_button_label_dimensions_positive`: Verifies label height and width are positive
+    - `test_close_button_hold_duration_reasonable`: Verifies hold duration is between 1-10 seconds
+    - `test_timer_display_dimensions_positive`: Verifies timer display width and height are positive
+    - `test_timer_display_width_greater_than_margins`: Verifies width accommodates margins
+    - `test_animation_interval_is_60fps`: Verifies animation interval matches 60 FPS
+    - `test_screen_saver_window_level_valid`: Verifies window level is positive
+  - Added 8 new tests to `src/ui/windows/settings.rs` for exit key validation:
+    - `test_validate_exit_key_input_valid_key`: Tests valid single modifier key
+    - `test_validate_exit_key_input_valid_with_multiple_modifiers`: Tests multiple modifiers
+    - `test_validate_exit_key_input_empty_returns_none`: Tests empty input returns Valid(None)
+    - `test_validate_exit_key_input_whitespace_only`: Tests whitespace-only input
+    - `test_validate_exit_key_input_whitespace_tabs_newlines`: Tests tabs/newlines
+    - `test_validate_exit_key_input_invalid_key`: Tests invalid key names
+    - `test_validate_exit_key_input_missing_modifier`: Tests key without modifier
+    - `test_validate_exit_key_input_invalid_modifier`: Tests unknown modifiers
+  - Made `ExitKeyValidation` enum and `validate_exit_key_input` function `pub(crate)` for testing
+  - Total tests increased from 159 to 175 (+16 new tests)
+  - All 175 tests pass, clippy clean, build successful
+  - Updated issue counts: 3 open, 35 closed
+  - Updated priority counts: 1 Medium, 2 Low
+
 - Completed Issue #75: Add integration tests for menu bar timer functionality
   - Created `src/timer/integration_tests.rs` with 47 comprehensive tests
   - Config-based timer activation tests:

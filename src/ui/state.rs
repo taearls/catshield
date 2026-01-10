@@ -238,6 +238,10 @@ pub fn is_hold_complete(elapsed_secs: f64, hold_duration_secs: f64) -> bool {
 mod tests {
     use super::*;
 
+    // ========================================================================
+    // Hold Progress Function Tests
+    // ========================================================================
+
     #[test]
     fn test_calculate_hold_progress_zero() {
         assert_eq!(calculate_hold_progress(0.0, 3.0), 0.0);
@@ -274,5 +278,55 @@ mod tests {
     #[test]
     fn test_is_hold_complete_exceeds() {
         assert!(is_hold_complete(5.0, 3.0));
+    }
+
+    // ========================================================================
+    // UI Constants Validation Tests
+    // ========================================================================
+
+    #[test]
+    fn test_close_button_size_positive() {
+        assert!(close_button::SIZE > 0.0);
+    }
+
+    #[test]
+    fn test_close_button_margin_positive() {
+        assert!(close_button::MARGIN > 0.0);
+    }
+
+    #[test]
+    fn test_close_button_label_dimensions_positive() {
+        assert!(close_button::LABEL_HEIGHT > 0.0);
+        assert!(close_button::LABEL_WIDTH > 0.0);
+    }
+
+    #[test]
+    fn test_close_button_hold_duration_reasonable() {
+        // Hold duration should be between 1 and 10 seconds
+        assert!(close_button::HOLD_DURATION_SECS >= 1.0);
+        assert!(close_button::HOLD_DURATION_SECS <= 10.0);
+    }
+
+    #[test]
+    fn test_timer_display_dimensions_positive() {
+        assert!(timer_display::WIDTH > 0.0);
+        assert!(timer_display::HEIGHT > 0.0);
+    }
+
+    #[test]
+    fn test_timer_display_width_greater_than_margins() {
+        assert!(timer_display::WIDTH > timer_display::MARGIN * 2.0);
+    }
+
+    #[test]
+    fn test_animation_interval_is_60fps() {
+        // 60 FPS = ~0.0167 seconds per frame
+        let expected_interval = 1.0 / 60.0;
+        assert!((animation::INTERVAL_SECS - expected_interval).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_screen_saver_window_level_valid() {
+        assert!(window_level::SCREEN_SAVER > 0);
     }
 }
