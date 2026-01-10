@@ -219,7 +219,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 | Priority | Issue | Title | Effort |
 |----------|-------|-------|--------|
 | ✅ Done | #52 | Optimize atomic orderings from SeqCst to appropriate weaker orderings | ~1 day |
-| 🟢 Medium | #53 | Cache redundant atomic loads in timer callback | ~2 hours |
+| ✅ Done | #53 | Cache redundant atomic loads in timer callback | ~2 hours |
 | 🔵 Low | #54 | Cache formatted duration string in timer display | ~2-3 hours |
 
 #### Code Maintenance
@@ -242,7 +242,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 ```text
 Performance (can be done in parallel):
     #52: Atomic Ordering Optimization ✅
-    #53: Timer Callback Cache
+    #53: Timer Callback Cache ✅
     #54: Duration Format Cache
 
 Code Quality (can be done in parallel):
@@ -275,6 +275,7 @@ Testing (can be done in parallel):
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #53 | perf: Cache redundant atomic loads in timer callback | 2026-01-10 |
 | #57 | Docs: Add safety documentation to std::mem::forget and unsafe blocks | 2026-01-10 |
 | #56 | Refactor: Create pointer helper to reduce null-check duplication | 2026-01-10 |
 | #52 | Optimize atomic orderings from SeqCst to appropriate weaker orderings | 2026-01-10 |
@@ -294,13 +295,13 @@ Testing (can be done in parallel):
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 5 | #53, #54, #60, #64, #65 |
-| Closed | 31 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #55, #56, #57, #58, #59 |
+| Open | 4 | #54, #60, #64, #65 |
+| Closed | 32 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #55, #56, #57, #58, #59 |
 
 ### By Priority
 - 🔴 Critical: 0
 - 🟡 High: 0
-- 🟢 Medium: 3 (#53, #60, #64)
+- 🟢 Medium: 2 (#60, #64)
 - 🔵 Low: 2 (#54, #65)
 
 ## Recommended Implementation Order
@@ -325,10 +326,10 @@ Testing (can be done in parallel):
 4. ~~**#52** - Optimize atomic orderings (158 SeqCst → weaker orderings)~~ ✅
 5. ~~**#56** - Create pointer helper (reduces 50+ duplicated patterns)~~ ✅
 6. ~~**#57** - Add safety documentation (35+ std::mem::forget and unsafe blocks)~~ ✅
+7. ~~**#53** - Cache timer callback atomic loads~~ ✅
 
 **Medium Priority (Start Here):**
-7. **#60** - Expand UI state and validation tests
-8. **#53** - Cache timer callback atomic loads
+8. **#60** - Expand UI state and validation tests
 
 **Lower Priority:**
 9. **#54** - Cache formatted duration string
@@ -353,7 +354,7 @@ Testing:        #58 (Lock Tests) ✅ ──┬─── All independent, can run
                 #60 (UI State Tests) ─┘
 
 Performance:    #52 (Atomic Ordering) ✅ ─┬── All independent, can run in parallel
-                #53 (Timer Cache) ────────┤
+                #53 (Timer Cache) ✅ ─────┤
                 #54 (Duration Cache) ─────┘
 
 Maintenance:    #55 (Settings Refactor) ✅ ─┬── All Complete
@@ -377,6 +378,17 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-10
+- Completed Issue #53: Cache redundant atomic loads in timer callback
+  - Cached `MODE_MENU_BAR` load at the start of `timer_callback` (was loaded twice: lines 61 and 87)
+  - Cached view pointer loads (`CLOSE_BUTTON`, `CLOSE_BUTTON_LABEL`, `TIMER_VIEW`) upfront
+  - Replaced `with_ptr_void` calls with direct pointer dereference using cached values
+  - Added SAFETY comments for each pointer dereference explaining validity guarantees
+  - Reduces atomic load operations per callback from 7 to 4 (plus 1 for AUTO_EXIT_ENABLED)
+  - Timer callback runs at 60Hz, so this reduces unnecessary overhead in the hot path
+  - All 110 tests pass, clippy clean, build successful
+  - Updated issue counts: 4 open, 32 closed
+  - Updated priority counts: 2 Medium, 2 Low
+
 - Completed Issue #57: Add safety documentation to std::mem::forget and unsafe blocks
   - Added SAFETY comments to 35+ `std::mem::forget` calls explaining:
     - Why preventing drop is correct (ownership transfer to Objective-C runtime or global storage)

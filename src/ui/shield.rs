@@ -41,6 +41,13 @@ pub unsafe extern "C" fn timer_callback(_timer: *mut c_void, _info: *mut c_void)
     use crate::ui::state::{close_button, is_hold_complete};
     use objc2_app_kit::{NSApplication, NSView};
 
+    // Cache all atomic loads upfront to avoid redundant loads in the hot path.
+    // This callback runs at 60Hz, so minimizing atomic operations improves performance.
+    let menu_bar_mode = shield::MODE_MENU_BAR.load(Ordering::Acquire);
+    let close_btn_ptr = shield::CLOSE_BUTTON.load(Ordering::Acquire);
+    let label_ptr = shield::CLOSE_BUTTON_LABEL.load(Ordering::Acquire);
+    let timer_ptr = shield::TIMER_VIEW.load(Ordering::Acquire);
+
     // Check if hold duration has been exceeded (close button)
     let should_exit_from_button = MOUSE_DOWN_TIME.with(|time| {
         if let Some(start) = time.get() {
@@ -58,7 +65,7 @@ pub unsafe extern "C" fn timer_callback(_timer: *mut c_void, _info: *mut c_void)
     if should_exit_from_button {
         // In menu bar mode, deactivate shield and return to menu bar
         // In immediate mode, terminate the app
-        if shield::MODE_MENU_BAR.load(Ordering::Acquire) {
+        if menu_bar_mode {
             deactivate_shield();
         } else if let Some(mtm) = MainThreadMarker::new() {
             let app = NSApplication::sharedApplication(mtm);
@@ -84,7 +91,7 @@ pub unsafe extern "C" fn timer_callback(_timer: *mut c_void, _info: *mut c_void)
             println!("  ⏰ Timer expired - auto-exiting...");
             // In menu bar mode, deactivate shield and return to menu bar
             // In immediate mode, terminate the app
-            if shield::MODE_MENU_BAR.load(Ordering::Acquire) {
+            if menu_bar_mode {
                 deactivate_shield();
             } else if let Some(mtm) = MainThreadMarker::new() {
                 let app = NSApplication::sharedApplication(mtm);
@@ -94,20 +101,32 @@ pub unsafe extern "C" fn timer_callback(_timer: *mut c_void, _info: *mut c_void)
         }
     }
 
-    // Trigger redraw of close button
-    with_ptr_void::<NSView, _>(&shield::CLOSE_BUTTON, |view| {
+    // Trigger redraw of close button using cached pointer
+    if !close_btn_ptr.is_null() {
+        // SAFETY: The pointer was loaded from shield::CLOSE_BUTTON which stores a valid
+        // NSView pointer that was created in activate_shield. The pointer remains valid
+        // for the lifetime of the shield window.
+        let view: &NSView = &*(close_btn_ptr as *const NSView);
         view.setNeedsDisplay(true);
-    });
+    }
 
-    // Trigger redraw of close button label (for countdown during hold)
-    with_ptr_void::<NSView, _>(&shield::CLOSE_BUTTON_LABEL, |view| {
+    // Trigger redraw of close button label (for countdown during hold) using cached pointer
+    if !label_ptr.is_null() {
+        // SAFETY: The pointer was loaded from shield::CLOSE_BUTTON_LABEL which stores a valid
+        // NSView pointer that was created in activate_shield. The pointer remains valid
+        // for the lifetime of the shield window.
+        let view: &NSView = &*(label_ptr as *const NSView);
         view.setNeedsDisplay(true);
-    });
+    }
 
-    // Trigger redraw of timer display
-    with_ptr_void::<NSView, _>(&shield::TIMER_VIEW, |view| {
+    // Trigger redraw of timer display using cached pointer
+    if !timer_ptr.is_null() {
+        // SAFETY: The pointer was loaded from shield::TIMER_VIEW which stores a valid
+        // NSView pointer that was created in setup (immediate mode) or activate_shield.
+        // The pointer remains valid for the lifetime of the shield window.
+        let view: &NSView = &*(timer_ptr as *const NSView);
         view.setNeedsDisplay(true);
-    });
+    }
 }
 
 /// Start the animation timer for the close button
