@@ -27,7 +27,10 @@ pub static EVENT_TAP_RUN_LOOP_SOURCE: AtomicPtr<c_void> = AtomicPtr::new(std::pt
 /// Callback for the CGEventTap - intercepts and blocks events
 ///
 /// # Safety
-/// This function is called by the Core Graphics event tap system. The caller guarantees:
+/// This function is `unsafe extern "C-unwind"` as required by the CGEventTap API.
+/// Callers must only invoke this via CGEventTapCreate registration.
+///
+/// The Core Graphics event tap system guarantees:
 /// - `event` is a valid, non-null CGEvent pointer
 /// - The function is called on the thread that owns the run loop with the event tap
 /// - The event tap has not been invalidated
