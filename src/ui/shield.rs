@@ -9,7 +9,9 @@ use crate::shield_core::{
     create_shield_window, ensure_accessibility, print_activation_banner, print_shield_active,
     setup_close_button,
 };
-use crate::timer::{format_duration, init_auto_exit_timer, parse_duration, AUTO_EXIT_ENABLED, WARNING_SHOWN};
+use crate::timer::{
+    format_duration, init_auto_exit_timer, parse_duration, AUTO_EXIT_ENABLED, WARNING_SHOWN,
+};
 use crate::ui::ptr_helper::with_ptr_void;
 use crate::ui::state::{menu_bar, shield, timer_display, IS_MOUSE_INSIDE, MOUSE_DOWN_TIME};
 use crate::ui::views::{CloseButtonLabelView, CloseButtonView, TimerDisplayView};
@@ -502,9 +504,8 @@ pub fn activate_shield(mtm: MainThreadMarker) {
     println!("  ✓ Input blocking active");
 
     // Print shield active status (shared)
-    let timer_info = timer_duration_secs.map(|_| {
-        format!("{} remaining", format_duration(get_remaining_seconds()))
-    });
+    let timer_info = timer_duration_secs
+        .map(|_| format!("{} remaining", format_duration(get_remaining_seconds())));
     print_shield_active(&exit_key, timer_info.as_deref());
 
     // Transfer ownership to ManuallyDrop to prevent deallocation while shield is active.
