@@ -235,7 +235,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 | Priority | Issue | Title | Effort |
 |----------|-------|-------|--------|
 | ✅ Done | #58 | Test: Add unit tests for lock module (single-instance enforcement) | ~4-6 hours |
-| 🟡 High | #59 | Test: Add unit tests for timer state module | ~3-4 hours |
+| ✅ Done | #59 | Test: Add unit tests for timer state module | ~3-4 hours |
 | 🟢 Medium | #60 | Test: Expand UI state and settings validation tests | ~2-3 hours |
 
 **Implementation Order:**
@@ -252,7 +252,7 @@ Code Quality (can be done in parallel):
 
 Testing (can be done in parallel):
     #58: Lock Module Tests ✅
-    #59: Timer State Tests
+    #59: Timer State Tests ✅
     #60: UI State & Validation Tests
 ```
 
@@ -266,6 +266,7 @@ Testing (can be done in parallel):
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #59 | Add unit tests for timer state module | 2026-01-09 |
 | #58 | Add unit tests for lock module (single-instance enforcement) | 2026-01-09 |
 | #49 | Add real-time validation for Timer duration field in Settings | 2026-01-09 |
 | #48 | Exit Key validation should not show on initial Settings window open | 2026-01-09 |
@@ -280,12 +281,12 @@ Testing (can be done in parallel):
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 9 | #28, #52, #53, #54, #55, #56, #57, #59, #60 |
-| Closed | 25 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #30, #31, #35, #38, #42, #44, #46, #48, #49, #58 |
+| Open | 8 | #28, #52, #53, #54, #55, #56, #57, #60 |
+| Closed | 26 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #30, #31, #35, #38, #42, #44, #46, #48, #49, #58, #59 |
 
 ### By Priority
 - 🔴 Critical: 0
-- 🟡 High: 2 (#55, #59)
+- 🟡 High: 1 (#55)
 - 🟢 Medium: 5 (#52, #53, #56, #57, #60)
 - 🔵 Low: 2 (#28, #54)
 
@@ -306,7 +307,7 @@ Testing (can be done in parallel):
 
 **High Priority (Start Here):**
 1. ~~**#58** - Add unit tests for lock module (security-critical, 0 tests currently)~~ ✅
-2. **#59** - Add unit tests for timer state module (core functionality, 0 tests)
+2. ~~**#59** - Add unit tests for timer state module (core functionality, 0 tests)~~ ✅
 3. **#55** - Refactor show_settings_window() into smaller functions (600+ lines)
 
 **Medium Priority:**
@@ -334,7 +335,7 @@ Parallel:       #18 (Config) ✅ ───────────────�
 
 Phase 5 (CURRENT):
 Testing:        #58 (Lock Tests) ✅ ──┬─── All independent, can run in parallel
-                #59 (Timer Tests) ────┤
+                #59 (Timer Tests) ✅ ─┤
                 #60 (UI State Tests) ─┘
 
 Performance:    #52 (Atomic Ordering) ─┬── All independent, can run in parallel
@@ -361,6 +362,21 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-09
+- Completed Issue #59: Add unit tests for timer state module
+  - Added 22 comprehensive unit tests for the timer state module (`src/timer/state.rs`)
+  - Tests cover all public functions: `init_auto_exit_timer()`, `get_remaining_seconds()`
+  - Tests cover all global state variables: `AUTO_EXIT_ENABLED`, `AUTO_EXIT_DURATION_SECS`, `AUTO_EXIT_START_TIME`, `WARNING_SHOWN`
+  - Test categories:
+    - Initialization tests: sets enabled flag, duration, start time; handles zero/max/overwrite cases
+    - Remaining seconds tests: disabled timer returns MAX, just started, expired, halfway, near end
+    - Warning state tests: initially false, can be set, reset clears value
+    - Edge cases: elapsed time overflow protection, duration saturating sub, state independence
+    - Boundary conditions: 24-hour timer, 1-second timer
+  - Tests use `reset_timer_state()` helper to isolate global state between tests
+  - Total tests: 100 (was 78, +22 new timer state tests)
+  - Updated issue counts: 8 open, 26 closed
+  - Updated priority counts: 1 High, 5 Medium, 2 Low
+
 - Completed Issue #58: Add unit tests for lock module (single-instance enforcement)
   - Added 22 comprehensive unit tests for the lock module (`src/lock/mod.rs`)
   - Tests cover all lock functions: `lock_file_path()`, `is_process_running()`, `acquire_instance_lock()`, `release_instance_lock()`
