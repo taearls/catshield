@@ -226,7 +226,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 
 | Priority | Issue | Title | Effort |
 |----------|-------|-------|--------|
-| 🟡 High | #55 | Refactor: Break show_settings_window() into smaller functions | ~4-6 hours |
+| ✅ Done | #55 | Refactor: Break show_settings_window() into smaller functions | ~4-6 hours |
 | 🟢 Medium | #56 | Refactor: Create pointer helper to reduce null-check duplication | ~4-6 hours |
 | 🟢 Medium | #57 | Docs: Add safety documentation to std::mem::forget and unsafe blocks | ~4-6 hours |
 
@@ -246,7 +246,7 @@ Performance (can be done in parallel):
     #54: Duration Format Cache
 
 Code Quality (can be done in parallel):
-    #55: Settings Window Refactor
+    #55: Settings Window Refactor ✅
     #56: Pointer Helper
     #57: Safety Documentation
 
@@ -275,6 +275,7 @@ Testing (can be done in parallel):
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #55 | Refactor: Break show_settings_window() into smaller functions | 2026-01-10 |
 | #59 | Add unit tests for timer state module | 2026-01-09 |
 | #58 | Add unit tests for lock module (single-instance enforcement) | 2026-01-09 |
 | #49 | Add real-time validation for Timer duration field in Settings | 2026-01-09 |
@@ -290,12 +291,12 @@ Testing (can be done in parallel):
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 9 | #52, #53, #54, #55, #56, #57, #60, #64, #65 |
-| Closed | 27 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #58, #59 |
+| Open | 8 | #52, #53, #54, #56, #57, #60, #64, #65 |
+| Closed | 28 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #55, #58, #59 |
 
 ### By Priority
 - 🔴 Critical: 0
-- 🟡 High: 1 (#55)
+- 🟡 High: 0
 - 🟢 Medium: 6 (#52, #53, #56, #57, #60, #64)
 - 🔵 Low: 2 (#54, #65)
 
@@ -314,12 +315,12 @@ Testing (can be done in parallel):
 
 ### Current Sprint: Phase 5 - Performance & Quality
 
-**High Priority (Start Here):**
+**Completed:**
 1. ~~**#58** - Add unit tests for lock module (security-critical, 0 tests currently)~~ ✅
 2. ~~**#59** - Add unit tests for timer state module (core functionality, 0 tests)~~ ✅
-3. **#55** - Refactor show_settings_window() into smaller functions (600+ lines)
+3. ~~**#55** - Refactor show_settings_window() into smaller functions (600+ lines)~~ ✅
 
-**Medium Priority:**
+**Medium Priority (Start Here):**
 4. **#52** - Optimize atomic orderings (158 SeqCst → weaker orderings)
 5. **#56** - Create pointer helper (reduces 50+ duplicated patterns)
 6. **#57** - Add safety documentation (80 unsafe blocks need SAFETY comments)
@@ -373,6 +374,21 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-10
+- Completed Issue #55: Refactor show_settings_window() into smaller functions
+  - Reduced `show_settings_window()` from 600+ lines to ~35 lines (orchestration only)
+  - Extracted constants: `WINDOW_WIDTH`, `WINDOW_HEIGHT`, `MARGIN`, layout constants
+  - Created helper functions: `prepare_settings_window()`, `create_settings_panel()`
+  - Created delegate getters: `get_or_create_window_delegate()`, `get_or_create_action_handler()`, etc.
+  - Extracted section functions:
+    - `setup_exit_key_section()` (~90 lines) - Exit key field with validation
+    - `setup_timer_section()` (~160 lines) - Timer checkbox, value field, unit dropdown
+    - `setup_opacity_section()` (~140 lines) - Opacity slider with min/max labels
+    - `setup_button_section()` (~80 lines) - Reset, Cancel, Save buttons
+  - Added `finalize_and_show_window()` for window activation and display
+  - All 100 tests pass, clippy clean, build successful
+  - Updated issue counts: 8 open, 28 closed
+  - No more high-priority issues remaining (0 High, 6 Medium, 2 Low)
+
 - Created Issue #64: Add configurable key allowlist to pass specific keys through the shield
   - New feature allowing users to specify keys/key combinations that won't be blocked
   - Supports same format as exit key (e.g., `Cmd+Space`, `F11`, `Ctrl+Option+A`)
@@ -386,8 +402,8 @@ Potential future enhancements (not yet tracked as issues):
   - Depends on #64 (Key Allowlist feature)
   - Priority: 🔵 Low, Effort: ~0.5 day
 - Added Phase 6: Enhanced Input Control section to roadmap
-- Updated issue counts: 9 open (+1), 27 closed (+1)
-- Updated priority counts: 6 Medium (+1), 2 Low
+- Updated issue counts: 8 open, 28 closed (consistent with Issue Summary above)
+- Updated priority counts: 6 Medium, 2 Low (added #64 Medium, #65 Low)
 - Removed #28 from open issues (was closed)
 
 ### 2026-01-09
