@@ -4,6 +4,7 @@ use crate::timer::{
     format_duration, get_remaining_seconds, AUTO_EXIT_DURATION_SECS, WARNING_SECONDS,
 };
 use crate::ui::helpers::create_label;
+use crate::ui::ptr_helper::with_raw_ptr;
 use crate::ui::state::shield;
 use objc2::rc::Retained;
 use objc2::{define_class, msg_send};
@@ -146,14 +147,15 @@ fn draw_timer_display(view: &NSView) {
     } else {
         // Update existing time label
         unsafe {
-            let time_label: &NSTextField = &*(time_ptr as *const NSTextField);
-            time_label.setStringValue(&NSString::from_str(&time_str));
-            let color = if is_warning {
-                &warning_color
-            } else {
-                &text_color
-            };
-            time_label.setTextColor(Some(color));
+            with_raw_ptr::<NSTextField, _>(time_ptr, |time_label| {
+                time_label.setStringValue(&NSString::from_str(&time_str));
+                let color = if is_warning {
+                    &warning_color
+                } else {
+                    &text_color
+                };
+                time_label.setTextColor(Some(color));
+            });
         }
     }
 
@@ -189,8 +191,9 @@ fn draw_timer_display(view: &NSView) {
     } else {
         // Update existing warning label visibility
         unsafe {
-            let warning_label: &NSTextField = &*(warning_ptr as *const NSTextField);
-            warning_label.setHidden(!is_warning);
+            with_raw_ptr::<NSTextField, _>(warning_ptr, |warning_label| {
+                warning_label.setHidden(!is_warning);
+            });
         }
     }
 

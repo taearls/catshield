@@ -227,7 +227,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 | Priority | Issue | Title | Effort |
 |----------|-------|-------|--------|
 | ✅ Done | #55 | Refactor: Break show_settings_window() into smaller functions | ~4-6 hours |
-| 🟢 Medium | #56 | Refactor: Create pointer helper to reduce null-check duplication | ~4-6 hours |
+| ✅ Done | #56 | Refactor: Create pointer helper to reduce null-check duplication | ~4-6 hours |
 | 🟢 Medium | #57 | Docs: Add safety documentation to std::mem::forget and unsafe blocks | ~4-6 hours |
 
 #### Testing Improvements
@@ -247,7 +247,7 @@ Performance (can be done in parallel):
 
 Code Quality (can be done in parallel):
     #55: Settings Window Refactor ✅
-    #56: Pointer Helper
+    #56: Pointer Helper ✅
     #57: Safety Documentation
 
 Testing (can be done in parallel):
@@ -275,6 +275,7 @@ Testing (can be done in parallel):
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #56 | Refactor: Create pointer helper to reduce null-check duplication | 2026-01-10 |
 | #52 | Optimize atomic orderings from SeqCst to appropriate weaker orderings | 2026-01-10 |
 | #55 | Refactor: Break show_settings_window() into smaller functions | 2026-01-10 |
 | #59 | Add unit tests for timer state module | 2026-01-09 |
@@ -292,13 +293,13 @@ Testing (can be done in parallel):
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 7 | #53, #54, #56, #57, #60, #64, #65 |
-| Closed | 29 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #55, #58, #59 |
+| Open | 6 | #53, #54, #57, #60, #64, #65 |
+| Closed | 30 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #55, #56, #58, #59 |
 
 ### By Priority
 - 🔴 Critical: 0
 - 🟡 High: 0
-- 🟢 Medium: 5 (#53, #56, #57, #60, #64)
+- 🟢 Medium: 4 (#53, #57, #60, #64)
 - 🔵 Low: 2 (#54, #65)
 
 ## Recommended Implementation Order
@@ -321,9 +322,9 @@ Testing (can be done in parallel):
 2. ~~**#59** - Add unit tests for timer state module (core functionality, 0 tests)~~ ✅
 3. ~~**#55** - Refactor show_settings_window() into smaller functions (600+ lines)~~ ✅
 4. ~~**#52** - Optimize atomic orderings (158 SeqCst → weaker orderings)~~ ✅
+5. ~~**#56** - Create pointer helper (reduces 50+ duplicated patterns)~~ ✅
 
 **Medium Priority (Start Here):**
-5. **#56** - Create pointer helper (reduces 50+ duplicated patterns)
 6. **#57** - Add safety documentation (80 unsafe blocks need SAFETY comments)
 7. **#60** - Expand UI state and validation tests
 8. **#53** - Cache timer callback atomic loads
@@ -354,9 +355,9 @@ Performance:    #52 (Atomic Ordering) ✅ ─┬── All independent, can run 
                 #53 (Timer Cache) ────────┤
                 #54 (Duration Cache) ─────┘
 
-Maintenance:    #55 (Settings Refactor) ─┬── Independent
-                #56 (Pointer Helper) ────┤
-                #57 (Safety Docs) ───────┘
+Maintenance:    #55 (Settings Refactor) ✅ ─┬── Independent
+                #56 (Pointer Helper) ✅ ────┤
+                #57 (Safety Docs) ───────────┘
 
 Phase 6 (NEXT):
 Input Control:  #64 (Key Allowlist) ─── #65 (Preset Groups)
@@ -375,6 +376,19 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-10
+- Completed Issue #56: Create pointer helper to reduce null-check duplication
+  - Created `src/ui/ptr_helper.rs` module with three helper functions:
+    - `with_ptr<T, F, R>`: Execute closure with dereferenced AtomicPtr, returns `Option<R>`
+    - `with_ptr_void<T, F>`: Execute closure with dereferenced AtomicPtr, no return value
+    - `with_raw_ptr<T, F>`: Execute closure with raw pointer, for already-loaded pointers
+  - Updated files to use new helpers:
+    - `src/ui/windows/settings.rs`: 15+ null-check patterns replaced
+    - `src/ui/windows/about.rs`: 4 null-check patterns replaced
+    - `src/ui/shield.rs`: 6 null-check patterns replaced
+    - `src/ui/views/timer_display.rs`: 2 null-check patterns replaced
+    - `src/ui/views/close_button_label.rs`: 1 null-check pattern replaced
+  - Added comprehensive unit tests (7 tests) for all helper functions
+  - Re-exported helpers from `src/ui/mod.rs` for convenient access
 - Completed Issue #52: Optimize atomic orderings from SeqCst to appropriate weaker orderings
   - Replaced 158+ SeqCst atomic orderings with appropriate weaker orderings across 11 files
   - Pattern-based optimization: loads → Acquire, stores → Release, swap → AcqRel
