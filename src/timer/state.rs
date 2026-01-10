@@ -174,7 +174,7 @@ mod tests {
 
         // Should be very close to 60, allow 1-2 seconds tolerance for execution time
         assert!(
-            remaining >= 58 && remaining <= 60,
+            (58..=60).contains(&remaining),
             "Remaining {} should be between 58 and 60",
             remaining
         );
@@ -213,7 +213,7 @@ mod tests {
 
         // Should be around 30 seconds, allow some tolerance
         assert!(
-            remaining >= 28 && remaining <= 32,
+            (28..=32).contains(&remaining),
             "Remaining {} should be around 30",
             remaining
         );
