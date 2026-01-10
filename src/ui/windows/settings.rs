@@ -624,9 +624,34 @@ fn validate_timer_realtime(value: &str) {
     }
 }
 
-/// Show the settings window
-pub fn show_settings_window(mtm: MainThreadMarker) {
-    // Check if settings window is already open
+// ============================================================================
+// Settings Window Layout Constants
+// ============================================================================
+
+/// Window dimensions
+const WINDOW_WIDTH: CGFloat = 400.0;
+const WINDOW_HEIGHT: CGFloat = 370.0;
+
+/// Layout constants
+const MARGIN: CGFloat = 20.0;
+const LABEL_HEIGHT: CGFloat = 20.0;
+const FIELD_HEIGHT: CGFloat = 24.0;
+const ROW_SPACING: CGFloat = 8.0;
+const SECTION_SPACING: CGFloat = 20.0;
+
+/// Button constants
+const BUTTON_HEIGHT: CGFloat = 28.0;
+const BUTTON_WIDTH: CGFloat = 80.0;
+const RESET_BUTTON_WIDTH: CGFloat = 120.0;
+const BUTTON_SPACING: CGFloat = 12.0;
+
+// ============================================================================
+// Settings Window Setup Functions
+// ============================================================================
+
+/// Check if settings window is already open, bring to front if so
+/// Returns true if we should continue creating the window, false if already open
+fn prepare_settings_window() -> bool {
     let existing = settings::WINDOW.load(Ordering::SeqCst);
     if !existing.is_null() {
         // Bring existing window to front
@@ -634,7 +659,7 @@ pub fn show_settings_window(mtm: MainThreadMarker) {
             let window: &NSPanel = &*(existing as *const NSPanel);
             window.makeKeyAndOrderFront(None);
         }
-        return;
+        return false;
     }
 
     // Disable the settings menu item while window is open
@@ -646,10 +671,11 @@ pub fn show_settings_window(mtm: MainThreadMarker) {
         }
     }
 
-    // Window dimensions
-    let window_width: CGFloat = 400.0;
-    let window_height: CGFloat = 370.0;
+    true
+}
 
+/// Create the settings panel window centered on screen
+fn create_settings_panel(mtm: MainThreadMarker) -> Retained<NSPanel> {
     // Calculate center position on screen
     let screen_frame = NSScreen::mainScreen(mtm)
         .map(|s| s.frame())
@@ -661,8 +687,8 @@ pub fn show_settings_window(mtm: MainThreadMarker) {
             },
         });
 
-    let window_x = (screen_frame.size.width - window_width) / 2.0;
-    let window_y = (screen_frame.size.height - window_height) / 2.0;
+    let window_x = (screen_frame.size.width - WINDOW_WIDTH) / 2.0;
+    let window_y = (screen_frame.size.height - WINDOW_HEIGHT) / 2.0;
 
     let window_frame = CGRect {
         origin: CGPoint {
@@ -670,8 +696,8 @@ pub fn show_settings_window(mtm: MainThreadMarker) {
             y: window_y,
         },
         size: CGSize {
-            width: window_width,
-            height: window_height,
+            width: WINDOW_WIDTH,
+            height: WINDOW_HEIGHT,
         },
     };
 
@@ -693,8 +719,12 @@ pub fn show_settings_window(mtm: MainThreadMarker) {
         panel.setReleasedWhenClosed(false);
     }
 
-    // Create and set window delegate to handle close button (X) cleanup
-    let delegate = unsafe {
+    panel
+}
+
+/// Get or create the settings window delegate
+fn get_or_create_window_delegate(mtm: MainThreadMarker) -> &'static SettingsWindowDelegate {
+    unsafe {
         let delegate_ptr = settings::WINDOW_DELEGATE.load(Ordering::SeqCst);
         if delegate_ptr.is_null() {
             let new_delegate = SettingsWindowDelegate::new(mtm);
@@ -707,14 +737,12 @@ pub fn show_settings_window(mtm: MainThreadMarker) {
         } else {
             &*(delegate_ptr as *const SettingsWindowDelegate)
         }
-    };
-    panel.setDelegate(Some(ProtocolObject::from_ref(delegate)));
+    }
+}
 
-    // Store window reference
-    settings::WINDOW.store(Retained::as_ptr(&panel) as *mut c_void, Ordering::SeqCst);
-
-    // Get or create settings action handler
-    let handler = unsafe {
+/// Get or create the settings action handler
+fn get_or_create_action_handler(mtm: MainThreadMarker) -> &'static SettingsActionHandler {
+    unsafe {
         let handler_ptr = settings::ACTION_HANDLER.load(Ordering::SeqCst);
         if handler_ptr.is_null() {
             let new_handler = SettingsActionHandler::new(mtm);
@@ -727,495 +755,534 @@ pub fn show_settings_window(mtm: MainThreadMarker) {
         } else {
             &*(handler_ptr as *const SettingsActionHandler)
         }
+    }
+}
+
+/// Get or create the exit key field delegate
+fn get_or_create_exit_key_delegate(mtm: MainThreadMarker) -> &'static ExitKeyFieldDelegate {
+    unsafe {
+        let delegate_ptr = settings::EXIT_KEY_FIELD_DELEGATE.load(Ordering::SeqCst);
+        if delegate_ptr.is_null() {
+            let new_delegate = ExitKeyFieldDelegate::new(mtm);
+            settings::EXIT_KEY_FIELD_DELEGATE.store(
+                Retained::as_ptr(&new_delegate) as *mut c_void,
+                Ordering::SeqCst,
+            );
+            std::mem::forget(new_delegate);
+            &*(settings::EXIT_KEY_FIELD_DELEGATE.load(Ordering::SeqCst)
+                as *const ExitKeyFieldDelegate)
+        } else {
+            &*(delegate_ptr as *const ExitKeyFieldDelegate)
+        }
+    }
+}
+
+/// Get or create the timer field delegate
+fn get_or_create_timer_field_delegate(mtm: MainThreadMarker) -> &'static TimerFieldDelegate {
+    unsafe {
+        let delegate_ptr = settings::TIMER_FIELD_DELEGATE.load(Ordering::SeqCst);
+        if delegate_ptr.is_null() {
+            let new_delegate = TimerFieldDelegate::new(mtm);
+            settings::TIMER_FIELD_DELEGATE.store(
+                Retained::as_ptr(&new_delegate) as *mut c_void,
+                Ordering::SeqCst,
+            );
+            std::mem::forget(new_delegate);
+            &*(settings::TIMER_FIELD_DELEGATE.load(Ordering::SeqCst) as *const TimerFieldDelegate)
+        } else {
+            &*(delegate_ptr as *const TimerFieldDelegate)
+        }
+    }
+}
+
+// ============================================================================
+// Settings Section Setup Functions
+// ============================================================================
+
+/// Set up the Exit Key section in the settings window
+/// Returns the new y_offset after adding this section
+fn setup_exit_key_section(
+    mtm: MainThreadMarker,
+    content_view: &objc2_app_kit::NSView,
+    config: &crate::config::Config,
+    mut y_offset: CGFloat,
+) -> CGFloat {
+    let field_width = WINDOW_WIDTH - (MARGIN * 2.0);
+
+    // Section label
+    y_offset -= LABEL_HEIGHT;
+    let exit_key_label = create_label(
+        mtm,
+        "Exit Key Shortcut:",
+        CGRect {
+            origin: CGPoint {
+                x: MARGIN,
+                y: y_offset,
+            },
+            size: CGSize {
+                width: field_width,
+                height: LABEL_HEIGHT,
+            },
+        },
+        13.0,
+        &NSColor::labelColor(),
+        true,
+    );
+    content_view.addSubview(&exit_key_label);
+
+    // Text field
+    y_offset -= FIELD_HEIGHT + ROW_SPACING;
+    let exit_key_field = NSTextField::new(mtm);
+    exit_key_field.setFrame(CGRect {
+        origin: CGPoint {
+            x: MARGIN,
+            y: y_offset,
+        },
+        size: CGSize {
+            width: field_width,
+            height: FIELD_HEIGHT,
+        },
+    });
+    exit_key_field.setStringValue(&NSString::from_str(
+        config.exit_key.as_deref().unwrap_or(DEFAULT_EXIT_KEY),
+    ));
+    exit_key_field.setPlaceholderString(Some(ns_string!("e.g., Cmd+Option+U")));
+
+    // Set up delegate for real-time validation
+    let exit_key_delegate = get_or_create_exit_key_delegate(mtm);
+    unsafe {
+        exit_key_field.setDelegate(Some(ProtocolObject::from_ref(exit_key_delegate)));
+    }
+    content_view.addSubview(&exit_key_field);
+    settings::EXIT_KEY_FIELD.store(
+        Retained::as_ptr(&exit_key_field) as *mut c_void,
+        Ordering::SeqCst,
+    );
+    std::mem::forget(exit_key_field);
+
+    // Validation label
+    y_offset -= LABEL_HEIGHT + 2.0;
+    let exit_key_validation = NSTextField::new(mtm);
+    exit_key_validation.setFrame(CGRect {
+        origin: CGPoint {
+            x: MARGIN,
+            y: y_offset,
+        },
+        size: CGSize {
+            width: field_width,
+            height: LABEL_HEIGHT,
+        },
+    });
+    exit_key_validation.setEditable(false);
+    exit_key_validation.setSelectable(false);
+    exit_key_validation.setBordered(false);
+    exit_key_validation.setDrawsBackground(false);
+    exit_key_validation.setStringValue(ns_string!(""));
+    exit_key_validation.setFont(Some(&NSFont::systemFontOfSize(11.0)));
+    content_view.addSubview(&exit_key_validation);
+    settings::EXIT_KEY_VALIDATION.store(
+        Retained::as_ptr(&exit_key_validation) as *mut c_void,
+        Ordering::SeqCst,
+    );
+    std::mem::forget(exit_key_validation);
+
+    // Note: Do NOT call validate_exit_key_realtime() here.
+    // Validation should only appear after user modifies the field.
+
+    y_offset
+}
+
+/// Set up the Timer section in the settings window
+/// Returns the new y_offset after adding this section
+fn setup_timer_section(
+    mtm: MainThreadMarker,
+    content_view: &objc2_app_kit::NSView,
+    config: &crate::config::Config,
+    handler: &SettingsActionHandler,
+    mut y_offset: CGFloat,
+) -> CGFloat {
+    let field_width = WINDOW_WIDTH - (MARGIN * 2.0);
+
+    // Section spacing and label
+    y_offset -= SECTION_SPACING;
+    y_offset -= LABEL_HEIGHT;
+    let timer_label = create_label(
+        mtm,
+        "Default Timer:",
+        CGRect {
+            origin: CGPoint {
+                x: MARGIN,
+                y: y_offset,
+            },
+            size: CGSize {
+                width: field_width,
+                height: LABEL_HEIGHT,
+            },
+        },
+        13.0,
+        &NSColor::labelColor(),
+        true,
+    );
+    content_view.addSubview(&timer_label);
+
+    // Checkbox for enabling default timer
+    y_offset -= FIELD_HEIGHT + ROW_SPACING;
+    let timer_checkbox = unsafe {
+        let checkbox = NSButton::checkboxWithTitle_target_action(
+            ns_string!("Enable auto-exit timer"),
+            Some(handler),
+            Some(objc2::sel!(timerCheckboxChanged:)),
+            mtm,
+        );
+        checkbox.setFrame(CGRect {
+            origin: CGPoint {
+                x: MARGIN,
+                y: y_offset,
+            },
+            size: CGSize {
+                width: 200.0,
+                height: FIELD_HEIGHT,
+            },
+        });
+        checkbox.setControlSize(NSControlSize::Regular);
+        if config.default_timer.is_some() {
+            checkbox.setState(NSControlStateValueOn);
+        } else {
+            checkbox.setState(NSControlStateValueOff);
+        }
+        checkbox
+    };
+    content_view.addSubview(&timer_checkbox);
+    settings::TIMER_CHECKBOX.store(
+        Retained::as_ptr(&timer_checkbox) as *mut c_void,
+        Ordering::SeqCst,
+    );
+    std::mem::forget(timer_checkbox);
+
+    // Parse existing timer value to extract number and unit
+    y_offset -= FIELD_HEIGHT + ROW_SPACING;
+    let (timer_value, timer_unit_index) = if let Some(ref timer_str) = config.default_timer {
+        parse_timer_value_and_unit(timer_str)
+    } else {
+        ("".to_string(), 0) // Default to minutes
     };
 
-    // Load current config values
-    let config = get_current_config();
+    // Number input field (narrower, on the left)
+    let number_field_width: CGFloat = 80.0;
+    let dropdown_width: CGFloat = 100.0;
+    let spacing: CGFloat = 10.0;
 
-    // Create content view with controls
-    if let Some(content_view) = panel.contentView() {
-        let margin: CGFloat = 20.0;
-        let label_height: CGFloat = 20.0;
-        let field_height: CGFloat = 24.0;
-        let row_spacing: CGFloat = 8.0;
-        let section_spacing: CGFloat = 20.0;
-        let field_width = window_width - (margin * 2.0);
-
-        let mut y_offset = window_height - margin - 10.0;
-
-        // ========================================
-        // Exit Key Section
-        // ========================================
-        y_offset -= label_height;
-        let exit_key_label = create_label(
-            mtm,
-            "Exit Key Shortcut:",
-            CGRect {
-                origin: CGPoint {
-                    x: margin,
-                    y: y_offset,
-                },
-                size: CGSize {
-                    width: field_width,
-                    height: label_height,
-                },
-            },
-            13.0,
-            &NSColor::labelColor(),
-            true,
-        );
-        content_view.addSubview(&exit_key_label);
-
-        y_offset -= field_height + row_spacing;
-        let exit_key_field = NSTextField::new(mtm);
-        exit_key_field.setFrame(CGRect {
-            origin: CGPoint {
-                x: margin,
-                y: y_offset,
-            },
-            size: CGSize {
-                width: field_width,
-                height: field_height,
-            },
-        });
-        exit_key_field.setStringValue(&NSString::from_str(
-            config.exit_key.as_deref().unwrap_or(DEFAULT_EXIT_KEY),
-        ));
-        exit_key_field.setPlaceholderString(Some(ns_string!("e.g., Cmd+Option+U")));
-        // Set up delegate for real-time validation on text changes
-        let exit_key_delegate = unsafe {
-            let delegate_ptr = settings::EXIT_KEY_FIELD_DELEGATE.load(Ordering::SeqCst);
-            if delegate_ptr.is_null() {
-                let new_delegate = ExitKeyFieldDelegate::new(mtm);
-                settings::EXIT_KEY_FIELD_DELEGATE.store(
-                    Retained::as_ptr(&new_delegate) as *mut c_void,
-                    Ordering::SeqCst,
-                );
-                std::mem::forget(new_delegate);
-                &*(settings::EXIT_KEY_FIELD_DELEGATE.load(Ordering::SeqCst)
-                    as *const ExitKeyFieldDelegate)
-            } else {
-                &*(delegate_ptr as *const ExitKeyFieldDelegate)
-            }
-        };
-        unsafe {
-            exit_key_field.setDelegate(Some(ProtocolObject::from_ref(exit_key_delegate)));
-        }
-        content_view.addSubview(&exit_key_field);
-        settings::EXIT_KEY_FIELD.store(
-            Retained::as_ptr(&exit_key_field) as *mut c_void,
-            Ordering::SeqCst,
-        );
-        std::mem::forget(exit_key_field);
-
-        y_offset -= label_height + 2.0;
-        let exit_key_validation = NSTextField::new(mtm);
-        exit_key_validation.setFrame(CGRect {
-            origin: CGPoint {
-                x: margin,
-                y: y_offset,
-            },
-            size: CGSize {
-                width: field_width,
-                height: label_height,
-            },
-        });
-        exit_key_validation.setEditable(false);
-        exit_key_validation.setSelectable(false);
-        exit_key_validation.setBordered(false);
-        exit_key_validation.setDrawsBackground(false);
-        exit_key_validation.setStringValue(ns_string!(""));
-        exit_key_validation.setFont(Some(&NSFont::systemFontOfSize(11.0)));
-        content_view.addSubview(&exit_key_validation);
-        settings::EXIT_KEY_VALIDATION.store(
-            Retained::as_ptr(&exit_key_validation) as *mut c_void,
-            Ordering::SeqCst,
-        );
-        std::mem::forget(exit_key_validation);
-
-        // Note: Do NOT call validate_exit_key_realtime() here.
-        // Validation should only appear after user modifies the field.
-        // The delegate's controlTextDidChange: handles real-time validation on edits.
-
-        // ========================================
-        // Default Timer Section
-        // ========================================
-        y_offset -= section_spacing;
-        y_offset -= label_height;
-        let timer_label = create_label(
-            mtm,
-            "Default Timer:",
-            CGRect {
-                origin: CGPoint {
-                    x: margin,
-                    y: y_offset,
-                },
-                size: CGSize {
-                    width: field_width,
-                    height: label_height,
-                },
-            },
-            13.0,
-            &NSColor::labelColor(),
-            true,
-        );
-        content_view.addSubview(&timer_label);
-
-        y_offset -= field_height + row_spacing;
-
-        // Checkbox for enabling default timer
-        let timer_checkbox = unsafe {
-            let checkbox = NSButton::checkboxWithTitle_target_action(
-                ns_string!("Enable auto-exit timer"),
-                Some(handler),
-                Some(objc2::sel!(timerCheckboxChanged:)),
-                mtm,
-            );
-            checkbox.setFrame(CGRect {
-                origin: CGPoint {
-                    x: margin,
-                    y: y_offset,
-                },
-                size: CGSize {
-                    width: 200.0,
-                    height: field_height,
-                },
-            });
-            checkbox.setControlSize(NSControlSize::Regular);
-            if config.default_timer.is_some() {
-                checkbox.setState(NSControlStateValueOn);
-            } else {
-                checkbox.setState(NSControlStateValueOff);
-            }
-            checkbox
-        };
-        content_view.addSubview(&timer_checkbox);
-        settings::TIMER_CHECKBOX.store(
-            Retained::as_ptr(&timer_checkbox) as *mut c_void,
-            Ordering::SeqCst,
-        );
-        std::mem::forget(timer_checkbox);
-
-        y_offset -= field_height + row_spacing;
-
-        // Parse existing timer value to extract number and unit
-        let (timer_value, timer_unit_index) = if let Some(ref timer_str) = config.default_timer {
-            parse_timer_value_and_unit(timer_str)
-        } else {
-            ("".to_string(), 0) // Default to minutes
-        };
-
-        // Number input field (narrower, on the left)
-        let number_field_width: CGFloat = 80.0;
-        let dropdown_width: CGFloat = 100.0;
-        let spacing: CGFloat = 10.0;
-
-        let timer_value_field = NSTextField::new(mtm);
-        timer_value_field.setFrame(CGRect {
-            origin: CGPoint {
-                x: margin,
-                y: y_offset,
-            },
-            size: CGSize {
-                width: number_field_width,
-                height: field_height,
-            },
-        });
-        timer_value_field.setStringValue(&NSString::from_str(&timer_value));
-        timer_value_field.setPlaceholderString(Some(ns_string!("30")));
-        timer_value_field.setEnabled(config.default_timer.is_some());
-        if config.default_timer.is_none() {
-            timer_value_field.setTextColor(Some(&NSColor::disabledControlTextColor()));
-        }
-        // Set up delegate for real-time validation on text changes
-        let timer_field_delegate = unsafe {
-            let delegate_ptr = settings::TIMER_FIELD_DELEGATE.load(Ordering::SeqCst);
-            if delegate_ptr.is_null() {
-                let new_delegate = TimerFieldDelegate::new(mtm);
-                settings::TIMER_FIELD_DELEGATE.store(
-                    Retained::as_ptr(&new_delegate) as *mut c_void,
-                    Ordering::SeqCst,
-                );
-                std::mem::forget(new_delegate);
-                &*(settings::TIMER_FIELD_DELEGATE.load(Ordering::SeqCst)
-                    as *const TimerFieldDelegate)
-            } else {
-                &*(delegate_ptr as *const TimerFieldDelegate)
-            }
-        };
-        unsafe {
-            timer_value_field.setDelegate(Some(ProtocolObject::from_ref(timer_field_delegate)));
-        }
-        content_view.addSubview(&timer_value_field);
-        settings::TIMER_VALUE_FIELD.store(
-            Retained::as_ptr(&timer_value_field) as *mut c_void,
-            Ordering::SeqCst,
-        );
-        std::mem::forget(timer_value_field);
-
-        // Unit dropdown (to the right of the number field)
-        let timer_unit_dropdown = NSPopUpButton::new(mtm);
-        timer_unit_dropdown.setFrame(CGRect {
-            origin: CGPoint {
-                x: margin + number_field_width + spacing,
-                y: y_offset,
-            },
-            size: CGSize {
-                width: dropdown_width,
-                height: field_height,
-            },
-        });
-        timer_unit_dropdown.addItemWithTitle(ns_string!("Minutes"));
-        timer_unit_dropdown.addItemWithTitle(ns_string!("Hours"));
-        timer_unit_dropdown.addItemWithTitle(ns_string!("Seconds"));
-        timer_unit_dropdown.selectItemAtIndex(timer_unit_index);
-        timer_unit_dropdown.setEnabled(config.default_timer.is_some());
-        content_view.addSubview(&timer_unit_dropdown);
-        settings::TIMER_UNIT_DROPDOWN.store(
-            Retained::as_ptr(&timer_unit_dropdown) as *mut c_void,
-            Ordering::SeqCst,
-        );
-        std::mem::forget(timer_unit_dropdown);
-
-        y_offset -= label_height + 2.0;
-        let timer_validation = NSTextField::new(mtm);
-        timer_validation.setFrame(CGRect {
-            origin: CGPoint {
-                x: margin,
-                y: y_offset,
-            },
-            size: CGSize {
-                width: field_width,
-                height: label_height,
-            },
-        });
-        timer_validation.setEditable(false);
-        timer_validation.setSelectable(false);
-        timer_validation.setBordered(false);
-        timer_validation.setDrawsBackground(false);
-        timer_validation.setStringValue(ns_string!(""));
-        timer_validation.setFont(Some(&NSFont::systemFontOfSize(11.0)));
-        content_view.addSubview(&timer_validation);
-        settings::TIMER_VALIDATION.store(
-            Retained::as_ptr(&timer_validation) as *mut c_void,
-            Ordering::SeqCst,
-        );
-        std::mem::forget(timer_validation);
-
-        // ========================================
-        // Overlay Opacity Section
-        // ========================================
-        y_offset -= section_spacing;
-        y_offset -= label_height;
-        let opacity_label = create_label(
-            mtm,
-            "Overlay Opacity:",
-            CGRect {
-                origin: CGPoint {
-                    x: margin,
-                    y: y_offset,
-                },
-                size: CGSize {
-                    width: 120.0,
-                    height: label_height,
-                },
-            },
-            13.0,
-            &NSColor::labelColor(),
-            true,
-        );
-        content_view.addSubview(&opacity_label);
-
-        // Current percentage label (right side)
-        let percentage_label = NSTextField::new(mtm);
-        percentage_label.setFrame(CGRect {
-            origin: CGPoint {
-                x: window_width - margin - 50.0,
-                y: y_offset,
-            },
-            size: CGSize {
-                width: 50.0,
-                height: label_height,
-            },
-        });
-        percentage_label.setEditable(false);
-        percentage_label.setSelectable(false);
-        percentage_label.setBordered(false);
-        percentage_label.setDrawsBackground(false);
-        percentage_label.setAlignment(NSTextAlignment::Right);
-        let current_opacity = config.opacity();
-        percentage_label.setStringValue(&NSString::from_str(&format!(
-            "{}%",
-            (current_opacity * 100.0) as i32
-        )));
-        percentage_label.setFont(Some(&NSFont::boldSystemFontOfSize(13.0)));
-        content_view.addSubview(&percentage_label);
-        settings::OPACITY_LABEL.store(
-            Retained::as_ptr(&percentage_label) as *mut c_void,
-            Ordering::SeqCst,
-        );
-        std::mem::forget(percentage_label);
-
-        y_offset -= field_height + row_spacing;
-
-        // Slider with min/max labels
-        let slider_margin = 35.0;
-        let slider_width = field_width - (slider_margin * 2.0);
-
-        // Min label (20%)
-        let min_label = create_label(
-            mtm,
-            "20%",
-            CGRect {
-                origin: CGPoint {
-                    x: margin,
-                    y: y_offset,
-                },
-                size: CGSize {
-                    width: 30.0,
-                    height: field_height,
-                },
-            },
-            11.0,
-            &NSColor::secondaryLabelColor(),
-            false,
-        );
-        content_view.addSubview(&min_label);
-
-        // Max label (80%)
-        let max_label = create_label(
-            mtm,
-            "80%",
-            CGRect {
-                origin: CGPoint {
-                    x: window_width - margin - 30.0,
-                    y: y_offset,
-                },
-                size: CGSize {
-                    width: 30.0,
-                    height: field_height,
-                },
-            },
-            11.0,
-            &NSColor::secondaryLabelColor(),
-            false,
-        );
-        max_label.setAlignment(NSTextAlignment::Right);
-        content_view.addSubview(&max_label);
-
-        // Opacity slider
-        let opacity_slider = {
-            let slider = NSSlider::new(mtm);
-            slider.setFrame(CGRect {
-                origin: CGPoint {
-                    x: margin + slider_margin,
-                    y: y_offset,
-                },
-                size: CGSize {
-                    width: slider_width,
-                    height: field_height,
-                },
-            });
-            slider.setMinValue(MIN_OVERLAY_OPACITY);
-            slider.setMaxValue(MAX_OVERLAY_OPACITY);
-            slider.setDoubleValue(current_opacity);
-            unsafe {
-                slider.setTarget(Some(handler));
-                slider.setAction(Some(objc2::sel!(opacityChanged:)));
-            }
-            slider
-        };
-        content_view.addSubview(&opacity_slider);
-        settings::OPACITY_SLIDER.store(
-            Retained::as_ptr(&opacity_slider) as *mut c_void,
-            Ordering::SeqCst,
-        );
-        std::mem::forget(opacity_slider);
-
-        // ========================================
-        // Buttons Section
-        // ========================================
-        let button_height: CGFloat = 28.0;
-        let button_width: CGFloat = 80.0;
-        let reset_button_width: CGFloat = 120.0;
-        let button_spacing: CGFloat = 12.0;
-        let button_y: CGFloat = margin;
-
-        // Reset to Default button (left side)
-        let reset_button = unsafe {
-            let button = NSButton::buttonWithTitle_target_action(
-                ns_string!("Reset to Default"),
-                Some(handler),
-                Some(objc2::sel!(resetDefaults:)),
-                mtm,
-            );
-            button.setFrame(CGRect {
-                origin: CGPoint {
-                    x: margin,
-                    y: button_y,
-                },
-                size: CGSize {
-                    width: reset_button_width,
-                    height: button_height,
-                },
-            });
-            button.setButtonType(NSButtonType::MomentaryPushIn);
-            button
-        };
-        content_view.addSubview(&reset_button);
-        std::mem::forget(reset_button);
-
-        // Cancel button (right side, before Save)
-        let cancel_button = unsafe {
-            let button = NSButton::buttonWithTitle_target_action(
-                ns_string!("Cancel"),
-                Some(handler),
-                Some(objc2::sel!(cancelSettings:)),
-                mtm,
-            );
-            button.setFrame(CGRect {
-                origin: CGPoint {
-                    x: window_width - margin - button_width - button_spacing - button_width,
-                    y: button_y,
-                },
-                size: CGSize {
-                    width: button_width,
-                    height: button_height,
-                },
-            });
-            button.setButtonType(NSButtonType::MomentaryPushIn);
-            button.setKeyEquivalent(ns_string!("\u{1b}")); // Escape key
-            button
-        };
-        content_view.addSubview(&cancel_button);
-        std::mem::forget(cancel_button);
-
-        // Save button (right)
-        let save_button = unsafe {
-            let button = NSButton::buttonWithTitle_target_action(
-                ns_string!("Save"),
-                Some(handler),
-                Some(objc2::sel!(saveSettings:)),
-                mtm,
-            );
-            button.setFrame(CGRect {
-                origin: CGPoint {
-                    x: window_width - margin - button_width,
-                    y: button_y,
-                },
-                size: CGSize {
-                    width: button_width,
-                    height: button_height,
-                },
-            });
-            button.setButtonType(NSButtonType::MomentaryPushIn);
-            button.setKeyEquivalent(ns_string!("\r")); // Return key
-            button
-        };
-        content_view.addSubview(&save_button);
-        std::mem::forget(save_button);
+    let timer_value_field = NSTextField::new(mtm);
+    timer_value_field.setFrame(CGRect {
+        origin: CGPoint {
+            x: MARGIN,
+            y: y_offset,
+        },
+        size: CGSize {
+            width: number_field_width,
+            height: FIELD_HEIGHT,
+        },
+    });
+    timer_value_field.setStringValue(&NSString::from_str(&timer_value));
+    timer_value_field.setPlaceholderString(Some(ns_string!("30")));
+    timer_value_field.setEnabled(config.default_timer.is_some());
+    if config.default_timer.is_none() {
+        timer_value_field.setTextColor(Some(&NSColor::disabledControlTextColor()));
     }
 
+    // Set up delegate for real-time validation
+    let timer_field_delegate = get_or_create_timer_field_delegate(mtm);
+    unsafe {
+        timer_value_field.setDelegate(Some(ProtocolObject::from_ref(timer_field_delegate)));
+    }
+    content_view.addSubview(&timer_value_field);
+    settings::TIMER_VALUE_FIELD.store(
+        Retained::as_ptr(&timer_value_field) as *mut c_void,
+        Ordering::SeqCst,
+    );
+    std::mem::forget(timer_value_field);
+
+    // Unit dropdown (to the right of the number field)
+    let timer_unit_dropdown = NSPopUpButton::new(mtm);
+    timer_unit_dropdown.setFrame(CGRect {
+        origin: CGPoint {
+            x: MARGIN + number_field_width + spacing,
+            y: y_offset,
+        },
+        size: CGSize {
+            width: dropdown_width,
+            height: FIELD_HEIGHT,
+        },
+    });
+    timer_unit_dropdown.addItemWithTitle(ns_string!("Minutes"));
+    timer_unit_dropdown.addItemWithTitle(ns_string!("Hours"));
+    timer_unit_dropdown.addItemWithTitle(ns_string!("Seconds"));
+    timer_unit_dropdown.selectItemAtIndex(timer_unit_index);
+    timer_unit_dropdown.setEnabled(config.default_timer.is_some());
+    content_view.addSubview(&timer_unit_dropdown);
+    settings::TIMER_UNIT_DROPDOWN.store(
+        Retained::as_ptr(&timer_unit_dropdown) as *mut c_void,
+        Ordering::SeqCst,
+    );
+    std::mem::forget(timer_unit_dropdown);
+
+    // Validation label
+    y_offset -= LABEL_HEIGHT + 2.0;
+    let timer_validation = NSTextField::new(mtm);
+    timer_validation.setFrame(CGRect {
+        origin: CGPoint {
+            x: MARGIN,
+            y: y_offset,
+        },
+        size: CGSize {
+            width: field_width,
+            height: LABEL_HEIGHT,
+        },
+    });
+    timer_validation.setEditable(false);
+    timer_validation.setSelectable(false);
+    timer_validation.setBordered(false);
+    timer_validation.setDrawsBackground(false);
+    timer_validation.setStringValue(ns_string!(""));
+    timer_validation.setFont(Some(&NSFont::systemFontOfSize(11.0)));
+    content_view.addSubview(&timer_validation);
+    settings::TIMER_VALIDATION.store(
+        Retained::as_ptr(&timer_validation) as *mut c_void,
+        Ordering::SeqCst,
+    );
+    std::mem::forget(timer_validation);
+
+    y_offset
+}
+
+/// Set up the Opacity section in the settings window
+/// Returns the new y_offset after adding this section
+fn setup_opacity_section(
+    mtm: MainThreadMarker,
+    content_view: &objc2_app_kit::NSView,
+    config: &crate::config::Config,
+    handler: &SettingsActionHandler,
+    mut y_offset: CGFloat,
+) -> CGFloat {
+    let field_width = WINDOW_WIDTH - (MARGIN * 2.0);
+
+    // Section spacing and label
+    y_offset -= SECTION_SPACING;
+    y_offset -= LABEL_HEIGHT;
+    let opacity_label = create_label(
+        mtm,
+        "Overlay Opacity:",
+        CGRect {
+            origin: CGPoint {
+                x: MARGIN,
+                y: y_offset,
+            },
+            size: CGSize {
+                width: 120.0,
+                height: LABEL_HEIGHT,
+            },
+        },
+        13.0,
+        &NSColor::labelColor(),
+        true,
+    );
+    content_view.addSubview(&opacity_label);
+
+    // Current percentage label (right side)
+    let percentage_label = NSTextField::new(mtm);
+    percentage_label.setFrame(CGRect {
+        origin: CGPoint {
+            x: WINDOW_WIDTH - MARGIN - 50.0,
+            y: y_offset,
+        },
+        size: CGSize {
+            width: 50.0,
+            height: LABEL_HEIGHT,
+        },
+    });
+    percentage_label.setEditable(false);
+    percentage_label.setSelectable(false);
+    percentage_label.setBordered(false);
+    percentage_label.setDrawsBackground(false);
+    percentage_label.setAlignment(NSTextAlignment::Right);
+    let current_opacity = config.opacity();
+    percentage_label.setStringValue(&NSString::from_str(&format!(
+        "{}%",
+        (current_opacity * 100.0) as i32
+    )));
+    percentage_label.setFont(Some(&NSFont::boldSystemFontOfSize(13.0)));
+    content_view.addSubview(&percentage_label);
+    settings::OPACITY_LABEL.store(
+        Retained::as_ptr(&percentage_label) as *mut c_void,
+        Ordering::SeqCst,
+    );
+    std::mem::forget(percentage_label);
+
+    // Slider row
+    y_offset -= FIELD_HEIGHT + ROW_SPACING;
+
+    // Slider with min/max labels
+    let slider_margin = 35.0;
+    let slider_width = field_width - (slider_margin * 2.0);
+
+    // Min label (20%)
+    let min_label = create_label(
+        mtm,
+        "20%",
+        CGRect {
+            origin: CGPoint {
+                x: MARGIN,
+                y: y_offset,
+            },
+            size: CGSize {
+                width: 30.0,
+                height: FIELD_HEIGHT,
+            },
+        },
+        11.0,
+        &NSColor::secondaryLabelColor(),
+        false,
+    );
+    content_view.addSubview(&min_label);
+
+    // Max label (80%)
+    let max_label = create_label(
+        mtm,
+        "80%",
+        CGRect {
+            origin: CGPoint {
+                x: WINDOW_WIDTH - MARGIN - 30.0,
+                y: y_offset,
+            },
+            size: CGSize {
+                width: 30.0,
+                height: FIELD_HEIGHT,
+            },
+        },
+        11.0,
+        &NSColor::secondaryLabelColor(),
+        false,
+    );
+    max_label.setAlignment(NSTextAlignment::Right);
+    content_view.addSubview(&max_label);
+
+    // Opacity slider
+    let opacity_slider = {
+        let slider = NSSlider::new(mtm);
+        slider.setFrame(CGRect {
+            origin: CGPoint {
+                x: MARGIN + slider_margin,
+                y: y_offset,
+            },
+            size: CGSize {
+                width: slider_width,
+                height: FIELD_HEIGHT,
+            },
+        });
+        slider.setMinValue(MIN_OVERLAY_OPACITY);
+        slider.setMaxValue(MAX_OVERLAY_OPACITY);
+        slider.setDoubleValue(current_opacity);
+        unsafe {
+            slider.setTarget(Some(handler));
+            slider.setAction(Some(objc2::sel!(opacityChanged:)));
+        }
+        slider
+    };
+    content_view.addSubview(&opacity_slider);
+    settings::OPACITY_SLIDER.store(
+        Retained::as_ptr(&opacity_slider) as *mut c_void,
+        Ordering::SeqCst,
+    );
+    std::mem::forget(opacity_slider);
+
+    y_offset
+}
+
+/// Set up the Buttons section at the bottom of the settings window
+fn setup_button_section(
+    mtm: MainThreadMarker,
+    content_view: &objc2_app_kit::NSView,
+    handler: &SettingsActionHandler,
+) {
+    let button_y: CGFloat = MARGIN;
+
+    // Reset to Default button (left side)
+    let reset_button = unsafe {
+        let button = NSButton::buttonWithTitle_target_action(
+            ns_string!("Reset to Default"),
+            Some(handler),
+            Some(objc2::sel!(resetDefaults:)),
+            mtm,
+        );
+        button.setFrame(CGRect {
+            origin: CGPoint {
+                x: MARGIN,
+                y: button_y,
+            },
+            size: CGSize {
+                width: RESET_BUTTON_WIDTH,
+                height: BUTTON_HEIGHT,
+            },
+        });
+        button.setButtonType(NSButtonType::MomentaryPushIn);
+        button
+    };
+    content_view.addSubview(&reset_button);
+    std::mem::forget(reset_button);
+
+    // Cancel button (right side, before Save)
+    let cancel_button = unsafe {
+        let button = NSButton::buttonWithTitle_target_action(
+            ns_string!("Cancel"),
+            Some(handler),
+            Some(objc2::sel!(cancelSettings:)),
+            mtm,
+        );
+        button.setFrame(CGRect {
+            origin: CGPoint {
+                x: WINDOW_WIDTH - MARGIN - BUTTON_WIDTH - BUTTON_SPACING - BUTTON_WIDTH,
+                y: button_y,
+            },
+            size: CGSize {
+                width: BUTTON_WIDTH,
+                height: BUTTON_HEIGHT,
+            },
+        });
+        button.setButtonType(NSButtonType::MomentaryPushIn);
+        button.setKeyEquivalent(ns_string!("\u{1b}")); // Escape key
+        button
+    };
+    content_view.addSubview(&cancel_button);
+    std::mem::forget(cancel_button);
+
+    // Save button (right)
+    let save_button = unsafe {
+        let button = NSButton::buttonWithTitle_target_action(
+            ns_string!("Save"),
+            Some(handler),
+            Some(objc2::sel!(saveSettings:)),
+            mtm,
+        );
+        button.setFrame(CGRect {
+            origin: CGPoint {
+                x: WINDOW_WIDTH - MARGIN - BUTTON_WIDTH,
+                y: button_y,
+            },
+            size: CGSize {
+                width: BUTTON_WIDTH,
+                height: BUTTON_HEIGHT,
+            },
+        });
+        button.setButtonType(NSButtonType::MomentaryPushIn);
+        button.setKeyEquivalent(ns_string!("\r")); // Return key
+        button
+    };
+    content_view.addSubview(&save_button);
+    std::mem::forget(save_button);
+}
+
+/// Finalize window setup and display it
+fn finalize_and_show_window(mtm: MainThreadMarker, panel: Retained<NSPanel>) {
     // Activate the application so the window can receive focus
     // This is needed because the app runs in accessory mode (no dock icon)
     let app = NSApplication::sharedApplication(mtm);
@@ -1229,6 +1296,46 @@ pub fn show_settings_window(mtm: MainThreadMarker) {
     std::mem::forget(panel);
 
     println!("  Settings window opened");
+}
+
+// ============================================================================
+// Main Entry Point
+// ============================================================================
+
+/// Show the settings window
+pub fn show_settings_window(mtm: MainThreadMarker) {
+    // Check if already open, disable menu item
+    if !prepare_settings_window() {
+        return;
+    }
+
+    // Create panel and set up delegates
+    let panel = create_settings_panel(mtm);
+    let delegate = get_or_create_window_delegate(mtm);
+    panel.setDelegate(Some(ProtocolObject::from_ref(delegate)));
+
+    // Store window reference
+    settings::WINDOW.store(Retained::as_ptr(&panel) as *mut c_void, Ordering::SeqCst);
+
+    // Get action handler
+    let handler = get_or_create_action_handler(mtm);
+
+    // Load current config
+    let config = get_current_config();
+
+    // Create content view with controls
+    if let Some(content_view) = panel.contentView() {
+        let mut y_offset = WINDOW_HEIGHT - MARGIN - 10.0;
+
+        // Set up each section
+        y_offset = setup_exit_key_section(mtm, &content_view, &config, y_offset);
+        y_offset = setup_timer_section(mtm, &content_view, &config, handler, y_offset);
+        let _ = setup_opacity_section(mtm, &content_view, &config, handler, y_offset);
+        setup_button_section(mtm, &content_view, handler);
+    }
+
+    // Show the window
+    finalize_and_show_window(mtm, panel);
 }
 
 #[cfg(test)]
