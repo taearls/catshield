@@ -275,6 +275,7 @@ Testing (can be done in parallel):
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #73 | feat: Reduce minimum auto-exit timer to 5 seconds | 2026-01-10 |
 | #53 | perf: Cache redundant atomic loads in timer callback | 2026-01-10 |
 | #57 | Docs: Add safety documentation to std::mem::forget and unsafe blocks | 2026-01-10 |
 | #56 | Refactor: Create pointer helper to reduce null-check duplication | 2026-01-10 |
@@ -296,7 +297,7 @@ Testing (can be done in parallel):
 | Status | Count | Issues |
 |--------|-------|--------|
 | Open | 4 | #54, #60, #64, #65 |
-| Closed | 32 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #55, #56, #57, #58, #59 |
+| Closed | 33 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #55, #56, #57, #58, #59, #73 |
 
 ### By Priority
 - 🔴 Critical: 0
@@ -378,6 +379,15 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-10
+- Completed Issue #73: Reduce minimum auto-exit timer to 5 seconds
+  - Updated `MIN_TIMER_SECONDS` constant from 60 to 5 in `src/timer/mod.rs`
+  - Updated validation error message to say "at least 5 seconds" instead of "1 minute"
+  - Updated tests: `30s` (now valid), added `test_parse_duration_minimum_boundary` for edge cases
+  - CLI now accepts `--timer 5s` (5 seconds minimum) and rejects `--timer 4s`
+  - Settings window validation automatically uses the new minimum (uses `parse_duration`)
+  - All 111 tests pass, clippy clean, build successful
+  - Updated issue counts: 4 open, 33 closed
+
 - Completed Issue #53: Cache redundant atomic loads in timer callback
   - Cached `MODE_MENU_BAR` load at the start of `timer_callback` (was loaded twice: lines 61 and 87)
   - Cached view pointer loads (`CLOSE_BUTTON`, `CLOSE_BUTTON_LABEL`, `TIMER_VIEW`) upfront

@@ -61,7 +61,7 @@ pub fn parse_duration(s: &str) -> Result<u64, String> {
 
     if total_seconds < MIN_TIMER_SECONDS {
         return Err(format!(
-            "Duration must be at least {} seconds (1 minute)",
+            "Duration must be at least {} seconds",
             MIN_TIMER_SECONDS
         ));
     }
@@ -145,7 +145,17 @@ mod tests {
         assert!(parse_duration("0m").is_err());
         assert!(parse_duration("abc").is_err());
         assert!(parse_duration("30x").is_err());
-        assert!(parse_duration("30s").is_err()); // Less than 1 minute
+        assert!(parse_duration("4s").is_err()); // Less than 5 seconds minimum
         assert!(parse_duration("25h").is_err()); // More than 24 hours
+    }
+
+    #[test]
+    fn test_parse_duration_minimum_boundary() {
+        // 5 seconds is the minimum - should succeed
+        assert_eq!(parse_duration("5s").unwrap(), 5);
+        // 4 seconds is below minimum - should fail
+        assert!(parse_duration("4s").is_err());
+        // 6 seconds is above minimum - should succeed
+        assert_eq!(parse_duration("6s").unwrap(), 6);
     }
 }
