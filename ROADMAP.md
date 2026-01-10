@@ -256,11 +256,20 @@ Testing (can be done in parallel):
     #60: UI State & Validation Tests
 ```
 
-### Other Open Issues
+### Phase 6: Enhanced Input Control
 
-| Priority | Issue | Title | Effort |
-|----------|-------|-------|--------|
-| 🔵 Low | #28 | Migrate from raw objc2 bindings to Cacao library | ~1-2 weeks |
+**Summary**: Allow users more granular control over which keys are blocked during shield activation.
+
+| Priority | Issue | Title | Dependencies | Effort |
+|----------|-------|-------|--------------|--------|
+| 🟢 Medium | #64 | Add configurable key allowlist to pass specific keys through the shield | None | ~2-3 days |
+| 🔵 Low | #65 | Add preset groups for key allowlist (Media Keys, System Shortcuts) | #64 | ~0.5 day |
+
+**Implementation Order:**
+```text
+#64: Key Allowlist Feature
+    └── #65: Preset Groups (depends on #64)
+```
 
 ### Recently Completed
 
@@ -281,14 +290,14 @@ Testing (can be done in parallel):
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 8 | #28, #52, #53, #54, #55, #56, #57, #60 |
-| Closed | 26 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #30, #31, #35, #38, #42, #44, #46, #48, #49, #58, #59 |
+| Open | 9 | #52, #53, #54, #55, #56, #57, #60, #64, #65 |
+| Closed | 27 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #58, #59 |
 
 ### By Priority
 - 🔴 Critical: 0
 - 🟡 High: 1 (#55)
-- 🟢 Medium: 5 (#52, #53, #56, #57, #60)
-- 🔵 Low: 2 (#28, #54)
+- 🟢 Medium: 6 (#52, #53, #56, #57, #60, #64)
+- 🔵 Low: 2 (#54, #65)
 
 ## Recommended Implementation Order
 
@@ -320,8 +329,9 @@ Testing (can be done in parallel):
 **Lower Priority:**
 9. **#54** - Cache formatted duration string
 
-### Future
-10. **#28** - Migrate to Cacao library (major refactor, low priority)
+### Phase 6: Enhanced Input Control
+10. **#64** - Add configurable key allowlist (new feature, medium priority)
+11. **#65** - Add preset groups for key allowlist (depends on #64, low priority)
 
 ## Critical Path
 
@@ -346,7 +356,8 @@ Maintenance:    #55 (Settings Refactor) ─┬── Independent
                 #56 (Pointer Helper) ────┤
                 #57 (Safety Docs) ───────┘
 
-Future:         #28 (Cacao Migration) - Low priority, major refactor
+Phase 6 (NEXT):
+Input Control:  #64 (Key Allowlist) ─── #65 (Preset Groups)
 ```
 
 ## Future Considerations
@@ -360,6 +371,24 @@ Potential future enhancements (not yet tracked as issues):
 - Custom overlay themes
 
 ## Changelog
+
+### 2026-01-10
+- Created Issue #64: Add configurable key allowlist to pass specific keys through the shield
+  - New feature allowing users to specify keys/key combinations that won't be blocked
+  - Supports same format as exit key (e.g., `Cmd+Space`, `F11`, `Ctrl+Option+A`)
+  - Enables media controls, Spotlight, and other global shortcuts while shield is active
+  - Config file format: `allowed_keys = ["Cmd+Space", "F11", "F12"]`
+  - Settings UI with list management (add/remove keys with validation)
+  - Priority: 🟢 Medium, Effort: ~2-3 days
+- Created Issue #65: Add preset groups for key allowlist (Media Keys, System Shortcuts)
+  - Follow-up to #64 for improved UX with one-click preset buttons
+  - Presets: Media Keys (F10-F12), Spotlight (Cmd+Space), Mission Control, Screenshots
+  - Depends on #64 (Key Allowlist feature)
+  - Priority: 🔵 Low, Effort: ~0.5 day
+- Added Phase 6: Enhanced Input Control section to roadmap
+- Updated issue counts: 9 open (+1), 27 closed (+1)
+- Updated priority counts: 6 Medium (+1), 2 Low
+- Removed #28 from open issues (was closed)
 
 ### 2026-01-09
 - Completed Issue #59: Add unit tests for timer state module
