@@ -9,6 +9,7 @@ use crate::shield_core::{
     setup_close_button,
 };
 use crate::timer::{AUTO_EXIT_ENABLED, WARNING_SHOWN};
+use crate::ui::ptr_helper::with_ptr_void;
 use crate::ui::state::{menu_bar, shield, IS_MOUSE_INSIDE, MOUSE_DOWN_TIME};
 use crate::ui::views::{CloseButtonLabelView, CloseButtonView};
 use objc2::rc::Retained;
@@ -90,25 +91,19 @@ pub unsafe extern "C" fn timer_callback(_timer: *mut c_void, _info: *mut c_void)
     }
 
     // Trigger redraw of close button
-    let view_ptr = shield::CLOSE_BUTTON.load(Ordering::Acquire);
-    if !view_ptr.is_null() {
-        let view: &NSView = &*(view_ptr as *const NSView);
+    with_ptr_void::<NSView, _>(&shield::CLOSE_BUTTON, |view| {
         view.setNeedsDisplay(true);
-    }
+    });
 
     // Trigger redraw of close button label (for countdown during hold)
-    let label_view_ptr = shield::CLOSE_BUTTON_LABEL.load(Ordering::Acquire);
-    if !label_view_ptr.is_null() {
-        let view: &NSView = &*(label_view_ptr as *const NSView);
+    with_ptr_void::<NSView, _>(&shield::CLOSE_BUTTON_LABEL, |view| {
         view.setNeedsDisplay(true);
-    }
+    });
 
     // Trigger redraw of timer display
-    let timer_view_ptr = shield::TIMER_VIEW.load(Ordering::Acquire);
-    if !timer_view_ptr.is_null() {
-        let view: &NSView = &*(timer_view_ptr as *const NSView);
+    with_ptr_void::<NSView, _>(&shield::TIMER_VIEW, |view| {
         view.setNeedsDisplay(true);
-    }
+    });
 }
 
 /// Start the animation timer for the close button
@@ -231,12 +226,10 @@ pub fn deactivate_shield() {
     IS_MOUSE_INSIDE.with(|inside| inside.set(false));
 
     // Re-enable the "Start Protection" menu item
-    let menu_item_ptr = menu_bar::START_ITEM.load(Ordering::Acquire);
-    if !menu_item_ptr.is_null() {
-        unsafe {
-            let menu_item: &NSMenuItem = &*(menu_item_ptr as *const NSMenuItem);
+    unsafe {
+        with_ptr_void::<NSMenuItem, _>(&menu_bar::START_ITEM, |menu_item| {
             menu_item.setEnabled(true);
-        }
+        });
     }
 
     println!();
@@ -258,12 +251,10 @@ pub fn activate_shield(mtm: MainThreadMarker) {
     }
 
     // Disable the "Start Protection" menu item while shield is active
-    let menu_item_ptr = menu_bar::START_ITEM.load(Ordering::Acquire);
-    if !menu_item_ptr.is_null() {
-        unsafe {
-            let menu_item: &NSMenuItem = &*(menu_item_ptr as *const NSMenuItem);
+    unsafe {
+        with_ptr_void::<NSMenuItem, _>(&menu_bar::START_ITEM, |menu_item| {
             menu_item.setEnabled(false);
-        }
+        });
     }
 
     // Get the exit key configuration
@@ -283,11 +274,10 @@ pub fn activate_shield(mtm: MainThreadMarker) {
             eprintln!("  ✗ Failed to get main screen");
             shield::IS_ACTIVE.store(false, Ordering::Release);
             // Re-enable menu item
-            if !menu_item_ptr.is_null() {
-                unsafe {
-                    let menu_item: &NSMenuItem = &*(menu_item_ptr as *const NSMenuItem);
+            unsafe {
+                with_ptr_void::<NSMenuItem, _>(&menu_bar::START_ITEM, |menu_item| {
                     menu_item.setEnabled(true);
-                }
+                });
             }
             return;
         }

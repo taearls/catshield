@@ -7,6 +7,7 @@ use crate::config::{
 use crate::input::{set_exit_key, ExitKey, DEFAULT_EXIT_KEY};
 use crate::timer::{parse_duration, parse_timer_value_and_unit};
 use crate::ui::helpers::create_label;
+use crate::ui::ptr_helper::{with_ptr, with_ptr_void, with_raw_ptr};
 use crate::ui::state::{menu_bar, settings};
 use objc2::rc::Retained;
 use objc2::runtime::ProtocolObject;
@@ -22,7 +23,7 @@ use objc2_foundation::{
     ns_string, MainThreadMarker, NSNotification, NSObject, NSObjectProtocol, NSString,
 };
 use std::ffi::c_void;
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicPtr, Ordering};
 
 /// Empty ivars for the SettingsActionHandler
 pub struct SettingsActionHandlerIvars {}
@@ -53,14 +54,12 @@ define_class!(
         /// Called when text changes in the control (real-time, on every keystroke)
         #[unsafe(method(controlTextDidChange:))]
         fn control_text_did_change(&self, _notification: &NSNotification) {
-            // Read the current value from the exit key field
-            let field_ptr = settings::EXIT_KEY_FIELD.load(Ordering::Acquire);
-            if !field_ptr.is_null() {
-                unsafe {
-                    let field: &NSTextField = &*(field_ptr as *const NSTextField);
+            // Read the current value from the exit key field and validate
+            unsafe {
+                with_ptr_void::<NSTextField, _>(&settings::EXIT_KEY_FIELD, |field| {
                     let value = field.stringValue().to_string();
                     validate_exit_key_realtime(&value);
-                }
+                });
             }
         }
     }
@@ -92,24 +91,22 @@ define_class!(
         #[unsafe(method(controlTextDidChange:))]
         fn control_text_did_change(&self, _notification: &NSNotification) {
             // Only validate if the timer checkbox is enabled
-            let checkbox_ptr = settings::TIMER_CHECKBOX.load(Ordering::Acquire);
-            if !checkbox_ptr.is_null() {
-                unsafe {
-                    let checkbox: &NSButton = &*(checkbox_ptr as *const NSButton);
-                    if checkbox.state() != NSControlStateValueOn {
-                        return; // Don't validate when checkbox is unchecked
-                    }
-                }
+            let should_validate = unsafe {
+                with_ptr::<NSButton, _, _>(&settings::TIMER_CHECKBOX, |checkbox| {
+                    checkbox.state() == NSControlStateValueOn
+                })
+            };
+
+            if should_validate != Some(true) {
+                return; // Don't validate when checkbox is unchecked or not found
             }
 
-            // Read the current value from the timer field
-            let field_ptr = settings::TIMER_VALUE_FIELD.load(Ordering::Acquire);
-            if !field_ptr.is_null() {
-                unsafe {
-                    let field: &NSTextField = &*(field_ptr as *const NSTextField);
+            // Read the current value from the timer field and validate
+            unsafe {
+                with_ptr_void::<NSTextField, _>(&settings::TIMER_VALUE_FIELD, |field| {
                     let value = field.stringValue().to_string();
                     validate_timer_realtime(&value);
-                }
+                });
             }
         }
     }
@@ -213,44 +210,43 @@ impl SettingsActionHandler {
 
 /// Update the opacity percentage label
 fn update_opacity_label(value: f64) {
-    let label_ptr = settings::OPACITY_LABEL.load(Ordering::Acquire);
-    if !label_ptr.is_null() {
-        unsafe {
-            let label: &NSTextField = &*(label_ptr as *const NSTextField);
+    unsafe {
+        with_ptr_void::<NSTextField, _>(&settings::OPACITY_LABEL, |label| {
             let percentage = (value * 100.0) as i32;
             label.setStringValue(&NSString::from_str(&format!("{}%", percentage)));
-        }
+        });
     }
 }
 
 /// Update the timer field and dropdown enabled state based on checkbox
 fn update_timer_field_enabled(enabled: bool) {
     // Update number field
-    let field_ptr = settings::TIMER_VALUE_FIELD.load(Ordering::Acquire);
-    if !field_ptr.is_null() {
-        unsafe {
-            let field: &NSTextField = &*(field_ptr as *const NSTextField);
+    unsafe {
+        with_ptr_void::<NSTextField, _>(&settings::TIMER_VALUE_FIELD, |field| {
             field.setEnabled(enabled);
             if enabled {
                 field.setTextColor(Some(&NSColor::labelColor()));
             } else {
                 field.setTextColor(Some(&NSColor::disabledControlTextColor()));
             }
-        }
+        });
     }
 
     // Update unit dropdown
-    let dropdown_ptr = settings::TIMER_UNIT_DROPDOWN.load(Ordering::Acquire);
-    if !dropdown_ptr.is_null() {
-        unsafe {
-            let dropdown: &NSPopUpButton = &*(dropdown_ptr as *const NSPopUpButton);
+    unsafe {
+        with_ptr_void::<NSPopUpButton, _>(&settings::TIMER_UNIT_DROPDOWN, |dropdown| {
             dropdown.setEnabled(enabled);
-        }
+        });
     }
 
     // Clear validation label when checkbox is unchecked (disabled state)
     if !enabled {
-        update_validation_label(settings::TIMER_VALIDATION.load(Ordering::Acquire), true, "");
+        unsafe {
+            with_ptr_void::<NSTextField, _>(&settings::TIMER_VALIDATION, |label| {
+                label.setStringValue(&NSString::from_str(""));
+                label.setTextColor(Some(&NSColor::systemGreenColor()));
+            });
+        }
     }
 }
 
@@ -258,56 +254,43 @@ fn update_timer_field_enabled(enabled: bool) {
 /// Does NOT auto-save; user must click Save to persist
 fn reset_settings_to_defaults() {
     // Reset Exit Key field to default
-    let exit_key_ptr = settings::EXIT_KEY_FIELD.load(Ordering::Acquire);
-    if !exit_key_ptr.is_null() {
-        unsafe {
-            let field: &NSTextField = &*(exit_key_ptr as *const NSTextField);
+    unsafe {
+        with_ptr_void::<NSTextField, _>(&settings::EXIT_KEY_FIELD, |field| {
             field.setStringValue(&NSString::from_str(DEFAULT_EXIT_KEY));
-        }
-        // Update validation label
-        validate_exit_key_realtime(DEFAULT_EXIT_KEY);
+        });
     }
+    // Update validation label
+    validate_exit_key_realtime(DEFAULT_EXIT_KEY);
 
     // Reset Timer checkbox to disabled (unchecked)
-    let timer_checkbox_ptr = settings::TIMER_CHECKBOX.load(Ordering::Acquire);
-    if !timer_checkbox_ptr.is_null() {
-        unsafe {
-            let checkbox: &NSButton = &*(timer_checkbox_ptr as *const NSButton);
+    unsafe {
+        with_ptr_void::<NSButton, _>(&settings::TIMER_CHECKBOX, |checkbox| {
             checkbox.setState(NSControlStateValueOff);
-        }
+        });
     }
 
     // Reset Timer value field to empty
-    let timer_value_ptr = settings::TIMER_VALUE_FIELD.load(Ordering::Acquire);
-    if !timer_value_ptr.is_null() {
-        unsafe {
-            let field: &NSTextField = &*(timer_value_ptr as *const NSTextField);
+    unsafe {
+        with_ptr_void::<NSTextField, _>(&settings::TIMER_VALUE_FIELD, |field| {
             field.setStringValue(ns_string!(""));
-        }
+        });
     }
 
     // Reset Timer unit dropdown to Minutes (index 0)
-    let timer_unit_ptr = settings::TIMER_UNIT_DROPDOWN.load(Ordering::Acquire);
-    if !timer_unit_ptr.is_null() {
-        unsafe {
-            let dropdown: &NSPopUpButton = &*(timer_unit_ptr as *const NSPopUpButton);
+    unsafe {
+        with_ptr_void::<NSPopUpButton, _>(&settings::TIMER_UNIT_DROPDOWN, |dropdown| {
             dropdown.selectItemAtIndex(0);
-        }
+        });
     }
 
     // Update timer field enabled state (disabled since checkbox is unchecked)
     update_timer_field_enabled(false);
 
-    // Clear timer validation label
-    update_validation_label(settings::TIMER_VALIDATION.load(Ordering::Acquire), true, "");
-
     // Reset Opacity slider to 50% (0.5)
-    let opacity_ptr = settings::OPACITY_SLIDER.load(Ordering::Acquire);
-    if !opacity_ptr.is_null() {
-        unsafe {
-            let slider: &NSSlider = &*(opacity_ptr as *const NSSlider);
+    unsafe {
+        with_ptr_void::<NSSlider, _>(&settings::OPACITY_SLIDER, |slider| {
             slider.setDoubleValue(DEFAULT_OVERLAY_OPACITY);
-        }
+        });
     }
 
     // Update opacity label to 50%
@@ -333,12 +316,10 @@ fn cleanup_settings_window_references() {
     settings::TIMER_VALIDATION.store(std::ptr::null_mut(), Ordering::Release);
 
     // Re-enable the settings menu item
-    let menu_item_ptr = menu_bar::SETTINGS_ITEM.load(Ordering::Acquire);
-    if !menu_item_ptr.is_null() {
-        unsafe {
-            let menu_item: &NSMenuItem = &*(menu_item_ptr as *const NSMenuItem);
+    unsafe {
+        with_ptr_void::<NSMenuItem, _>(&menu_bar::SETTINGS_ITEM, |menu_item| {
             menu_item.setEnabled(true);
-        }
+        });
     }
 
     println!("  Settings window closed");
@@ -346,14 +327,12 @@ fn cleanup_settings_window_references() {
 
 /// Close the settings window (called by Cancel/Save buttons)
 fn close_settings_window() {
-    let window_ptr = settings::WINDOW.load(Ordering::Acquire);
-    if !window_ptr.is_null() {
-        unsafe {
-            let window: &NSPanel = &*(window_ptr as *const NSPanel);
+    unsafe {
+        with_ptr_void::<NSPanel, _>(&settings::WINDOW, |window| {
             window.close();
-        }
-        // Note: cleanup_settings_window_references() will be called by the window delegate
+        });
     }
+    // Note: cleanup_settings_window_references() will be called by the window delegate
 }
 
 /// Save settings from the window to config file
@@ -362,12 +341,11 @@ fn save_settings_from_window() {
     let mut has_errors = false;
 
     // Get exit key value and validate
-    let exit_key_ptr = settings::EXIT_KEY_FIELD.load(Ordering::Acquire);
-    if !exit_key_ptr.is_null() {
-        let value = unsafe {
-            let field: &NSTextField = &*(exit_key_ptr as *const NSTextField);
+    if let Some(value) = unsafe {
+        with_ptr::<NSTextField, _, _>(&settings::EXIT_KEY_FIELD, |field| {
             field.stringValue().to_string()
-        };
+        })
+    } {
         let result = validate_exit_key_input(&value);
         update_exit_key_validation_label(&result);
 
@@ -382,99 +360,87 @@ fn save_settings_from_window() {
     }
 
     // Get timer value and validate (if checkbox is checked)
-    let timer_checkbox_ptr = settings::TIMER_CHECKBOX.load(Ordering::Acquire);
-    let timer_value_ptr = settings::TIMER_VALUE_FIELD.load(Ordering::Acquire);
-    let timer_unit_ptr = settings::TIMER_UNIT_DROPDOWN.load(Ordering::Acquire);
-    if !timer_checkbox_ptr.is_null() && !timer_value_ptr.is_null() && !timer_unit_ptr.is_null() {
-        unsafe {
-            let checkbox: &NSButton = &*(timer_checkbox_ptr as *const NSButton);
-            let value_field: &NSTextField = &*(timer_value_ptr as *const NSTextField);
-            let unit_dropdown: &NSPopUpButton = &*(timer_unit_ptr as *const NSPopUpButton);
-            let is_enabled = checkbox.state() == NSControlStateValueOn;
+    // Read checkbox state
+    let is_timer_enabled = unsafe {
+        with_ptr::<NSButton, _, _>(&settings::TIMER_CHECKBOX, |checkbox| {
+            checkbox.state() == NSControlStateValueOn
+        })
+    };
+    // Read timer value
+    let timer_value = unsafe {
+        with_ptr::<NSTextField, _, _>(&settings::TIMER_VALUE_FIELD, |field| {
+            field.stringValue().to_string()
+        })
+    };
+    // Read unit dropdown index
+    let unit_index = unsafe {
+        with_ptr::<NSPopUpButton, _, _>(&settings::TIMER_UNIT_DROPDOWN, |dropdown| {
+            dropdown.indexOfSelectedItem()
+        })
+    };
 
-            if is_enabled {
-                let value_str = value_field.stringValue().to_string();
-                let trimmed = value_str.trim();
+    // Process timer settings if all fields are available
+    if let (Some(is_enabled), Some(value_str), Some(unit_idx)) =
+        (is_timer_enabled, timer_value, unit_index)
+    {
+        if is_enabled {
+            let trimmed = value_str.trim();
 
-                if !trimmed.is_empty() {
-                    // Parse the number
-                    match trimmed.parse::<u64>() {
-                        Ok(num) if num > 0 => {
-                            // Get the selected unit suffix
-                            let unit_index = unit_dropdown.indexOfSelectedItem();
-                            let unit_suffix = match unit_index {
-                                0 => "m", // Minutes
-                                1 => "h", // Hours
-                                2 => "s", // Seconds
-                                _ => "m", // Default to minutes
-                            };
+            if !trimmed.is_empty() {
+                // Parse the number
+                match trimmed.parse::<u64>() {
+                    Ok(num) if num > 0 => {
+                        // Get the selected unit suffix
+                        let unit_suffix = match unit_idx {
+                            0 => "m", // Minutes
+                            1 => "h", // Hours
+                            2 => "s", // Seconds
+                            _ => "m", // Default to minutes
+                        };
 
-                            // Construct the duration string
-                            let duration_str = format!("{}{}", num, unit_suffix);
+                        // Construct the duration string
+                        let duration_str = format!("{}{}", num, unit_suffix);
 
-                            // Validate using parse_duration
-                            match parse_duration(&duration_str) {
-                                Ok(_) => {
-                                    config.default_timer = Some(duration_str);
-                                    update_validation_label(
-                                        settings::TIMER_VALIDATION.load(Ordering::Acquire),
-                                        true,
-                                        "✓ Valid",
-                                    );
-                                }
-                                Err(e) => {
-                                    update_validation_label(
-                                        settings::TIMER_VALIDATION.load(Ordering::Acquire),
-                                        false,
-                                        &e,
-                                    );
-                                    has_errors = true;
-                                }
+                        // Validate using parse_duration
+                        match parse_duration(&duration_str) {
+                            Ok(_) => {
+                                config.default_timer = Some(duration_str);
+                                set_validation_label(&settings::TIMER_VALIDATION, true, "✓ Valid");
+                            }
+                            Err(e) => {
+                                set_validation_label(&settings::TIMER_VALIDATION, false, &e);
+                                has_errors = true;
                             }
                         }
-                        Ok(_) => {
-                            update_validation_label(
-                                settings::TIMER_VALIDATION.load(Ordering::Acquire),
-                                false,
-                                "Must be greater than 0",
-                            );
-                            has_errors = true;
-                        }
-                        Err(_) => {
-                            update_validation_label(
-                                settings::TIMER_VALIDATION.load(Ordering::Acquire),
-                                false,
-                                "Enter a number",
-                            );
-                            has_errors = true;
-                        }
                     }
-                } else {
-                    update_validation_label(
-                        settings::TIMER_VALIDATION.load(Ordering::Acquire),
-                        false,
-                        "Duration required",
-                    );
-                    has_errors = true;
+                    Ok(_) => {
+                        set_validation_label(
+                            &settings::TIMER_VALIDATION,
+                            false,
+                            "Must be greater than 0",
+                        );
+                        has_errors = true;
+                    }
+                    Err(_) => {
+                        set_validation_label(&settings::TIMER_VALIDATION, false, "Enter a number");
+                        has_errors = true;
+                    }
                 }
             } else {
-                config.default_timer = None;
-                update_validation_label(
-                    settings::TIMER_VALIDATION.load(Ordering::Acquire),
-                    true,
-                    "",
-                );
+                set_validation_label(&settings::TIMER_VALIDATION, false, "Duration required");
+                has_errors = true;
             }
+        } else {
+            config.default_timer = None;
+            set_validation_label(&settings::TIMER_VALIDATION, true, "");
         }
     }
 
     // Get opacity value
-    let opacity_ptr = settings::OPACITY_SLIDER.load(Ordering::Acquire);
-    if !opacity_ptr.is_null() {
-        unsafe {
-            let slider: &NSSlider = &*(opacity_ptr as *const NSSlider);
-            config.overlay_opacity = Some(slider.doubleValue());
-        }
+    if let Some(opacity) = unsafe {
+        with_ptr::<NSSlider, _, _>(&settings::OPACITY_SLIDER, |slider| slider.doubleValue())
+    } {
+        config.overlay_opacity = Some(opacity);
     }
 
     if has_errors {
@@ -504,18 +470,31 @@ fn save_settings_from_window() {
     }
 }
 
-/// Update a validation label with success or error state
+/// Update a validation label with success or error state (takes raw pointer)
 fn update_validation_label(label_ptr: *mut c_void, is_valid: bool, message: &str) {
-    if !label_ptr.is_null() {
-        unsafe {
-            let label: &NSTextField = &*(label_ptr as *const NSTextField);
+    unsafe {
+        with_raw_ptr::<NSTextField, _>(label_ptr, |label| {
             label.setStringValue(&NSString::from_str(message));
             if is_valid {
                 label.setTextColor(Some(&NSColor::systemGreenColor()));
             } else {
                 label.setTextColor(Some(&NSColor::systemRedColor()));
             }
-        }
+        });
+    }
+}
+
+/// Set a validation label with success or error state (takes AtomicPtr)
+fn set_validation_label(ptr: &AtomicPtr<c_void>, is_valid: bool, message: &str) {
+    unsafe {
+        with_ptr_void::<NSTextField, _>(ptr, |label| {
+            label.setStringValue(&NSString::from_str(message));
+            if is_valid {
+                label.setTextColor(Some(&NSColor::systemGreenColor()));
+            } else {
+                label.setTextColor(Some(&NSColor::systemRedColor()));
+            }
+        });
     }
 }
 
@@ -652,23 +631,21 @@ const BUTTON_SPACING: CGFloat = 12.0;
 /// Check if settings window is already open, bring to front if so
 /// Returns true if we should continue creating the window, false if already open
 fn prepare_settings_window() -> bool {
-    let existing = settings::WINDOW.load(Ordering::Acquire);
-    if !existing.is_null() {
-        // Bring existing window to front
-        unsafe {
-            let window: &NSPanel = &*(existing as *const NSPanel);
+    // Try to bring existing window to front
+    let window_exists = unsafe {
+        with_ptr::<NSPanel, _, _>(&settings::WINDOW, |window| {
             window.makeKeyAndOrderFront(None);
-        }
+        })
+    };
+    if window_exists.is_some() {
         return false;
     }
 
     // Disable the settings menu item while window is open
-    let menu_item_ptr = menu_bar::SETTINGS_ITEM.load(Ordering::Acquire);
-    if !menu_item_ptr.is_null() {
-        unsafe {
-            let menu_item: &NSMenuItem = &*(menu_item_ptr as *const NSMenuItem);
+    unsafe {
+        with_ptr_void::<NSMenuItem, _>(&menu_bar::SETTINGS_ITEM, |menu_item| {
             menu_item.setEnabled(false);
-        }
+        });
     }
 
     true

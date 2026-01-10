@@ -1,6 +1,7 @@
 //! About window for Cat Shield
 
 use crate::ui::helpers::create_label;
+use crate::ui::ptr_helper::{with_ptr, with_ptr_void};
 use crate::ui::state::{about, menu_bar};
 use objc2::rc::Retained;
 use objc2::runtime::ProtocolObject;
@@ -86,12 +87,10 @@ fn cleanup_about_window_references() {
     about::WINDOW.store(std::ptr::null_mut(), Ordering::Release);
 
     // Re-enable the about menu item
-    let menu_item_ptr = menu_bar::ABOUT_ITEM.load(Ordering::Acquire);
-    if !menu_item_ptr.is_null() {
-        unsafe {
-            let menu_item: &NSMenuItem = &*(menu_item_ptr as *const NSMenuItem);
+    unsafe {
+        with_ptr_void::<NSMenuItem, _>(&menu_bar::ABOUT_ITEM, |menu_item| {
             menu_item.setEnabled(true);
-        }
+        });
     }
 
     println!("  About window closed");
@@ -99,36 +98,31 @@ fn cleanup_about_window_references() {
 
 /// Close the about window (called by Close button)
 fn close_about_window() {
-    let window_ptr = about::WINDOW.load(Ordering::Acquire);
-    if !window_ptr.is_null() {
-        unsafe {
-            let window: &NSPanel = &*(window_ptr as *const NSPanel);
+    unsafe {
+        with_ptr_void::<NSPanel, _>(&about::WINDOW, |window| {
             window.close();
-        }
-        // Note: cleanup_about_window_references() will be called by the window delegate
+        });
     }
+    // Note: cleanup_about_window_references() will be called by the window delegate
 }
 
 /// Show the about window
 pub fn show_about_window(mtm: MainThreadMarker) {
-    // Check if about window is already open
-    let existing = about::WINDOW.load(Ordering::Acquire);
-    if !existing.is_null() {
-        // Bring existing window to front
-        unsafe {
-            let window: &NSPanel = &*(existing as *const NSPanel);
+    // Check if about window is already open, bring to front if so
+    let window_exists = unsafe {
+        with_ptr::<NSPanel, _, _>(&about::WINDOW, |window| {
             window.makeKeyAndOrderFront(None);
-        }
+        })
+    };
+    if window_exists.is_some() {
         return;
     }
 
     // Disable the about menu item while window is open
-    let menu_item_ptr = menu_bar::ABOUT_ITEM.load(Ordering::Acquire);
-    if !menu_item_ptr.is_null() {
-        unsafe {
-            let menu_item: &NSMenuItem = &*(menu_item_ptr as *const NSMenuItem);
+    unsafe {
+        with_ptr_void::<NSMenuItem, _>(&menu_bar::ABOUT_ITEM, |menu_item| {
             menu_item.setEnabled(false);
-        }
+        });
     }
 
     // Window dimensions

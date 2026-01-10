@@ -1,6 +1,7 @@
 //! Close button label view for the shield overlay
 
 use crate::ui::helpers::create_label;
+use crate::ui::ptr_helper::with_raw_ptr;
 use crate::ui::state::{
     calculate_hold_progress, close_button, shield, IS_MOUSE_INSIDE, MOUSE_DOWN_TIME,
 };
@@ -120,11 +121,12 @@ fn draw_close_button_label(view: &NSView) {
     } else {
         // Update existing label
         unsafe {
-            let label: &NSTextField = &*(label_ptr as *const NSTextField);
-            label.setStringValue(&NSString::from_str(&text));
-            label.setTextColor(Some(color));
-            let font = NSFont::systemFontOfSize(font_size);
-            label.setFont(Some(&font));
+            with_raw_ptr::<NSTextField, _>(label_ptr, |label| {
+                label.setStringValue(&NSString::from_str(&text));
+                label.setTextColor(Some(color));
+                let font = NSFont::systemFontOfSize(font_size);
+                label.setFont(Some(&font));
+            });
         }
     }
 }
