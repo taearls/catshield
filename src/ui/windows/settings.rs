@@ -575,7 +575,11 @@ fn validate_timer_realtime(value: &str) {
             set_validation_label(&settings::TIMER_VALIDATION, true, "");
         }
         TimerValidation::Negative => {
-            set_validation_label(&settings::TIMER_VALIDATION, false, "Must be a positive number");
+            set_validation_label(
+                &settings::TIMER_VALIDATION,
+                false,
+                "Must be a positive number",
+            );
         }
         TimerValidation::Zero => {
             set_validation_label(&settings::TIMER_VALIDATION, false, "Must be greater than 0");

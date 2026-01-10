@@ -279,8 +279,7 @@ mod tests {
     #[test]
     fn test_with_ptr_mut_non_null() {
         let mut value: u32 = 42;
-        let ptr: AtomicPtr<c_void> =
-            AtomicPtr::new(&mut value as *mut u32 as *mut c_void);
+        let ptr: AtomicPtr<c_void> = AtomicPtr::new(&mut value as *mut u32 as *mut c_void);
         let result = unsafe {
             with_ptr_mut::<u32, _, _>(&ptr, |v| {
                 *v = 100;
@@ -294,8 +293,7 @@ mod tests {
     #[test]
     fn test_with_ptr_mut_modifies_value() {
         let mut value: Vec<i32> = vec![1, 2, 3];
-        let ptr: AtomicPtr<c_void> =
-            AtomicPtr::new(&mut value as *mut Vec<i32> as *mut c_void);
+        let ptr: AtomicPtr<c_void> = AtomicPtr::new(&mut value as *mut Vec<i32> as *mut c_void);
         unsafe {
             with_ptr_mut::<Vec<i32>, _, _>(&ptr, |v| {
                 v.push(4);
