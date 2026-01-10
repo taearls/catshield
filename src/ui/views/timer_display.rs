@@ -1,7 +1,7 @@
 //! Timer display view for the shield overlay
 
 use crate::timer::{
-    format_duration, get_remaining_seconds, AUTO_EXIT_DURATION_SECS, WARNING_SECONDS,
+    format_duration_cached, get_remaining_seconds, AUTO_EXIT_DURATION_SECS, WARNING_SECONDS,
 };
 use crate::ui::helpers::create_label;
 use crate::ui::ptr_helper::with_raw_ptr;
@@ -77,8 +77,8 @@ fn draw_timer_display(view: &NSView) {
     bg_path.setLineWidth(2.0);
     bg_path.stroke();
 
-    // Format time string
-    let time_str = format_duration(remaining);
+    // Format time string (cached to avoid 59 redundant allocations per second)
+    let time_str = format_duration_cached(remaining);
 
     // Text colors
     let text_color = NSColor::colorWithRed_green_blue_alpha(1.0, 1.0, 1.0, 1.0);

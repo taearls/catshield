@@ -220,7 +220,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 |----------|-------|-------|--------|
 | ✅ Done | #52 | Optimize atomic orderings from SeqCst to appropriate weaker orderings | ~1 day |
 | ✅ Done | #53 | Cache redundant atomic loads in timer callback | ~2 hours |
-| 🔵 Low | #54 | Cache formatted duration string in timer display | ~2-3 hours |
+| ✅ Done | #54 | Cache formatted duration string in timer display | ~2-3 hours |
 
 #### Code Maintenance
 
@@ -244,7 +244,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 Performance (can be done in parallel):
     #52: Atomic Ordering Optimization ✅
     #53: Timer Callback Cache ✅
-    #54: Duration Format Cache
+    #54: Duration Format Cache ✅
 
 Code Quality (can be done in parallel):
     #55: Settings Window Refactor ✅
@@ -277,6 +277,7 @@ Testing (can be done in parallel):
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #54 | perf: Cache formatted duration string in timer display | 2026-01-10 |
 | #60 | test: Expand UI state and settings validation tests | 2026-01-10 |
 | #75 | test: Add integration tests for menu bar timer functionality | 2026-01-10 |
 | #73 | feat: Reduce minimum auto-exit timer to 5 seconds | 2026-01-10 |
@@ -300,14 +301,14 @@ Testing (can be done in parallel):
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 3 | #54, #64, #65 |
-| Closed | 35 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #55, #56, #57, #58, #59, #60, #73, #75 |
+| Open | 2 | #64, #65 |
+| Closed | 36 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #73, #75 |
 
 ### By Priority
 - 🔴 Critical: 0
 - 🟡 High: 0
 - 🟢 Medium: 1 (#64)
-- 🔵 Low: 2 (#54, #65)
+- 🔵 Low: 1 (#65)
 
 ## Recommended Implementation Order
 
@@ -335,9 +336,7 @@ Testing (can be done in parallel):
 
 **Completed:**
 8. ~~**#60** - Expand UI state and validation tests~~ ✅
-
-**Lower Priority:**
-9. **#54** - Cache formatted duration string
+9. ~~**#54** - Cache formatted duration string~~ ✅
 
 ### Phase 6: Enhanced Input Control
 10. **#64** - Add configurable key allowlist (new feature, medium priority)
@@ -358,9 +357,9 @@ Testing:        #58 (Lock Tests) ✅ ──┬─── All Complete
                 #59 (Timer Tests) ✅ ─┤
                 #60 (UI State Tests) ✅ ┘
 
-Performance:    #52 (Atomic Ordering) ✅ ─┬── All independent, can run in parallel
+Performance:    #52 (Atomic Ordering) ✅ ─┬── All Complete
                 #53 (Timer Cache) ✅ ─────┤
-                #54 (Duration Cache) ─────┘
+                #54 (Duration Cache) ✅ ──┘
 
 Maintenance:    #55 (Settings Refactor) ✅ ─┬── All Complete
                 #56 (Pointer Helper) ✅ ────┤
@@ -383,6 +382,18 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-10
+- Completed Issue #54: Cache formatted duration string in timer display
+  - Added `format_duration_cached()` function in `src/timer/formatting.rs`
+  - Uses thread-local storage to cache the formatted string and last-seen seconds value
+  - When seconds value is unchanged (59 of 60 frames per second), returns cached string
+  - When seconds value changes, recomputes and caches the new formatted string
+  - Updated `src/ui/views/timer_display.rs` to use the cached version
+  - Reduces 59 unnecessary string allocations per second during timer display
+  - Added 4 new tests for the cached formatting function
+  - All 182 tests pass (was 178), clippy clean, build successful
+  - Updated issue counts: 2 open, 36 closed
+  - Updated priority counts: 1 Medium, 1 Low
+
 - Completed Issue #60: Expand UI state and settings validation tests
   - Added 8 new tests to `src/ui/state.rs` for UI constants validation:
     - `test_close_button_size_positive`: Verifies close button size is positive
