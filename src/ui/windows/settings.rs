@@ -696,6 +696,13 @@ fn get_or_create_window_delegate(mtm: MainThreadMarker) -> &'static SettingsWind
                 Retained::as_ptr(&new_delegate) as *mut c_void,
                 Ordering::Release,
             );
+            // SAFETY: Transferring ownership to global AtomicPtr storage.
+            // The delegate must outlive the settings window for the entire app lifetime.
+            // Preventing drop here is correct because:
+            // - The pointer is stored in settings::WINDOW_DELEGATE (a 'static AtomicPtr)
+            // - The delegate is reused across multiple window opens/closes
+            // - The Objective-C runtime retains it via setDelegate()
+            // Cleanup: Never explicitly released; lives for app duration.
             std::mem::forget(new_delegate);
             &*(settings::WINDOW_DELEGATE.load(Ordering::Acquire) as *const SettingsWindowDelegate)
         } else {
@@ -714,6 +721,13 @@ fn get_or_create_action_handler(mtm: MainThreadMarker) -> &'static SettingsActio
                 Retained::as_ptr(&new_handler) as *mut c_void,
                 Ordering::Release,
             );
+            // SAFETY: Transferring ownership to global AtomicPtr storage.
+            // The handler must outlive all settings UI interactions for the app lifetime.
+            // Preventing drop here is correct because:
+            // - The pointer is stored in settings::ACTION_HANDLER (a 'static AtomicPtr)
+            // - The handler is target for menu items and buttons (setTarget())
+            // - Reused across multiple settings window opens/closes
+            // Cleanup: Never explicitly released; lives for app duration.
             std::mem::forget(new_handler);
             &*(settings::ACTION_HANDLER.load(Ordering::Acquire) as *const SettingsActionHandler)
         } else {
@@ -732,6 +746,13 @@ fn get_or_create_exit_key_delegate(mtm: MainThreadMarker) -> &'static ExitKeyFie
                 Retained::as_ptr(&new_delegate) as *mut c_void,
                 Ordering::Release,
             );
+            // SAFETY: Transferring ownership to global AtomicPtr storage.
+            // The delegate handles real-time text validation for the exit key field.
+            // Preventing drop here is correct because:
+            // - The pointer is stored in settings::EXIT_KEY_FIELD_DELEGATE (a 'static AtomicPtr)
+            // - NSTextField retains the delegate via setDelegate()
+            // - Reused across multiple settings window opens/closes
+            // Cleanup: Never explicitly released; lives for app duration.
             std::mem::forget(new_delegate);
             &*(settings::EXIT_KEY_FIELD_DELEGATE.load(Ordering::Acquire)
                 as *const ExitKeyFieldDelegate)
@@ -751,6 +772,13 @@ fn get_or_create_timer_field_delegate(mtm: MainThreadMarker) -> &'static TimerFi
                 Retained::as_ptr(&new_delegate) as *mut c_void,
                 Ordering::Release,
             );
+            // SAFETY: Transferring ownership to global AtomicPtr storage.
+            // The delegate handles real-time text validation for the timer value field.
+            // Preventing drop here is correct because:
+            // - The pointer is stored in settings::TIMER_FIELD_DELEGATE (a 'static AtomicPtr)
+            // - NSTextField retains the delegate via setDelegate()
+            // - Reused across multiple settings window opens/closes
+            // Cleanup: Never explicitly released; lives for app duration.
             std::mem::forget(new_delegate);
             &*(settings::TIMER_FIELD_DELEGATE.load(Ordering::Acquire) as *const TimerFieldDelegate)
         } else {
@@ -822,6 +850,12 @@ fn setup_exit_key_section(
         Retained::as_ptr(&exit_key_field) as *mut c_void,
         Ordering::Release,
     );
+    // SAFETY: Transferring ownership to Objective-C runtime and global AtomicPtr.
+    // Preventing drop here is correct because:
+    // - The view is retained by NSWindow's content view hierarchy (addSubview)
+    // - The pointer is stored in settings::EXIT_KEY_FIELD for later access
+    // Cleanup: cleanup_settings_window_references() sets the AtomicPtr to null,
+    // and NSWindow releases the view when the window closes.
     std::mem::forget(exit_key_field);
 
     // Validation label
@@ -848,6 +882,12 @@ fn setup_exit_key_section(
         Retained::as_ptr(&exit_key_validation) as *mut c_void,
         Ordering::Release,
     );
+    // SAFETY: Transferring ownership to Objective-C runtime and global AtomicPtr.
+    // Preventing drop here is correct because:
+    // - The view is retained by NSWindow's content view hierarchy (addSubview)
+    // - The pointer is stored in settings::EXIT_KEY_VALIDATION for validation updates
+    // Cleanup: cleanup_settings_window_references() sets the AtomicPtr to null,
+    // and NSWindow releases the view when the window closes.
     std::mem::forget(exit_key_validation);
 
     // Note: Do NOT call validate_exit_key_realtime() here.
@@ -921,6 +961,12 @@ fn setup_timer_section(
         Retained::as_ptr(&timer_checkbox) as *mut c_void,
         Ordering::Release,
     );
+    // SAFETY: Transferring ownership to Objective-C runtime and global AtomicPtr.
+    // Preventing drop here is correct because:
+    // - The view is retained by NSWindow's content view hierarchy (addSubview)
+    // - The pointer is stored in settings::TIMER_CHECKBOX for state access
+    // Cleanup: cleanup_settings_window_references() sets the AtomicPtr to null,
+    // and NSWindow releases the view when the window closes.
     std::mem::forget(timer_checkbox);
 
     // Parse existing timer value to extract number and unit
@@ -980,6 +1026,12 @@ fn setup_timer_section(
         Retained::as_ptr(&timer_value_field) as *mut c_void,
         Ordering::Release,
     );
+    // SAFETY: Transferring ownership to Objective-C runtime and global AtomicPtr.
+    // Preventing drop here is correct because:
+    // - The view is retained by NSWindow's content view hierarchy (addSubview)
+    // - The pointer is stored in settings::TIMER_VALUE_FIELD for value access
+    // Cleanup: cleanup_settings_window_references() sets the AtomicPtr to null,
+    // and NSWindow releases the view when the window closes.
     std::mem::forget(timer_value_field);
 
     // Unit dropdown (to the right of the number field)
@@ -1004,6 +1056,12 @@ fn setup_timer_section(
         Retained::as_ptr(&timer_unit_dropdown) as *mut c_void,
         Ordering::Release,
     );
+    // SAFETY: Transferring ownership to Objective-C runtime and global AtomicPtr.
+    // Preventing drop here is correct because:
+    // - The view is retained by NSWindow's content view hierarchy (addSubview)
+    // - The pointer is stored in settings::TIMER_UNIT_DROPDOWN for selection access
+    // Cleanup: cleanup_settings_window_references() sets the AtomicPtr to null,
+    // and NSWindow releases the view when the window closes.
     std::mem::forget(timer_unit_dropdown);
 
     // Validation label
@@ -1030,6 +1088,12 @@ fn setup_timer_section(
         Retained::as_ptr(&timer_validation) as *mut c_void,
         Ordering::Release,
     );
+    // SAFETY: Transferring ownership to Objective-C runtime and global AtomicPtr.
+    // Preventing drop here is correct because:
+    // - The view is retained by NSWindow's content view hierarchy (addSubview)
+    // - The pointer is stored in settings::TIMER_VALIDATION for validation updates
+    // Cleanup: cleanup_settings_window_references() sets the AtomicPtr to null,
+    // and NSWindow releases the view when the window closes.
     std::mem::forget(timer_validation);
 
     y_offset
@@ -1096,6 +1160,12 @@ fn setup_opacity_section(
         Retained::as_ptr(&percentage_label) as *mut c_void,
         Ordering::Release,
     );
+    // SAFETY: Transferring ownership to Objective-C runtime and global AtomicPtr.
+    // Preventing drop here is correct because:
+    // - The view is retained by NSWindow's content view hierarchy (addSubview)
+    // - The pointer is stored in settings::OPACITY_LABEL for display updates
+    // Cleanup: cleanup_settings_window_references() sets the AtomicPtr to null,
+    // and NSWindow releases the view when the window closes.
     std::mem::forget(percentage_label);
 
     // Slider row
@@ -1173,6 +1243,12 @@ fn setup_opacity_section(
         Retained::as_ptr(&opacity_slider) as *mut c_void,
         Ordering::Release,
     );
+    // SAFETY: Transferring ownership to Objective-C runtime and global AtomicPtr.
+    // Preventing drop here is correct because:
+    // - The view is retained by NSWindow's content view hierarchy (addSubview)
+    // - The pointer is stored in settings::OPACITY_SLIDER for value access
+    // Cleanup: cleanup_settings_window_references() sets the AtomicPtr to null,
+    // and NSWindow releases the view when the window closes.
     std::mem::forget(opacity_slider);
 
     y_offset
@@ -1208,6 +1284,11 @@ fn setup_button_section(
         button
     };
     content_view.addSubview(&reset_button);
+    // SAFETY: Transferring ownership to Objective-C runtime.
+    // Preventing drop here is correct because:
+    // - The view is retained by NSWindow's content view hierarchy (addSubview)
+    // - The button action is handled by the SettingsActionHandler
+    // Cleanup: NSWindow releases all subviews when the window closes.
     std::mem::forget(reset_button);
 
     // Cancel button (right side, before Save)
@@ -1233,6 +1314,11 @@ fn setup_button_section(
         button
     };
     content_view.addSubview(&cancel_button);
+    // SAFETY: Transferring ownership to Objective-C runtime.
+    // Preventing drop here is correct because:
+    // - The view is retained by NSWindow's content view hierarchy (addSubview)
+    // - The button action is handled by the SettingsActionHandler
+    // Cleanup: NSWindow releases all subviews when the window closes.
     std::mem::forget(cancel_button);
 
     // Save button (right)
@@ -1258,6 +1344,11 @@ fn setup_button_section(
         button
     };
     content_view.addSubview(&save_button);
+    // SAFETY: Transferring ownership to Objective-C runtime.
+    // Preventing drop here is correct because:
+    // - The view is retained by NSWindow's content view hierarchy (addSubview)
+    // - The button action is handled by the SettingsActionHandler
+    // Cleanup: NSWindow releases all subviews when the window closes.
     std::mem::forget(save_button);
 }
 
@@ -1272,7 +1363,13 @@ fn finalize_and_show_window(mtm: MainThreadMarker, panel: Retained<NSPanel>) {
     // Show the window
     panel.makeKeyAndOrderFront(None);
 
-    // Keep panel alive
+    // SAFETY: Transferring ownership to global AtomicPtr storage.
+    // Preventing drop here is correct because:
+    // - The pointer was already stored in settings::WINDOW (in show_settings_window)
+    // - The window must remain valid while displayed
+    // - The Objective-C runtime also holds references
+    // Cleanup: The window is properly closed and released via
+    // cleanup_settings_window_references() when the window closes.
     std::mem::forget(panel);
 
     println!("  Settings window opened");

@@ -228,7 +228,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 |----------|-------|-------|--------|
 | ✅ Done | #55 | Refactor: Break show_settings_window() into smaller functions | ~4-6 hours |
 | ✅ Done | #56 | Refactor: Create pointer helper to reduce null-check duplication | ~4-6 hours |
-| 🟢 Medium | #57 | Docs: Add safety documentation to std::mem::forget and unsafe blocks | ~4-6 hours |
+| ✅ Done | #57 | Docs: Add safety documentation to std::mem::forget and unsafe blocks | ~4-6 hours |
 
 #### Testing Improvements
 
@@ -248,7 +248,7 @@ Performance (can be done in parallel):
 Code Quality (can be done in parallel):
     #55: Settings Window Refactor ✅
     #56: Pointer Helper ✅
-    #57: Safety Documentation
+    #57: Safety Documentation ✅
 
 Testing (can be done in parallel):
     #58: Lock Module Tests ✅
@@ -275,6 +275,7 @@ Testing (can be done in parallel):
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #57 | Docs: Add safety documentation to std::mem::forget and unsafe blocks | 2026-01-10 |
 | #56 | Refactor: Create pointer helper to reduce null-check duplication | 2026-01-10 |
 | #52 | Optimize atomic orderings from SeqCst to appropriate weaker orderings | 2026-01-10 |
 | #55 | Refactor: Break show_settings_window() into smaller functions | 2026-01-10 |
@@ -293,13 +294,13 @@ Testing (can be done in parallel):
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 6 | #53, #54, #57, #60, #64, #65 |
-| Closed | 30 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #55, #56, #58, #59 |
+| Open | 5 | #53, #54, #60, #64, #65 |
+| Closed | 31 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #55, #56, #57, #58, #59 |
 
 ### By Priority
 - 🔴 Critical: 0
 - 🟡 High: 0
-- 🟢 Medium: 4 (#53, #57, #60, #64)
+- 🟢 Medium: 3 (#53, #60, #64)
 - 🔵 Low: 2 (#54, #65)
 
 ## Recommended Implementation Order
@@ -323,9 +324,9 @@ Testing (can be done in parallel):
 3. ~~**#55** - Refactor show_settings_window() into smaller functions (600+ lines)~~ ✅
 4. ~~**#52** - Optimize atomic orderings (158 SeqCst → weaker orderings)~~ ✅
 5. ~~**#56** - Create pointer helper (reduces 50+ duplicated patterns)~~ ✅
+6. ~~**#57** - Add safety documentation (35+ std::mem::forget and unsafe blocks)~~ ✅
 
 **Medium Priority (Start Here):**
-6. **#57** - Add safety documentation (80 unsafe blocks need SAFETY comments)
 7. **#60** - Expand UI state and validation tests
 8. **#53** - Cache timer callback atomic loads
 
@@ -355,9 +356,9 @@ Performance:    #52 (Atomic Ordering) ✅ ─┬── All independent, can run 
                 #53 (Timer Cache) ────────┤
                 #54 (Duration Cache) ─────┘
 
-Maintenance:    #55 (Settings Refactor) ✅ ─┬── Independent
+Maintenance:    #55 (Settings Refactor) ✅ ─┬── All Complete
                 #56 (Pointer Helper) ✅ ────┤
-                #57 (Safety Docs) ───────────┘
+                #57 (Safety Docs) ✅ ────────┘
 
 Phase 6 (NEXT):
 Input Control:  #64 (Key Allowlist) ─── #65 (Preset Groups)
@@ -376,6 +377,27 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-10
+- Completed Issue #57: Add safety documentation to std::mem::forget and unsafe blocks
+  - Added SAFETY comments to 35+ `std::mem::forget` calls explaining:
+    - Why preventing drop is correct (ownership transfer to Objective-C runtime or global storage)
+    - What guarantees exist (retained by view hierarchy, stored in AtomicPtr)
+    - How cleanup occurs (window close, deactivate_shield, or app duration)
+  - Added SAFETY comments to key unsafe blocks in priority files:
+    - `src/platform/event_tap.rs`: event_tap_callback and setup_event_tap
+    - `src/shield_core.rs`: CFRunLoopRunInMode, NSWindow initialization, setReleasedWhenClosed
+    - `src/ui/shield.rs`: timer_callback, start/stop timer, Retained::from_raw reclamation
+    - `src/main.rs`: start_close_button_timer
+  - Files documented:
+    - `src/ui/windows/settings.rs`: 16 std::mem::forget calls (delegates, fields, buttons, window)
+    - `src/ui/windows/about.rs`: 8 std::mem::forget calls (delegates, labels, buttons, window)
+    - `src/ui/menu_bar/setup.rs`: 5 std::mem::forget calls (action handlers, menu items)
+    - `src/ui/views/timer_display.rs`: 3 std::mem::forget calls (timer labels)
+    - `src/ui/views/close_button_label.rs`: 1 std::mem::forget call (label)
+    - `src/platform/event_tap.rs`: 1 std::mem::forget call (CFMachPort)
+  - All 110 tests pass, cargo check clean
+  - Updated issue counts: 5 open, 31 closed
+  - Updated priority counts: 3 Medium, 2 Low
+
 - Completed Issue #56: Create pointer helper to reduce null-check duplication
   - Created `src/ui/ptr_helper.rs` module with three helper functions:
     - `with_ptr<T, F, R>`: Execute closure with dereferenced AtomicPtr, returns `Option<R>`

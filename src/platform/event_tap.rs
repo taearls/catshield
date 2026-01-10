@@ -25,6 +25,15 @@ pub static EVENT_TAP: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 pub static EVENT_TAP_RUN_LOOP_SOURCE: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 
 /// Callback for the CGEventTap - intercepts and blocks events
+///
+/// # Safety
+/// This function is `unsafe extern "C-unwind"` as required by the CGEventTap API.
+/// Callers must only invoke this via CGEventTapCreate registration.
+///
+/// The Core Graphics event tap system guarantees:
+/// - `event` is a valid, non-null CGEvent pointer
+/// - The function is called on the thread that owns the run loop with the event tap
+/// - The event tap has not been invalidated
 unsafe extern "C-unwind" fn event_tap_callback(
     _proxy: CGEventTapProxy,
     event_type: CGEventType,
@@ -93,6 +102,13 @@ pub fn setup_event_tap() -> bool {
         | (1u64 << CGEventType::KeyUp.0)
         | (1u64 << CGEventType::FlagsChanged.0);
 
+    // SAFETY: All Core Foundation/Core Graphics calls in this block are safe because:
+    // - CGEvent::tap_create returns an Option, handling null case
+    // - We verify tap creation succeeded before proceeding
+    // - We verify run_loop_source creation succeeded before using it
+    // - All pointers passed to CF functions are valid for the required duration
+    // - The event tap is properly stored in a global AtomicPtr for later cleanup
+    // - CFRunLoop functions are called on the current thread's run loop
     unsafe {
         // Create the event tap using CGEvent::tap_create
         let tap_opt = CGEvent::tap_create(
@@ -139,9 +155,15 @@ pub fn setup_event_tap() -> bool {
         // Enable the tap
         CGEventTapEnable(tap_ptr, true);
 
-        // Transfer ownership of CFMachPort to raw pointer stored in EVENT_TAP.
-        // We call std::mem::forget to prevent CFRetained from releasing it here;
-        // instead, we'll release it manually via CFRelease in disable_event_tap().
+        // SAFETY: Transferring ownership of CFMachPort from CFRetained to raw pointer.
+        // The event tap must remain valid for the duration of input blocking.
+        // Preventing drop here is correct because:
+        // - The raw pointer is stored in EVENT_TAP (a 'static AtomicPtr)
+        // - The run loop source holds a reference to the tap via CFMachPortCreateRunLoopSource
+        // - The callback can re-enable the tap if the system disables it
+        // Cleanup: disable_event_tap() calls CFRelease(tap_ptr) after disabling
+        // the tap and removing it from the run loop. This properly releases the
+        // CFMachPort that we prevented from being released here.
         std::mem::forget(tap);
 
         true
