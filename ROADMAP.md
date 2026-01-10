@@ -271,12 +271,6 @@ Testing (can be done in parallel):
     └── #65: Preset Groups (depends on #64)
 ```
 
-### Other Open Issues
-
-| Priority | Issue | Title | Effort |
-|----------|-------|-------|--------|
-| 🔵 Low | #28 | Migrate from raw objc2 bindings to Cacao library | ~1-2 weeks |
-
 ### Recently Completed
 
 | Issue | Title | Completed |
@@ -296,14 +290,14 @@ Testing (can be done in parallel):
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 10 | #28, #52, #53, #54, #55, #56, #57, #60, #64, #65 |
-| Closed | 26 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #30, #31, #35, #38, #42, #44, #46, #48, #49, #58, #59 |
+| Open | 9 | #52, #53, #54, #55, #56, #57, #60, #64, #65 |
+| Closed | 27 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #58, #59 |
 
 ### By Priority
 - 🔴 Critical: 0
 - 🟡 High: 1 (#55)
 - 🟢 Medium: 6 (#52, #53, #56, #57, #60, #64)
-- 🔵 Low: 3 (#28, #54, #65)
+- 🔵 Low: 2 (#54, #65)
 
 ## Recommended Implementation Order
 
@@ -339,9 +333,6 @@ Testing (can be done in parallel):
 10. **#64** - Add configurable key allowlist (new feature, medium priority)
 11. **#65** - Add preset groups for key allowlist (depends on #64, low priority)
 
-### Future
-12. **#28** - Migrate to Cacao library (major refactor, low priority)
-
 ## Critical Path
 
 ```
@@ -367,8 +358,6 @@ Maintenance:    #55 (Settings Refactor) ─┬── Independent
 
 Phase 6 (NEXT):
 Input Control:  #64 (Key Allowlist) ─── #65 (Preset Groups)
-
-Future:         #28 (Cacao Migration) - Low priority, major refactor
 ```
 
 ## Future Considerations
@@ -397,8 +386,9 @@ Potential future enhancements (not yet tracked as issues):
   - Depends on #64 (Key Allowlist feature)
   - Priority: 🔵 Low, Effort: ~0.5 day
 - Added Phase 6: Enhanced Input Control section to roadmap
-- Updated issue counts: 10 open (+2), 26 closed
-- Updated priority counts: 6 Medium (+1), 3 Low (+1)
+- Updated issue counts: 9 open (+1), 27 closed (+1)
+- Updated priority counts: 6 Medium (+1), 2 Low
+- Removed #28 from open issues (was closed)
 
 ### 2026-01-09
 - Completed Issue #59: Add unit tests for timer state module
