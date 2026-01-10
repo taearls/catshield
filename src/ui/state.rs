@@ -283,24 +283,32 @@ mod tests {
     // ========================================================================
     // UI Constants Validation Tests
     // ========================================================================
+    //
+    // These tests intentionally assert on constant values to ensure UI constants
+    // remain within valid bounds. The assertions serve as documentation and
+    // catch accidental changes to constants that could break the UI.
 
     #[test]
+    #[allow(clippy::assertions_on_constants)]
     fn test_close_button_size_positive() {
         assert!(close_button::SIZE > 0.0);
     }
 
     #[test]
+    #[allow(clippy::assertions_on_constants)]
     fn test_close_button_margin_positive() {
         assert!(close_button::MARGIN > 0.0);
     }
 
     #[test]
+    #[allow(clippy::assertions_on_constants)]
     fn test_close_button_label_dimensions_positive() {
         assert!(close_button::LABEL_HEIGHT > 0.0);
         assert!(close_button::LABEL_WIDTH > 0.0);
     }
 
     #[test]
+    #[allow(clippy::assertions_on_constants)]
     fn test_close_button_hold_duration_reasonable() {
         // Hold duration should be between 1 and 10 seconds
         assert!(close_button::HOLD_DURATION_SECS >= 1.0);
@@ -308,12 +316,14 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::assertions_on_constants)]
     fn test_timer_display_dimensions_positive() {
         assert!(timer_display::WIDTH > 0.0);
         assert!(timer_display::HEIGHT > 0.0);
     }
 
     #[test]
+    #[allow(clippy::assertions_on_constants)]
     fn test_timer_display_width_greater_than_margins() {
         assert!(timer_display::WIDTH > timer_display::MARGIN * 2.0);
     }
@@ -326,6 +336,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::assertions_on_constants)]
     fn test_screen_saver_window_level_valid() {
         assert!(window_level::SCREEN_SAVER > 0);
     }
