@@ -11,7 +11,7 @@ mod integration_tests;
 mod parsing;
 mod state;
 
-pub use formatting::format_duration;
+pub use formatting::{format_duration, format_duration_cached};
 pub use parsing::{parse_duration, parse_timer_value_and_unit};
 pub use state::{
     get_remaining_seconds, init_auto_exit_timer, AUTO_EXIT_DURATION_SECS, AUTO_EXIT_ENABLED,
