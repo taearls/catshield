@@ -17,6 +17,6 @@ pub use state::{
 };
 
 /// Timer configuration constants
-pub const MIN_TIMER_SECONDS: u64 = 60; // Minimum 1 minute
+pub const MIN_TIMER_SECONDS: u64 = 5; // Minimum 5 seconds
 pub const MAX_TIMER_SECONDS: u64 = 24 * 60 * 60; // Maximum 24 hours
 pub const WARNING_SECONDS: u64 = 60; // Show warning 1 minute before exit
