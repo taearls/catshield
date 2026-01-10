@@ -19,7 +19,12 @@ pub fn init_auto_exit_timer(duration_secs: u64) {
     AUTO_EXIT_ENABLED.store(true, Ordering::SeqCst);
 }
 
-/// Get the remaining seconds until auto-exit, or 0 if expired
+/// Get the remaining seconds until auto-exit.
+///
+/// Returns:
+/// - `u64::MAX` if the timer is disabled (AUTO_EXIT_ENABLED == false)
+/// - `0` if the timer has expired (elapsed time >= duration)
+/// - The remaining seconds otherwise
 pub fn get_remaining_seconds() -> u64 {
     if !AUTO_EXIT_ENABLED.load(Ordering::SeqCst) {
         return u64::MAX;
@@ -39,19 +44,32 @@ pub fn get_remaining_seconds() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::{Mutex, MutexGuard};
     use std::time::{SystemTime, UNIX_EPOCH};
 
     // ============================================================
-    // Helper function for resetting global timer state between tests
+    // Test synchronization to prevent parallel test interference
     // ============================================================
 
-    /// Reset all timer state globals to their initial values
-    /// This is necessary because tests run in parallel and share global state
+    /// Mutex to serialize tests that mutate global timer state.
+    /// This prevents race conditions between parallel tests.
+    static TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    /// Reset all timer state globals to their initial values.
+    /// Must only be called while holding the TEST_LOCK.
     fn reset_timer_state() {
         AUTO_EXIT_ENABLED.store(false, Ordering::SeqCst);
         AUTO_EXIT_DURATION_SECS.store(0, Ordering::SeqCst);
         AUTO_EXIT_START_TIME.store(0, Ordering::SeqCst);
         WARNING_SHOWN.store(false, Ordering::SeqCst);
+    }
+
+    /// Acquire the test lock and reset all timer state globals.
+    /// Returns a MutexGuard that must be held for the duration of the test.
+    fn lock_and_reset_timer_state() -> MutexGuard<'static, ()> {
+        let guard = TEST_LOCK.lock().expect("TEST_LOCK poisoned");
+        reset_timer_state();
+        guard
     }
 
     // ============================================================
@@ -60,7 +78,7 @@ mod tests {
 
     #[test]
     fn test_init_auto_exit_timer_sets_enabled() {
-        reset_timer_state();
+        let _guard = lock_and_reset_timer_state();
         assert!(!AUTO_EXIT_ENABLED.load(Ordering::SeqCst));
 
         init_auto_exit_timer(3600);
@@ -73,7 +91,7 @@ mod tests {
 
     #[test]
     fn test_init_auto_exit_timer_sets_duration() {
-        reset_timer_state();
+        let _guard = lock_and_reset_timer_state();
         assert_eq!(AUTO_EXIT_DURATION_SECS.load(Ordering::SeqCst), 0);
 
         init_auto_exit_timer(3600);
@@ -87,7 +105,7 @@ mod tests {
 
     #[test]
     fn test_init_auto_exit_timer_sets_start_time() {
-        reset_timer_state();
+        let _guard = lock_and_reset_timer_state();
         let before = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -112,7 +130,7 @@ mod tests {
 
     #[test]
     fn test_init_auto_exit_timer_with_zero_duration() {
-        reset_timer_state();
+        let _guard = lock_and_reset_timer_state();
 
         init_auto_exit_timer(0);
 
@@ -122,7 +140,7 @@ mod tests {
 
     #[test]
     fn test_init_auto_exit_timer_with_max_duration() {
-        reset_timer_state();
+        let _guard = lock_and_reset_timer_state();
 
         init_auto_exit_timer(u64::MAX);
 
@@ -132,7 +150,7 @@ mod tests {
 
     #[test]
     fn test_init_auto_exit_timer_overwrites_previous() {
-        reset_timer_state();
+        let _guard = lock_and_reset_timer_state();
 
         // First initialization
         init_auto_exit_timer(100);
@@ -153,7 +171,7 @@ mod tests {
 
     #[test]
     fn test_get_remaining_seconds_disabled_returns_max() {
-        reset_timer_state();
+        let _guard = lock_and_reset_timer_state();
         AUTO_EXIT_ENABLED.store(false, Ordering::SeqCst);
 
         let remaining = get_remaining_seconds();
@@ -167,7 +185,7 @@ mod tests {
 
     #[test]
     fn test_get_remaining_seconds_just_started() {
-        reset_timer_state();
+        let _guard = lock_and_reset_timer_state();
 
         init_auto_exit_timer(60);
         let remaining = get_remaining_seconds();
@@ -182,7 +200,7 @@ mod tests {
 
     #[test]
     fn test_get_remaining_seconds_expired() {
-        reset_timer_state();
+        let _guard = lock_and_reset_timer_state();
 
         // Manually set up an expired timer
         AUTO_EXIT_ENABLED.store(true, Ordering::SeqCst);
@@ -197,7 +215,7 @@ mod tests {
 
     #[test]
     fn test_get_remaining_seconds_halfway_through() {
-        reset_timer_state();
+        let _guard = lock_and_reset_timer_state();
 
         // Set up a timer that started 30 seconds ago with 60 second duration
         let now = SystemTime::now()
@@ -221,7 +239,7 @@ mod tests {
 
     #[test]
     fn test_get_remaining_seconds_near_end() {
-        reset_timer_state();
+        let _guard = lock_and_reset_timer_state();
 
         // Set up a timer that's almost expired (started 59 seconds ago, 60 second duration)
         let now = SystemTime::now()
@@ -245,7 +263,7 @@ mod tests {
 
     #[test]
     fn test_get_remaining_seconds_with_zero_duration() {
-        reset_timer_state();
+        let _guard = lock_and_reset_timer_state();
 
         init_auto_exit_timer(0);
         let remaining = get_remaining_seconds();
@@ -259,7 +277,7 @@ mod tests {
 
     #[test]
     fn test_warning_shown_initially_false() {
-        reset_timer_state();
+        let _guard = lock_and_reset_timer_state();
 
         init_auto_exit_timer(3600);
 
@@ -271,7 +289,7 @@ mod tests {
 
     #[test]
     fn test_warning_shown_can_be_set() {
-        reset_timer_state();
+        let _guard = lock_and_reset_timer_state();
 
         WARNING_SHOWN.store(true, Ordering::SeqCst);
 
@@ -283,11 +301,12 @@ mod tests {
 
     #[test]
     fn test_warning_shown_reset_clears_value() {
-        reset_timer_state();
+        let _guard = lock_and_reset_timer_state();
 
         WARNING_SHOWN.store(true, Ordering::SeqCst);
         assert!(WARNING_SHOWN.load(Ordering::SeqCst));
 
+        // Call reset again (we already hold the lock)
         reset_timer_state();
 
         assert!(
@@ -302,7 +321,7 @@ mod tests {
 
     #[test]
     fn test_elapsed_time_overflow_protection() {
-        reset_timer_state();
+        let _guard = lock_and_reset_timer_state();
 
         // Set start time to a future time (should result in 0 elapsed)
         let future_time = SystemTime::now()
@@ -328,7 +347,7 @@ mod tests {
 
     #[test]
     fn test_duration_saturating_sub_protection() {
-        reset_timer_state();
+        let _guard = lock_and_reset_timer_state();
 
         // Set up a timer where elapsed > duration
         let now = SystemTime::now()
@@ -351,7 +370,7 @@ mod tests {
 
     #[test]
     fn test_timer_state_independence() {
-        reset_timer_state();
+        let _guard = lock_and_reset_timer_state();
 
         // Modify each atomic independently
         AUTO_EXIT_ENABLED.store(true, Ordering::SeqCst);
@@ -369,7 +388,7 @@ mod tests {
 
     #[test]
     fn test_long_duration_timer() {
-        reset_timer_state();
+        let _guard = lock_and_reset_timer_state();
 
         // Test with 24 hours (max allowed by the app)
         let seconds_in_24_hours = 24 * 60 * 60;
@@ -388,7 +407,7 @@ mod tests {
 
     #[test]
     fn test_one_second_timer() {
-        reset_timer_state();
+        let _guard = lock_and_reset_timer_state();
 
         init_auto_exit_timer(1);
 
@@ -417,7 +436,7 @@ mod tests {
 
     #[test]
     fn test_functions_are_callable() {
-        reset_timer_state();
+        let _guard = lock_and_reset_timer_state();
 
         // Just verify the functions can be called without panicking
         init_auto_exit_timer(60);
