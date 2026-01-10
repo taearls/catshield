@@ -22,7 +22,13 @@ pub fn parse_duration(s: &str) -> Result<u64, String> {
             let hours: u64 = current_num
                 .parse()
                 .map_err(|_| format!("Invalid number: {}", current_num))?;
-            total_seconds += hours * 3600;
+            total_seconds = total_seconds
+                .checked_add(
+                    hours
+                        .checked_mul(3600)
+                        .ok_or_else(|| "Duration too large".to_string())?,
+                )
+                .ok_or_else(|| "Duration too large".to_string())?;
             current_num.clear();
         } else if c == 'm' {
             if current_num.is_empty() {
@@ -31,7 +37,13 @@ pub fn parse_duration(s: &str) -> Result<u64, String> {
             let minutes: u64 = current_num
                 .parse()
                 .map_err(|_| format!("Invalid number: {}", current_num))?;
-            total_seconds += minutes * 60;
+            total_seconds = total_seconds
+                .checked_add(
+                    minutes
+                        .checked_mul(60)
+                        .ok_or_else(|| "Duration too large".to_string())?,
+                )
+                .ok_or_else(|| "Duration too large".to_string())?;
             current_num.clear();
         } else if c == 's' {
             if current_num.is_empty() {
@@ -40,7 +52,9 @@ pub fn parse_duration(s: &str) -> Result<u64, String> {
             let secs: u64 = current_num
                 .parse()
                 .map_err(|_| format!("Invalid number: {}", current_num))?;
-            total_seconds += secs;
+            total_seconds = total_seconds
+                .checked_add(secs)
+                .ok_or_else(|| "Duration too large".to_string())?;
             current_num.clear();
         } else if !c.is_whitespace() {
             return Err(format!("Invalid character in duration: '{}'", c));
@@ -52,7 +66,13 @@ pub fn parse_duration(s: &str) -> Result<u64, String> {
         let minutes: u64 = current_num
             .parse()
             .map_err(|_| format!("Invalid number: {}", current_num))?;
-        total_seconds += minutes * 60;
+        total_seconds = total_seconds
+            .checked_add(
+                minutes
+                    .checked_mul(60)
+                    .ok_or_else(|| "Duration too large".to_string())?,
+            )
+            .ok_or_else(|| "Duration too large".to_string())?;
     }
 
     if total_seconds == 0 {
@@ -145,7 +165,6 @@ mod tests {
         assert!(parse_duration("0m").is_err());
         assert!(parse_duration("abc").is_err());
         assert!(parse_duration("30x").is_err());
-        assert!(parse_duration("4s").is_err()); // Less than 5 seconds minimum
         assert!(parse_duration("25h").is_err()); // More than 24 hours
     }
 
@@ -157,5 +176,16 @@ mod tests {
         assert!(parse_duration("4s").is_err());
         // 6 seconds is above minimum - should succeed
         assert_eq!(parse_duration("6s").unwrap(), 6);
+    }
+
+    #[test]
+    fn test_parse_duration_overflow_protection() {
+        // Test that extremely large values don't overflow and wrap to valid values
+        // These should all return errors, not wrapped small values
+        assert!(parse_duration("9999999999999999999h").is_err());
+        assert!(parse_duration("9999999999999999999m").is_err());
+        assert!(parse_duration("9999999999999999999s").is_err());
+        // Combined overflow
+        assert!(parse_duration("999999999999h999999999999m").is_err());
     }
 }

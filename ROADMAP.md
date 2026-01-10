@@ -34,7 +34,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
   - Visual countdown progress bar on overlay (can be hidden with `--hide-timer`)
   - Warning notification 1 minute before auto-exit
   - Clean exit when timer expires
-  - Timer validation (1 minute minimum, 24 hours maximum)
+  - Timer validation (5 seconds minimum, 24 hours maximum)
 - [x] **Issue #7**: Add configurable keyboard shortcut for exit
   - CLI argument: `--exit-key` / `-e` (e.g., "Cmd+Shift+Q", "Ctrl+Option+Escape")
   - Config file support: `~/.config/catshield/config.toml` with `exit_key = "Cmd+Option+U"`

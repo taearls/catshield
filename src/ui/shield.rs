@@ -14,7 +14,7 @@ use crate::timer::{
 };
 use crate::ui::ptr_helper::with_ptr_void;
 use crate::ui::state::{menu_bar, shield, IS_MOUSE_INSIDE, MOUSE_DOWN_TIME};
-use crate::ui::views::{CloseButtonLabelView, CloseButtonView};
+use crate::ui::views::{CloseButtonLabelView, CloseButtonView, TimerDisplayView};
 use objc2::rc::Retained;
 use objc2_app_kit::{NSMenuItem, NSScreen, NSTextField, NSWindow};
 use objc2_core_foundation::{kCFRunLoopCommonModes, CFString};
@@ -258,8 +258,21 @@ pub fn deactivate_shield() {
         }
     }
 
-    // Clear timer display view reference (only set in immediate mode, but clear for safety)
-    shield::TIMER_VIEW.store(std::ptr::null_mut(), Ordering::Release);
+    // Release the timer display view properly
+    // The window's content view also holds a reference, but we need to release our ownership
+    let timer_view_ptr = shield::TIMER_VIEW.swap(std::ptr::null_mut(), Ordering::AcqRel);
+    if !timer_view_ptr.is_null() {
+        // SAFETY: Retained::from_raw is safe because:
+        // - timer_view_ptr was stored from a valid Retained<TimerDisplayView> in setup_timer_display
+        // - The atomic swap ensures we only reclaim ownership once
+        // - The pointer type cast is correct (it was stored as *mut c_void from TimerDisplayView)
+        unsafe {
+            let _timer_view: Retained<TimerDisplayView> =
+                Retained::from_raw(timer_view_ptr as *mut TimerDisplayView)
+                    .expect("shield::TIMER_VIEW was valid");
+            // Dropped here, calling release()
+        }
+    }
 
     // Release NSTextField label references properly to avoid memory leaks
     // Each label was created with Retained and forgotten, so we must reclaim ownership
