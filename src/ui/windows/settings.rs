@@ -960,9 +960,25 @@ fn setup_timer_section(
     std::mem::forget(timer_checkbox);
 
     // Parse existing timer value to extract number and unit
+    // Use parse_duration() to properly handle compound durations like "1h30m"
+    // and canonicalize to a single unit for the UI (hours, minutes, or seconds)
     y_offset -= FIELD_HEIGHT + ROW_SPACING;
     let (timer_value, timer_unit_index) = if let Some(ref timer_str) = config.default_timer {
-        parse_timer_value_and_unit(timer_str)
+        match parse_duration(timer_str) {
+            Ok(total_secs) => {
+                // Canonicalize to single-unit UI representation
+                // Prefer hours if evenly divisible, then minutes, then seconds
+                if total_secs % 3600 == 0 {
+                    ((total_secs / 3600).to_string(), 1) // hours
+                } else if total_secs % 60 == 0 {
+                    ((total_secs / 60).to_string(), 0) // minutes
+                } else {
+                    (total_secs.to_string(), 2) // seconds
+                }
+            }
+            // Fallback to old parsing for invalid strings (shouldn't happen with valid config)
+            Err(_) => parse_timer_value_and_unit(timer_str),
+        }
     } else {
         ("".to_string(), 0) // Default to minutes
     };

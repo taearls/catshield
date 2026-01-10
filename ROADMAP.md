@@ -387,7 +387,7 @@ Potential future enhancements (not yet tracked as issues):
   - Added `finalize_and_show_window()` for window activation and display
   - All 100 tests pass, clippy clean, build successful
   - Updated issue counts: 8 open, 28 closed
-  - No more High priority issues remaining (0 High, 6 Medium, 2 Low)
+  - No more high-priority issues remaining (0 High, 6 Medium, 2 Low)
 
 - Created Issue #64: Add configurable key allowlist to pass specific keys through the shield
   - New feature allowing users to specify keys/key combinations that won't be blocked
@@ -402,8 +402,8 @@ Potential future enhancements (not yet tracked as issues):
   - Depends on #64 (Key Allowlist feature)
   - Priority: 🔵 Low, Effort: ~0.5 day
 - Added Phase 6: Enhanced Input Control section to roadmap
-- Updated issue counts: 9 open (+1), 27 closed (+1)
-- Updated priority counts: 6 Medium (+1), 2 Low
+- Updated issue counts: 8 open, 28 closed (consistent with Issue Summary above)
+- Updated priority counts: 6 Medium, 2 Low (added #64 Medium, #65 Low)
 - Removed #28 from open issues (was closed)
 
 ### 2026-01-09
