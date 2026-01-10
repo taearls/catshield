@@ -13,7 +13,7 @@ use crate::ui::ptr_helper::with_ptr_void;
 use crate::ui::state::{menu_bar, shield, IS_MOUSE_INSIDE, MOUSE_DOWN_TIME};
 use crate::ui::views::{CloseButtonLabelView, CloseButtonView};
 use objc2::rc::Retained;
-use objc2_app_kit::{NSMenuItem, NSScreen, NSWindow};
+use objc2_app_kit::{NSMenuItem, NSScreen, NSTextField, NSWindow};
 use objc2_core_foundation::{kCFRunLoopCommonModes, CFString};
 use objc2_foundation::MainThreadMarker;
 use std::ffi::c_void;
@@ -239,11 +239,64 @@ pub fn deactivate_shield() {
     // Clear timer display view reference (only set in immediate mode, but clear for safety)
     shield::TIMER_VIEW.store(std::ptr::null_mut(), Ordering::Release);
 
-    // Clear NSTextField label references
-    shield::TIMER_HEADER.store(std::ptr::null_mut(), Ordering::Release);
-    shield::TIMER_TIME.store(std::ptr::null_mut(), Ordering::Release);
-    shield::TIMER_WARNING.store(std::ptr::null_mut(), Ordering::Release);
-    shield::CLOSE_BUTTON_TEXT.store(std::ptr::null_mut(), Ordering::Release);
+    // Release NSTextField label references properly to avoid memory leaks
+    // Each label was created with Retained and forgotten, so we must reclaim ownership
+    let timer_header_ptr = shield::TIMER_HEADER.swap(std::ptr::null_mut(), Ordering::AcqRel);
+    if !timer_header_ptr.is_null() {
+        // SAFETY: Retained::from_raw is safe because:
+        // - timer_header_ptr was stored from a valid Retained<NSTextField> in timer_display.rs
+        // - The atomic swap ensures we only reclaim ownership once
+        // - The pointer type cast is correct (it was stored as *mut c_void from NSTextField)
+        unsafe {
+            let _label: Retained<NSTextField> =
+                Retained::from_raw(timer_header_ptr as *mut NSTextField)
+                    .expect("shield::TIMER_HEADER was valid");
+            // Dropped here, calling release()
+        }
+    }
+
+    let timer_time_ptr = shield::TIMER_TIME.swap(std::ptr::null_mut(), Ordering::AcqRel);
+    if !timer_time_ptr.is_null() {
+        // SAFETY: Retained::from_raw is safe because:
+        // - timer_time_ptr was stored from a valid Retained<NSTextField> in timer_display.rs
+        // - The atomic swap ensures we only reclaim ownership once
+        // - The pointer type cast is correct (it was stored as *mut c_void from NSTextField)
+        unsafe {
+            let _label: Retained<NSTextField> =
+                Retained::from_raw(timer_time_ptr as *mut NSTextField)
+                    .expect("shield::TIMER_TIME was valid");
+            // Dropped here, calling release()
+        }
+    }
+
+    let timer_warning_ptr = shield::TIMER_WARNING.swap(std::ptr::null_mut(), Ordering::AcqRel);
+    if !timer_warning_ptr.is_null() {
+        // SAFETY: Retained::from_raw is safe because:
+        // - timer_warning_ptr was stored from a valid Retained<NSTextField> in timer_display.rs
+        // - The atomic swap ensures we only reclaim ownership once
+        // - The pointer type cast is correct (it was stored as *mut c_void from NSTextField)
+        unsafe {
+            let _label: Retained<NSTextField> =
+                Retained::from_raw(timer_warning_ptr as *mut NSTextField)
+                    .expect("shield::TIMER_WARNING was valid");
+            // Dropped here, calling release()
+        }
+    }
+
+    let close_button_text_ptr =
+        shield::CLOSE_BUTTON_TEXT.swap(std::ptr::null_mut(), Ordering::AcqRel);
+    if !close_button_text_ptr.is_null() {
+        // SAFETY: Retained::from_raw is safe because:
+        // - close_button_text_ptr was stored from a valid Retained<NSTextField> in close_button_label.rs
+        // - The atomic swap ensures we only reclaim ownership once
+        // - The pointer type cast is correct (it was stored as *mut c_void from NSTextField)
+        unsafe {
+            let _label: Retained<NSTextField> =
+                Retained::from_raw(close_button_text_ptr as *mut NSTextField)
+                    .expect("shield::CLOSE_BUTTON_TEXT was valid");
+            // Dropped here, calling release()
+        }
+    }
 
     // Reset auto-exit timer state
     AUTO_EXIT_ENABLED.store(false, Ordering::Release);

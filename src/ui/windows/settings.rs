@@ -1368,8 +1368,10 @@ fn finalize_and_show_window(mtm: MainThreadMarker, panel: Retained<NSPanel>) {
     // - The pointer was already stored in settings::WINDOW (in show_settings_window)
     // - The window must remain valid while displayed
     // - The Objective-C runtime also holds references
-    // Cleanup: The window is properly closed and released via
-    // cleanup_settings_window_references() when the window closes.
+    // Cleanup: The panel intentionally lives for the app's lifetime and is reused
+    // across multiple open/close cycles. When the window closes, only the pointer
+    // is cleared (not released) so the panel can be reshown. The subviews are
+    // released by NSWindow when closed, but the panel itself persists.
     std::mem::forget(panel);
 
     println!("  Settings window opened");
