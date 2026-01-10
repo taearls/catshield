@@ -218,7 +218,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 
 | Priority | Issue | Title | Effort |
 |----------|-------|-------|--------|
-| 🟢 Medium | #52 | Optimize atomic orderings from SeqCst to appropriate weaker orderings | ~1 day |
+| ✅ Done | #52 | Optimize atomic orderings from SeqCst to appropriate weaker orderings | ~1 day |
 | 🟢 Medium | #53 | Cache redundant atomic loads in timer callback | ~2 hours |
 | 🔵 Low | #54 | Cache formatted duration string in timer display | ~2-3 hours |
 
@@ -241,7 +241,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 **Implementation Order:**
 ```text
 Performance (can be done in parallel):
-    #52: Atomic Ordering Optimization
+    #52: Atomic Ordering Optimization ✅
     #53: Timer Callback Cache
     #54: Duration Format Cache
 
@@ -275,6 +275,7 @@ Testing (can be done in parallel):
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #52 | Optimize atomic orderings from SeqCst to appropriate weaker orderings | 2026-01-10 |
 | #55 | Refactor: Break show_settings_window() into smaller functions | 2026-01-10 |
 | #59 | Add unit tests for timer state module | 2026-01-09 |
 | #58 | Add unit tests for lock module (single-instance enforcement) | 2026-01-09 |
@@ -291,13 +292,13 @@ Testing (can be done in parallel):
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 8 | #52, #53, #54, #56, #57, #60, #64, #65 |
-| Closed | 28 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #55, #58, #59 |
+| Open | 7 | #53, #54, #56, #57, #60, #64, #65 |
+| Closed | 29 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #55, #58, #59 |
 
 ### By Priority
 - 🔴 Critical: 0
 - 🟡 High: 0
-- 🟢 Medium: 6 (#52, #53, #56, #57, #60, #64)
+- 🟢 Medium: 5 (#53, #56, #57, #60, #64)
 - 🔵 Low: 2 (#54, #65)
 
 ## Recommended Implementation Order
@@ -319,9 +320,9 @@ Testing (can be done in parallel):
 1. ~~**#58** - Add unit tests for lock module (security-critical, 0 tests currently)~~ ✅
 2. ~~**#59** - Add unit tests for timer state module (core functionality, 0 tests)~~ ✅
 3. ~~**#55** - Refactor show_settings_window() into smaller functions (600+ lines)~~ ✅
+4. ~~**#52** - Optimize atomic orderings (158 SeqCst → weaker orderings)~~ ✅
 
 **Medium Priority (Start Here):**
-4. **#52** - Optimize atomic orderings (158 SeqCst → weaker orderings)
 5. **#56** - Create pointer helper (reduces 50+ duplicated patterns)
 6. **#57** - Add safety documentation (80 unsafe blocks need SAFETY comments)
 7. **#60** - Expand UI state and validation tests
@@ -349,9 +350,9 @@ Testing:        #58 (Lock Tests) ✅ ──┬─── All independent, can run
                 #59 (Timer Tests) ✅ ─┤
                 #60 (UI State Tests) ─┘
 
-Performance:    #52 (Atomic Ordering) ─┬── All independent, can run in parallel
-                #53 (Timer Cache) ─────┤
-                #54 (Duration Cache) ──┘
+Performance:    #52 (Atomic Ordering) ✅ ─┬── All independent, can run in parallel
+                #53 (Timer Cache) ────────┤
+                #54 (Duration Cache) ─────┘
 
 Maintenance:    #55 (Settings Refactor) ─┬── Independent
                 #56 (Pointer Helper) ────┤
@@ -374,6 +375,23 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-10
+- Completed Issue #52: Optimize atomic orderings from SeqCst to appropriate weaker orderings
+  - Replaced 158+ SeqCst atomic orderings with appropriate weaker orderings across 11 files
+  - Pattern-based optimization: loads → Acquire, stores → Release, swap → AcqRel
+  - Files modified:
+    - `src/timer/state.rs`: Initialize-once pattern (Release for writes, Acquire for reads)
+    - `src/input/exit_key.rs`: Configuration pattern (Release for set, Acquire for get)
+    - `src/platform/event_tap.rs`: Pointer lifecycle (Release for store, Acquire for load, AcqRel for swap)
+    - `src/ui/shield.rs`: Shield state management with proper ordering
+    - `src/ui/windows/settings.rs`: UI state pointer access
+    - `src/ui/menu_bar/setup.rs`, `src/ui/menu_bar/handlers.rs`: Menu state
+    - `src/ui/windows/about.rs`: About window state
+    - `src/ui/views/timer_display.rs`, `src/ui/views/close_button_label.rs`: View state
+    - `src/main.rs`: Initialization stores
+  - All 100 tests pass, clippy clean, build successful
+  - Updated issue counts: 7 open, 29 closed
+  - Updated priority counts: 5 Medium, 2 Low
+
 - Completed Issue #55: Refactor show_settings_window() into smaller functions
   - Reduced `show_settings_window()` from 600+ lines to ~35 lines (orchestration only)
   - Extracted constants: `WINDOW_WIDTH`, `WINDOW_HEIGHT`, `MARGIN`, layout constants

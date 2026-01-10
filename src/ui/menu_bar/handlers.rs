@@ -24,7 +24,7 @@ define_class!(
         #[unsafe(method(startProtection:))]
         unsafe fn start_protection(&self, _sender: Option<&NSMenuItem>) {
             // Prevent double-activation
-            if shield::IS_ACTIVE.load(Ordering::SeqCst) {
+            if shield::IS_ACTIVE.load(Ordering::Acquire) {
                 return;
             }
 

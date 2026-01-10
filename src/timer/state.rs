@@ -14,9 +14,10 @@ pub fn init_auto_exit_timer(duration_secs: u64) {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    AUTO_EXIT_START_TIME.store(now, Ordering::SeqCst);
-    AUTO_EXIT_DURATION_SECS.store(duration_secs, Ordering::SeqCst);
-    AUTO_EXIT_ENABLED.store(true, Ordering::SeqCst);
+    // Use Release ordering for initialization writes - readers will use Acquire
+    AUTO_EXIT_START_TIME.store(now, Ordering::Release);
+    AUTO_EXIT_DURATION_SECS.store(duration_secs, Ordering::Release);
+    AUTO_EXIT_ENABLED.store(true, Ordering::Release);
 }
 
 /// Get the remaining seconds until auto-exit.
@@ -26,12 +27,13 @@ pub fn init_auto_exit_timer(duration_secs: u64) {
 /// - `0` if the timer has expired (elapsed time >= duration)
 /// - The remaining seconds otherwise
 pub fn get_remaining_seconds() -> u64 {
-    if !AUTO_EXIT_ENABLED.load(Ordering::SeqCst) {
+    // Use Acquire ordering to synchronize with Release stores in init_auto_exit_timer
+    if !AUTO_EXIT_ENABLED.load(Ordering::Acquire) {
         return u64::MAX;
     }
 
-    let start = AUTO_EXIT_START_TIME.load(Ordering::SeqCst);
-    let duration = AUTO_EXIT_DURATION_SECS.load(Ordering::SeqCst);
+    let start = AUTO_EXIT_START_TIME.load(Ordering::Acquire);
+    let duration = AUTO_EXIT_DURATION_SECS.load(Ordering::Acquire);
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
@@ -58,10 +60,10 @@ mod tests {
     /// Reset all timer state globals to their initial values.
     /// Must only be called while holding the TEST_LOCK.
     fn reset_timer_state() {
-        AUTO_EXIT_ENABLED.store(false, Ordering::SeqCst);
-        AUTO_EXIT_DURATION_SECS.store(0, Ordering::SeqCst);
-        AUTO_EXIT_START_TIME.store(0, Ordering::SeqCst);
-        WARNING_SHOWN.store(false, Ordering::SeqCst);
+        AUTO_EXIT_ENABLED.store(false, Ordering::Release);
+        AUTO_EXIT_DURATION_SECS.store(0, Ordering::Release);
+        AUTO_EXIT_START_TIME.store(0, Ordering::Release);
+        WARNING_SHOWN.store(false, Ordering::Release);
     }
 
     /// Acquire the test lock and reset all timer state globals.
@@ -79,12 +81,12 @@ mod tests {
     #[test]
     fn test_init_auto_exit_timer_sets_enabled() {
         let _guard = lock_and_reset_timer_state();
-        assert!(!AUTO_EXIT_ENABLED.load(Ordering::SeqCst));
+        assert!(!AUTO_EXIT_ENABLED.load(Ordering::Acquire));
 
         init_auto_exit_timer(3600);
 
         assert!(
-            AUTO_EXIT_ENABLED.load(Ordering::SeqCst),
+            AUTO_EXIT_ENABLED.load(Ordering::Acquire),
             "AUTO_EXIT_ENABLED should be true after init"
         );
     }
@@ -92,12 +94,12 @@ mod tests {
     #[test]
     fn test_init_auto_exit_timer_sets_duration() {
         let _guard = lock_and_reset_timer_state();
-        assert_eq!(AUTO_EXIT_DURATION_SECS.load(Ordering::SeqCst), 0);
+        assert_eq!(AUTO_EXIT_DURATION_SECS.load(Ordering::Acquire), 0);
 
         init_auto_exit_timer(3600);
 
         assert_eq!(
-            AUTO_EXIT_DURATION_SECS.load(Ordering::SeqCst),
+            AUTO_EXIT_DURATION_SECS.load(Ordering::Acquire),
             3600,
             "Duration should be 3600 seconds"
         );
@@ -113,7 +115,7 @@ mod tests {
 
         init_auto_exit_timer(3600);
 
-        let start = AUTO_EXIT_START_TIME.load(Ordering::SeqCst);
+        let start = AUTO_EXIT_START_TIME.load(Ordering::Acquire);
         let after = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -134,8 +136,8 @@ mod tests {
 
         init_auto_exit_timer(0);
 
-        assert!(AUTO_EXIT_ENABLED.load(Ordering::SeqCst));
-        assert_eq!(AUTO_EXIT_DURATION_SECS.load(Ordering::SeqCst), 0);
+        assert!(AUTO_EXIT_ENABLED.load(Ordering::Acquire));
+        assert_eq!(AUTO_EXIT_DURATION_SECS.load(Ordering::Acquire), 0);
     }
 
     #[test]
@@ -144,8 +146,8 @@ mod tests {
 
         init_auto_exit_timer(u64::MAX);
 
-        assert!(AUTO_EXIT_ENABLED.load(Ordering::SeqCst));
-        assert_eq!(AUTO_EXIT_DURATION_SECS.load(Ordering::SeqCst), u64::MAX);
+        assert!(AUTO_EXIT_ENABLED.load(Ordering::Acquire));
+        assert_eq!(AUTO_EXIT_DURATION_SECS.load(Ordering::Acquire), u64::MAX);
     }
 
     #[test]
@@ -154,12 +156,12 @@ mod tests {
 
         // First initialization
         init_auto_exit_timer(100);
-        assert_eq!(AUTO_EXIT_DURATION_SECS.load(Ordering::SeqCst), 100);
+        assert_eq!(AUTO_EXIT_DURATION_SECS.load(Ordering::Acquire), 100);
 
         // Second initialization should overwrite
         init_auto_exit_timer(200);
         assert_eq!(
-            AUTO_EXIT_DURATION_SECS.load(Ordering::SeqCst),
+            AUTO_EXIT_DURATION_SECS.load(Ordering::Acquire),
             200,
             "Duration should be overwritten to 200"
         );
@@ -172,7 +174,7 @@ mod tests {
     #[test]
     fn test_get_remaining_seconds_disabled_returns_max() {
         let _guard = lock_and_reset_timer_state();
-        AUTO_EXIT_ENABLED.store(false, Ordering::SeqCst);
+        AUTO_EXIT_ENABLED.store(false, Ordering::Release);
 
         let remaining = get_remaining_seconds();
 
@@ -203,10 +205,10 @@ mod tests {
         let _guard = lock_and_reset_timer_state();
 
         // Manually set up an expired timer
-        AUTO_EXIT_ENABLED.store(true, Ordering::SeqCst);
-        AUTO_EXIT_DURATION_SECS.store(10, Ordering::SeqCst);
+        AUTO_EXIT_ENABLED.store(true, Ordering::Release);
+        AUTO_EXIT_DURATION_SECS.store(10, Ordering::Release);
         // Set start time far in the past (Unix epoch + 1 second)
-        AUTO_EXIT_START_TIME.store(1, Ordering::SeqCst);
+        AUTO_EXIT_START_TIME.store(1, Ordering::Release);
 
         let remaining = get_remaining_seconds();
 
@@ -223,9 +225,9 @@ mod tests {
             .unwrap()
             .as_secs();
 
-        AUTO_EXIT_ENABLED.store(true, Ordering::SeqCst);
-        AUTO_EXIT_DURATION_SECS.store(60, Ordering::SeqCst);
-        AUTO_EXIT_START_TIME.store(now - 30, Ordering::SeqCst);
+        AUTO_EXIT_ENABLED.store(true, Ordering::Release);
+        AUTO_EXIT_DURATION_SECS.store(60, Ordering::Release);
+        AUTO_EXIT_START_TIME.store(now - 30, Ordering::Release);
 
         let remaining = get_remaining_seconds();
 
@@ -247,9 +249,9 @@ mod tests {
             .unwrap()
             .as_secs();
 
-        AUTO_EXIT_ENABLED.store(true, Ordering::SeqCst);
-        AUTO_EXIT_DURATION_SECS.store(60, Ordering::SeqCst);
-        AUTO_EXIT_START_TIME.store(now - 59, Ordering::SeqCst);
+        AUTO_EXIT_ENABLED.store(true, Ordering::Release);
+        AUTO_EXIT_DURATION_SECS.store(60, Ordering::Release);
+        AUTO_EXIT_START_TIME.store(now - 59, Ordering::Release);
 
         let remaining = get_remaining_seconds();
 
@@ -282,7 +284,7 @@ mod tests {
         init_auto_exit_timer(3600);
 
         assert!(
-            !WARNING_SHOWN.load(Ordering::SeqCst),
+            !WARNING_SHOWN.load(Ordering::Acquire),
             "WARNING_SHOWN should be false after init"
         );
     }
@@ -291,10 +293,10 @@ mod tests {
     fn test_warning_shown_can_be_set() {
         let _guard = lock_and_reset_timer_state();
 
-        WARNING_SHOWN.store(true, Ordering::SeqCst);
+        WARNING_SHOWN.store(true, Ordering::Release);
 
         assert!(
-            WARNING_SHOWN.load(Ordering::SeqCst),
+            WARNING_SHOWN.load(Ordering::Acquire),
             "WARNING_SHOWN should be settable to true"
         );
     }
@@ -303,14 +305,14 @@ mod tests {
     fn test_warning_shown_reset_clears_value() {
         let _guard = lock_and_reset_timer_state();
 
-        WARNING_SHOWN.store(true, Ordering::SeqCst);
-        assert!(WARNING_SHOWN.load(Ordering::SeqCst));
+        WARNING_SHOWN.store(true, Ordering::Release);
+        assert!(WARNING_SHOWN.load(Ordering::Acquire));
 
         // Call reset again (we already hold the lock)
         reset_timer_state();
 
         assert!(
-            !WARNING_SHOWN.load(Ordering::SeqCst),
+            !WARNING_SHOWN.load(Ordering::Acquire),
             "WARNING_SHOWN should be false after reset"
         );
     }
@@ -330,9 +332,9 @@ mod tests {
             .as_secs()
             + 3600;
 
-        AUTO_EXIT_ENABLED.store(true, Ordering::SeqCst);
-        AUTO_EXIT_DURATION_SECS.store(60, Ordering::SeqCst);
-        AUTO_EXIT_START_TIME.store(future_time, Ordering::SeqCst);
+        AUTO_EXIT_ENABLED.store(true, Ordering::Release);
+        AUTO_EXIT_DURATION_SECS.store(60, Ordering::Release);
+        AUTO_EXIT_START_TIME.store(future_time, Ordering::Release);
 
         let remaining = get_remaining_seconds();
 
@@ -355,10 +357,10 @@ mod tests {
             .unwrap()
             .as_secs();
 
-        AUTO_EXIT_ENABLED.store(true, Ordering::SeqCst);
-        AUTO_EXIT_DURATION_SECS.store(10, Ordering::SeqCst);
+        AUTO_EXIT_ENABLED.store(true, Ordering::Release);
+        AUTO_EXIT_DURATION_SECS.store(10, Ordering::Release);
         // Started 100 seconds ago, but duration is only 10
-        AUTO_EXIT_START_TIME.store(now - 100, Ordering::SeqCst);
+        AUTO_EXIT_START_TIME.store(now - 100, Ordering::Release);
 
         let remaining = get_remaining_seconds();
 
@@ -373,17 +375,17 @@ mod tests {
         let _guard = lock_and_reset_timer_state();
 
         // Modify each atomic independently
-        AUTO_EXIT_ENABLED.store(true, Ordering::SeqCst);
-        assert!(AUTO_EXIT_ENABLED.load(Ordering::SeqCst));
-        assert_eq!(AUTO_EXIT_DURATION_SECS.load(Ordering::SeqCst), 0);
-        assert_eq!(AUTO_EXIT_START_TIME.load(Ordering::SeqCst), 0);
-        assert!(!WARNING_SHOWN.load(Ordering::SeqCst));
+        AUTO_EXIT_ENABLED.store(true, Ordering::Release);
+        assert!(AUTO_EXIT_ENABLED.load(Ordering::Acquire));
+        assert_eq!(AUTO_EXIT_DURATION_SECS.load(Ordering::Acquire), 0);
+        assert_eq!(AUTO_EXIT_START_TIME.load(Ordering::Acquire), 0);
+        assert!(!WARNING_SHOWN.load(Ordering::Acquire));
 
-        AUTO_EXIT_DURATION_SECS.store(3600, Ordering::SeqCst);
-        assert!(AUTO_EXIT_ENABLED.load(Ordering::SeqCst));
-        assert_eq!(AUTO_EXIT_DURATION_SECS.load(Ordering::SeqCst), 3600);
-        assert_eq!(AUTO_EXIT_START_TIME.load(Ordering::SeqCst), 0);
-        assert!(!WARNING_SHOWN.load(Ordering::SeqCst));
+        AUTO_EXIT_DURATION_SECS.store(3600, Ordering::Release);
+        assert!(AUTO_EXIT_ENABLED.load(Ordering::Acquire));
+        assert_eq!(AUTO_EXIT_DURATION_SECS.load(Ordering::Acquire), 3600);
+        assert_eq!(AUTO_EXIT_START_TIME.load(Ordering::Acquire), 0);
+        assert!(!WARNING_SHOWN.load(Ordering::Acquire));
     }
 
     #[test]
@@ -428,10 +430,10 @@ mod tests {
     #[test]
     fn test_static_atomics_are_accessible() {
         // Verify that all static atomics can be accessed
-        let _ = AUTO_EXIT_ENABLED.load(Ordering::SeqCst);
-        let _ = AUTO_EXIT_DURATION_SECS.load(Ordering::SeqCst);
-        let _ = AUTO_EXIT_START_TIME.load(Ordering::SeqCst);
-        let _ = WARNING_SHOWN.load(Ordering::SeqCst);
+        let _ = AUTO_EXIT_ENABLED.load(Ordering::Acquire);
+        let _ = AUTO_EXIT_DURATION_SECS.load(Ordering::Acquire);
+        let _ = AUTO_EXIT_START_TIME.load(Ordering::Acquire);
+        let _ = WARNING_SHOWN.load(Ordering::Acquire);
     }
 
     #[test]

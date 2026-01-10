@@ -73,7 +73,7 @@ pub fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
     // Store the handler globally to keep it alive
     menu_bar::ACTION_HANDLER.store(
         Retained::as_ptr(&action_handler) as *mut c_void,
-        Ordering::SeqCst,
+        Ordering::Release,
     );
 
     // Add "Start Protection" item - activates the shield overlay on-demand
@@ -90,7 +90,7 @@ pub fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
     // Store the start menu item reference for enabling/disabling
     menu_bar::START_ITEM.store(
         Retained::as_ptr(&start_item) as *mut c_void,
-        Ordering::SeqCst,
+        Ordering::Release,
     );
 
     menu.addItem(&start_item);
@@ -133,13 +133,13 @@ pub fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
     // Store the settings menu item reference for enabling/disabling
     menu_bar::SETTINGS_ITEM.store(
         Retained::as_ptr(&settings_item) as *mut c_void,
-        Ordering::SeqCst,
+        Ordering::Release,
     );
 
     // Store handler globally to keep it alive
     settings::ACTION_HANDLER.store(
         Retained::as_ptr(&settings_handler) as *mut c_void,
-        Ordering::SeqCst,
+        Ordering::Release,
     );
 
     menu.addItem(&settings_item);
@@ -171,13 +171,13 @@ pub fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
     // Store the about menu item reference for enabling/disabling
     menu_bar::ABOUT_ITEM.store(
         Retained::as_ptr(&about_item) as *mut c_void,
-        Ordering::SeqCst,
+        Ordering::Release,
     );
 
     // Store handler globally to keep it alive
     about::ACTION_HANDLER.store(
         Retained::as_ptr(&about_handler) as *mut c_void,
-        Ordering::SeqCst,
+        Ordering::Release,
     );
 
     menu.addItem(&about_item);
@@ -220,7 +220,7 @@ pub fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
     // Store handler globally to keep it alive
     menu_bar::HELP_HANDLER.store(
         Retained::as_ptr(&help_handler) as *mut c_void,
-        Ordering::SeqCst,
+        Ordering::Release,
     );
 
     // Keep handler alive

@@ -105,21 +105,22 @@ pub static EXIT_KEY_REQUIRES_CTRL: AtomicBool = AtomicBool::new(false);
 
 /// Set the global exit key configuration
 pub fn set_exit_key(key: &ExitKey) {
-    EXIT_KEY_KEYCODE.store(key.keycode, Ordering::SeqCst);
-    EXIT_KEY_REQUIRES_CMD.store(key.requires_cmd, Ordering::SeqCst);
-    EXIT_KEY_REQUIRES_OPTION.store(key.requires_option, Ordering::SeqCst);
-    EXIT_KEY_REQUIRES_SHIFT.store(key.requires_shift, Ordering::SeqCst);
-    EXIT_KEY_REQUIRES_CTRL.store(key.requires_ctrl, Ordering::SeqCst);
+    // Use Release ordering - readers will use Acquire to synchronize
+    EXIT_KEY_KEYCODE.store(key.keycode, Ordering::Release);
+    EXIT_KEY_REQUIRES_CMD.store(key.requires_cmd, Ordering::Release);
+    EXIT_KEY_REQUIRES_OPTION.store(key.requires_option, Ordering::Release);
+    EXIT_KEY_REQUIRES_SHIFT.store(key.requires_shift, Ordering::Release);
+    EXIT_KEY_REQUIRES_CTRL.store(key.requires_ctrl, Ordering::Release);
 }
 
 /// Get the current exit key configuration from global storage
 pub fn get_exit_key() -> ExitKey {
     ExitKey {
-        keycode: EXIT_KEY_KEYCODE.load(Ordering::SeqCst),
-        requires_cmd: EXIT_KEY_REQUIRES_CMD.load(Ordering::SeqCst),
-        requires_option: EXIT_KEY_REQUIRES_OPTION.load(Ordering::SeqCst),
-        requires_shift: EXIT_KEY_REQUIRES_SHIFT.load(Ordering::SeqCst),
-        requires_ctrl: EXIT_KEY_REQUIRES_CTRL.load(Ordering::SeqCst),
+        keycode: EXIT_KEY_KEYCODE.load(Ordering::Acquire),
+        requires_cmd: EXIT_KEY_REQUIRES_CMD.load(Ordering::Acquire),
+        requires_option: EXIT_KEY_REQUIRES_OPTION.load(Ordering::Acquire),
+        requires_shift: EXIT_KEY_REQUIRES_SHIFT.load(Ordering::Acquire),
+        requires_ctrl: EXIT_KEY_REQUIRES_CTRL.load(Ordering::Acquire),
         display_name: format_exit_key_display(),
     }
 }
@@ -127,19 +128,19 @@ pub fn get_exit_key() -> ExitKey {
 /// Format the exit key for display
 pub fn format_exit_key_display() -> String {
     let mut parts = Vec::new();
-    if EXIT_KEY_REQUIRES_CMD.load(Ordering::SeqCst) {
+    if EXIT_KEY_REQUIRES_CMD.load(Ordering::Acquire) {
         parts.push("Cmd");
     }
-    if EXIT_KEY_REQUIRES_OPTION.load(Ordering::SeqCst) {
+    if EXIT_KEY_REQUIRES_OPTION.load(Ordering::Acquire) {
         parts.push("Option");
     }
-    if EXIT_KEY_REQUIRES_SHIFT.load(Ordering::SeqCst) {
+    if EXIT_KEY_REQUIRES_SHIFT.load(Ordering::Acquire) {
         parts.push("Shift");
     }
-    if EXIT_KEY_REQUIRES_CTRL.load(Ordering::SeqCst) {
+    if EXIT_KEY_REQUIRES_CTRL.load(Ordering::Acquire) {
         parts.push("Ctrl");
     }
-    let keycode = EXIT_KEY_KEYCODE.load(Ordering::SeqCst);
+    let keycode = EXIT_KEY_KEYCODE.load(Ordering::Acquire);
     if let Some(key_name) = keycode_to_name(keycode) {
         parts.push(key_name);
     }
@@ -148,7 +149,7 @@ pub fn format_exit_key_display() -> String {
 
 /// Check if the given key event matches the configured exit key
 pub fn check_exit_key(keycode: i64, flags: CGEventFlags) -> bool {
-    let expected_keycode = EXIT_KEY_KEYCODE.load(Ordering::SeqCst);
+    let expected_keycode = EXIT_KEY_KEYCODE.load(Ordering::Acquire);
     if keycode != expected_keycode {
         return false;
     }
@@ -158,10 +159,10 @@ pub fn check_exit_key(keycode: i64, flags: CGEventFlags) -> bool {
     let has_shift = flags.contains(CGEventFlags::MaskShift);
     let has_ctrl = flags.contains(CGEventFlags::MaskControl);
 
-    let requires_cmd = EXIT_KEY_REQUIRES_CMD.load(Ordering::SeqCst);
-    let requires_option = EXIT_KEY_REQUIRES_OPTION.load(Ordering::SeqCst);
-    let requires_shift = EXIT_KEY_REQUIRES_SHIFT.load(Ordering::SeqCst);
-    let requires_ctrl = EXIT_KEY_REQUIRES_CTRL.load(Ordering::SeqCst);
+    let requires_cmd = EXIT_KEY_REQUIRES_CMD.load(Ordering::Acquire);
+    let requires_option = EXIT_KEY_REQUIRES_OPTION.load(Ordering::Acquire);
+    let requires_shift = EXIT_KEY_REQUIRES_SHIFT.load(Ordering::Acquire);
+    let requires_ctrl = EXIT_KEY_REQUIRES_CTRL.load(Ordering::Acquire);
 
     requires_cmd == has_cmd
         && requires_option == has_option
