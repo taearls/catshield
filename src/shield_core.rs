@@ -5,6 +5,7 @@
 //! - Accessibility permission checking and polling
 //! - Shield window creation and configuration
 //! - Close button setup
+//! - Timer display setup
 //!
 //! By extracting this shared logic, we avoid duplication and ensure
 //! consistent behavior between the two modes.
@@ -15,8 +16,9 @@ use crate::platform::{
     check_accessibility, check_accessibility_with_prompt, open_accessibility_settings,
     CFRunLoopRunInMode,
 };
-use crate::ui::state::{close_button, window_level};
-use crate::ui::views::{CloseButtonLabelView, CloseButtonView};
+use crate::timer::{format_duration, init_auto_exit_timer};
+use crate::ui::state::{close_button, shield, timer_display, window_level};
+use crate::ui::views::{CloseButtonLabelView, CloseButtonView, TimerDisplayView};
 use objc2::rc::Retained;
 use objc2::MainThreadOnly;
 use objc2_app_kit::{
@@ -24,6 +26,8 @@ use objc2_app_kit::{
 };
 use objc2_core_foundation::{kCFRunLoopDefaultMode, CFString, CGPoint, CGRect, CGSize};
 use objc2_foundation::{ns_string, MainThreadMarker};
+use std::ffi::c_void;
+use std::sync::atomic::Ordering;
 
 /// UI theme constants for the shield overlay
 pub mod theme {
@@ -266,6 +270,70 @@ pub fn print_shield_active(exit_key: &ExitKey, timer_info: Option<&str>) {
         println!("        Or wait for timer ({})", info);
     }
     println!();
+}
+
+/// Set up the auto-exit timer and create the timer display view.
+///
+/// This function:
+/// 1. Initializes the auto-exit timer with the specified duration
+/// 2. Creates and configures the timer display view
+/// 3. Stores the view reference in global state for the timer callback
+/// 4. Adds the view to the window's content view
+/// 5. Transfers ownership to prevent deallocation
+///
+/// # Arguments
+/// * `mtm` - MainThreadMarker proving we're on the main thread
+/// * `window` - The shield window to add the timer display to
+/// * `screen_frame` - The screen frame for positioning the timer display
+/// * `duration_secs` - The timer duration in seconds
+///
+/// # Note
+/// The timer view ownership is transferred via `std::mem::forget` and the raw pointer
+/// is stored in `shield::TIMER_VIEW`. It will be reclaimed in `deactivate_shield()`.
+pub fn setup_timer_display(
+    mtm: MainThreadMarker,
+    window: &NSWindow,
+    screen_frame: CGRect,
+    duration_secs: u64,
+) {
+    // Initialize the auto-exit timer
+    init_auto_exit_timer(duration_secs);
+    println!(
+        "  ✓ Auto-exit timer set: {}",
+        format_duration(duration_secs)
+    );
+
+    // Create timer display view
+    let timer_display_frame = CGRect {
+        origin: CGPoint {
+            x: timer_display::MARGIN,
+            y: screen_frame.size.height - timer_display::HEIGHT - timer_display::MARGIN,
+        },
+        size: CGSize {
+            width: timer_display::WIDTH,
+            height: timer_display::HEIGHT,
+        },
+    };
+
+    let timer_view = TimerDisplayView::new(mtm, timer_display_frame);
+
+    // Store view reference for timer callback
+    shield::TIMER_VIEW.store(
+        Retained::as_ptr(&timer_view) as *mut c_void,
+        Ordering::Release,
+    );
+
+    // Add timer display to the window's content view
+    if let Some(content_view) = window.contentView() {
+        content_view.addSubview(&timer_view);
+    }
+
+    println!("  ✓ Timer display active");
+
+    // SAFETY: Transfer ownership to prevent deallocation while shield is active.
+    // The timer view is retained by the window's content view and the raw pointer
+    // is stored in shield::TIMER_VIEW. It will be reclaimed in deactivate_shield().
+    std::mem::forget(timer_view);
 }
 
 // Compile-time validation of theme constants using const assertions

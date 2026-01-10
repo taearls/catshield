@@ -7,17 +7,17 @@ use crate::platform::{
 };
 use crate::shield_core::{
     create_shield_window, ensure_accessibility, print_activation_banner, print_shield_active,
-    setup_close_button,
+    setup_close_button, setup_timer_display,
 };
 use crate::timer::{
-    format_duration, init_auto_exit_timer, parse_duration, AUTO_EXIT_ENABLED, WARNING_SHOWN,
+    format_duration, get_remaining_seconds, parse_duration, AUTO_EXIT_ENABLED, WARNING_SHOWN,
 };
 use crate::ui::ptr_helper::with_ptr_void;
-use crate::ui::state::{menu_bar, shield, timer_display, IS_MOUSE_INSIDE, MOUSE_DOWN_TIME};
-use crate::ui::views::{CloseButtonLabelView, CloseButtonView, TimerDisplayView};
+use crate::ui::state::{menu_bar, shield, IS_MOUSE_INSIDE, MOUSE_DOWN_TIME};
+use crate::ui::views::{CloseButtonLabelView, CloseButtonView};
 use objc2::rc::Retained;
 use objc2_app_kit::{NSMenuItem, NSScreen, NSTextField, NSWindow};
-use objc2_core_foundation::{kCFRunLoopCommonModes, CFString, CGPoint, CGRect, CGSize};
+use objc2_core_foundation::{kCFRunLoopCommonModes, CFString};
 use objc2_foundation::MainThreadMarker;
 use std::ffi::c_void;
 use std::mem::ManuallyDrop;
@@ -26,7 +26,7 @@ use std::sync::atomic::Ordering;
 use crate::platform::{
     CFAbsoluteTimeGetCurrent, CFRunLoopAddTimer, CFRunLoopTimerCreate, CFRunLoopTimerInvalidate,
 };
-use crate::timer::{get_remaining_seconds, WARNING_SECONDS};
+use crate::timer::WARNING_SECONDS;
 use crate::ui::state::animation;
 
 /// Timer callback to update progress, check for exit condition, and trigger redraw.
@@ -424,56 +424,22 @@ pub fn activate_shield(mtm: MainThreadMarker) {
     println!("  ✓ Close button active (hold 3s to exit)");
     println!("  ✓ Exit key: {}", exit_key.display_name);
 
-    // Check for default timer in config and set up auto-exit if configured
+    // Check for default timer in config and set up auto-exit if configured (uses shared helper)
     let config = Config::load();
-    let mut timer_duration_secs: Option<u64> = None;
-    if let Some(ref timer_str) = config.default_timer {
+    let timer_duration_secs: Option<u64> = if let Some(ref timer_str) = config.default_timer {
         match parse_duration(timer_str) {
             Ok(duration_secs) => {
-                init_auto_exit_timer(duration_secs);
-                timer_duration_secs = Some(duration_secs);
-                println!(
-                    "  ✓ Auto-exit timer set: {}",
-                    format_duration(duration_secs)
-                );
-
-                // Create timer display view
-                let timer_display_frame = CGRect {
-                    origin: CGPoint {
-                        x: timer_display::MARGIN,
-                        y: screen_frame.size.height - timer_display::HEIGHT - timer_display::MARGIN,
-                    },
-                    size: CGSize {
-                        width: timer_display::WIDTH,
-                        height: timer_display::HEIGHT,
-                    },
-                };
-
-                let timer_view = TimerDisplayView::new(mtm, timer_display_frame);
-
-                // Store view reference for timer callback
-                shield::TIMER_VIEW.store(
-                    Retained::as_ptr(&timer_view) as *mut c_void,
-                    Ordering::Release,
-                );
-
-                // Add timer display to the window's content view
-                if let Some(content_view) = window.contentView() {
-                    content_view.addSubview(&timer_view);
-                }
-
-                println!("  ✓ Timer display active");
-
-                // SAFETY: Transfer ownership to prevent deallocation while shield is active.
-                // The timer view is retained by the window's content view and the raw pointer
-                // is stored in shield::TIMER_VIEW. It will be reclaimed in deactivate_shield().
-                std::mem::forget(timer_view);
+                setup_timer_display(mtm, &window, screen_frame, duration_secs);
+                Some(duration_secs)
             }
             Err(e) => {
                 eprintln!("  ⚠️  Invalid default_timer in config: {}", e);
+                None
             }
         }
-    }
+    } else {
+        None
+    };
 
     // Prevent sleep
     if let Some(assertion_id) = prevent_sleep() {

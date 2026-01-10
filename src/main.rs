@@ -33,18 +33,17 @@ use cat_shield::lock::{acquire_instance_lock, release_instance_lock, LockResult}
 use cat_shield::platform::{allow_sleep, prevent_sleep, setup_event_tap};
 use cat_shield::shield_core::{
     create_shield_window, ensure_accessibility, print_activation_banner, print_shield_active,
-    setup_close_button,
+    setup_close_button, setup_timer_display,
 };
-use cat_shield::timer::{format_duration, get_remaining_seconds, init_auto_exit_timer};
+use cat_shield::timer::{format_duration, get_remaining_seconds};
 use cat_shield::ui::menu_bar::setup_menu_bar;
 use cat_shield::ui::shield::{stop_close_button_timer, timer_callback};
-use cat_shield::ui::state::{animation, shield, timer_display};
-use cat_shield::ui::views::TimerDisplayView;
+use cat_shield::ui::state::{animation, shield};
 
 use clap::Parser;
 use objc2::rc::Retained;
 use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy, NSScreen};
-use objc2_core_foundation::{kCFRunLoopCommonModes, CFString, CGPoint, CGRect, CGSize};
+use objc2_core_foundation::{kCFRunLoopCommonModes, CFString};
 use objc2_foundation::MainThreadMarker;
 use std::ffi::c_void;
 use std::process;
@@ -205,41 +204,17 @@ fn main() {
         println!("  ✓ Close button active (hold 3s to exit)");
         println!("  ✓ Exit key: {}", exit_key.display_name);
 
-        // Set up auto-exit timer if specified
+        // Set up auto-exit timer if specified (uses shared helper)
         if let Some(duration_secs) = args.timer {
-            init_auto_exit_timer(duration_secs);
-            println!(
-                "  ✓ Auto-exit timer set: {}",
-                format_duration(duration_secs)
-            );
-
-            // Create timer display view if not hidden
             if !args.hide_timer {
-                let timer_display_frame = CGRect {
-                    origin: CGPoint {
-                        x: timer_display::MARGIN,
-                        y: screen_frame.size.height - timer_display::HEIGHT - timer_display::MARGIN,
-                    },
-                    size: CGSize {
-                        width: timer_display::WIDTH,
-                        height: timer_display::HEIGHT,
-                    },
-                };
-
-                let timer_display = TimerDisplayView::new(mtm, timer_display_frame);
-
-                // Store view reference for timer callback
-                shield::TIMER_VIEW.store(
-                    Retained::as_ptr(&timer_display) as *mut c_void,
-                    Ordering::Release,
+                setup_timer_display(mtm, &window, screen_frame, duration_secs);
+            } else {
+                // Timer without display - just initialize the timer
+                cat_shield::timer::init_auto_exit_timer(duration_secs);
+                println!(
+                    "  ✓ Auto-exit timer set: {}",
+                    format_duration(duration_secs)
                 );
-
-                // Add timer display to the window's content view
-                if let Some(content_view) = window.contentView() {
-                    content_view.addSubview(&timer_display);
-                }
-
-                println!("  ✓ Timer display active");
             }
         }
 
