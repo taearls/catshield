@@ -6,6 +6,8 @@
 //! - Auto-exit timer state management
 
 mod formatting;
+#[cfg(test)]
+mod integration_tests;
 mod parsing;
 mod state;
 
