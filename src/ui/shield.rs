@@ -1,5 +1,6 @@
 //! Shield overlay activation and deactivation for Cat Shield
 
+use crate::config::Config;
 use crate::input::get_exit_key;
 use crate::platform::{
     allow_sleep, disable_event_tap, prevent_sleep, setup_event_tap, CFRunLoopGetCurrent,
@@ -8,13 +9,13 @@ use crate::shield_core::{
     create_shield_window, ensure_accessibility, print_activation_banner, print_shield_active,
     setup_close_button,
 };
-use crate::timer::{AUTO_EXIT_ENABLED, WARNING_SHOWN};
+use crate::timer::{format_duration, init_auto_exit_timer, parse_duration, AUTO_EXIT_ENABLED, WARNING_SHOWN};
 use crate::ui::ptr_helper::with_ptr_void;
-use crate::ui::state::{menu_bar, shield, IS_MOUSE_INSIDE, MOUSE_DOWN_TIME};
-use crate::ui::views::{CloseButtonLabelView, CloseButtonView};
+use crate::ui::state::{menu_bar, shield, timer_display, IS_MOUSE_INSIDE, MOUSE_DOWN_TIME};
+use crate::ui::views::{CloseButtonLabelView, CloseButtonView, TimerDisplayView};
 use objc2::rc::Retained;
 use objc2_app_kit::{NSMenuItem, NSScreen, NSTextField, NSWindow};
-use objc2_core_foundation::{kCFRunLoopCommonModes, CFString};
+use objc2_core_foundation::{kCFRunLoopCommonModes, CFString, CGPoint, CGRect, CGSize};
 use objc2_foundation::MainThreadMarker;
 use std::ffi::c_void;
 use std::mem::ManuallyDrop;
@@ -421,6 +422,57 @@ pub fn activate_shield(mtm: MainThreadMarker) {
     println!("  ✓ Close button active (hold 3s to exit)");
     println!("  ✓ Exit key: {}", exit_key.display_name);
 
+    // Check for default timer in config and set up auto-exit if configured
+    let config = Config::load();
+    let mut timer_duration_secs: Option<u64> = None;
+    if let Some(ref timer_str) = config.default_timer {
+        match parse_duration(timer_str) {
+            Ok(duration_secs) => {
+                init_auto_exit_timer(duration_secs);
+                timer_duration_secs = Some(duration_secs);
+                println!(
+                    "  ✓ Auto-exit timer set: {}",
+                    format_duration(duration_secs)
+                );
+
+                // Create timer display view
+                let timer_display_frame = CGRect {
+                    origin: CGPoint {
+                        x: timer_display::MARGIN,
+                        y: screen_frame.size.height - timer_display::HEIGHT - timer_display::MARGIN,
+                    },
+                    size: CGSize {
+                        width: timer_display::WIDTH,
+                        height: timer_display::HEIGHT,
+                    },
+                };
+
+                let timer_view = TimerDisplayView::new(mtm, timer_display_frame);
+
+                // Store view reference for timer callback
+                shield::TIMER_VIEW.store(
+                    Retained::as_ptr(&timer_view) as *mut c_void,
+                    Ordering::Release,
+                );
+
+                // Add timer display to the window's content view
+                if let Some(content_view) = window.contentView() {
+                    content_view.addSubview(&timer_view);
+                }
+
+                println!("  ✓ Timer display active");
+
+                // SAFETY: Transfer ownership to prevent deallocation while shield is active.
+                // The timer view is retained by the window's content view and the raw pointer
+                // is stored in shield::TIMER_VIEW. It will be reclaimed in deactivate_shield().
+                std::mem::forget(timer_view);
+            }
+            Err(e) => {
+                eprintln!("  ⚠️  Invalid default_timer in config: {}", e);
+            }
+        }
+    }
+
     // Prevent sleep
     if let Some(assertion_id) = prevent_sleep() {
         shield::SLEEP_ASSERTION_ID.store(assertion_id as u64, Ordering::Release);
@@ -450,7 +502,10 @@ pub fn activate_shield(mtm: MainThreadMarker) {
     println!("  ✓ Input blocking active");
 
     // Print shield active status (shared)
-    print_shield_active(&exit_key, None);
+    let timer_info = timer_duration_secs.map(|_| {
+        format!("{} remaining", format_duration(get_remaining_seconds()))
+    });
+    print_shield_active(&exit_key, timer_info.as_deref());
 
     // Transfer ownership to ManuallyDrop to prevent deallocation while shield is active.
     // The raw pointers stored in global state are reclaimed in deactivate_shield()

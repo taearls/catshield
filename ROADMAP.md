@@ -379,7 +379,7 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-10
-- Completed Issue #73: Reduce minimum auto-exit timer to 5 seconds and fix timer exit behavior
+- Completed Issue #73: Reduce minimum auto-exit timer to 5 seconds and fix timer behavior
   - Updated `MIN_TIMER_SECONDS` constant from 60 to 5 in `src/timer/mod.rs`
   - Updated validation error message to say "at least 5 seconds" instead of "1 minute"
   - Updated tests: `30s` (now valid), added `test_parse_duration_minimum_boundary` for edge cases
@@ -389,6 +389,10 @@ Potential future enhancements (not yet tracked as issues):
     - Refactored `main.rs` to always set up menu bar (even with CLI args)
     - `MODE_MENU_BAR` is now always true, so `deactivate_shield()` is called on timer expiry
     - App stays running in menu bar after shield deactivation
+  - **Fixed**: Default timer from Settings now works when starting protection from menu bar
+    - Added `default_timer` config loading to `activate_shield()` in `src/ui/shield.rs`
+    - Timer display view is created and shown when default timer is configured
+    - Timer info is displayed in the shield active status
   - All 111 tests pass, clippy clean, build successful
   - Updated issue counts: 4 open, 33 closed
 
