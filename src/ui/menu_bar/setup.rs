@@ -95,7 +95,12 @@ pub fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
 
     menu.addItem(&start_item);
 
-    // Keep handler alive
+    // SAFETY: Transferring ownership to global AtomicPtr storage.
+    // The handler must outlive all menu interactions for the app lifetime.
+    // Preventing drop here is correct because:
+    // - The pointer is stored in menu_bar::ACTION_HANDLER (a 'static AtomicPtr)
+    // - The handler is target for the Start Protection menu item (setTarget())
+    // Cleanup: Never explicitly released; lives for app duration.
     std::mem::forget(action_handler);
 
     // Add "Stop Protection" item - deactivates the shield overlay when active
@@ -144,7 +149,12 @@ pub fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
 
     menu.addItem(&settings_item);
 
-    // Keep handler alive
+    // SAFETY: Transferring ownership to global AtomicPtr storage.
+    // The handler must outlive all settings menu interactions for the app lifetime.
+    // Preventing drop here is correct because:
+    // - The pointer is stored in settings::ACTION_HANDLER (a 'static AtomicPtr)
+    // - The handler is target for the Settings menu item (setTarget())
+    // Cleanup: Never explicitly released; lives for app duration.
     std::mem::forget(settings_handler);
 
     menu.addItem(&NSMenuItem::separatorItem(mtm));
@@ -182,8 +192,18 @@ pub fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
 
     menu.addItem(&about_item);
 
-    // Keep handler and menu item alive
+    // SAFETY: Transferring ownership to global AtomicPtr storage.
+    // The handler must outlive all about menu interactions for the app lifetime.
+    // Preventing drop here is correct because:
+    // - The pointer is stored in about::ACTION_HANDLER (a 'static AtomicPtr)
+    // - The handler is target for the About menu item (setTarget())
+    // Cleanup: Never explicitly released; lives for app duration.
     std::mem::forget(about_handler);
+    // SAFETY: Transferring ownership to Objective-C runtime and global AtomicPtr.
+    // Preventing drop here is correct because:
+    // - The menu item is retained by NSMenu (addItem)
+    // - The pointer is stored in menu_bar::ABOUT_ITEM for enabling/disabling
+    // Cleanup: Never explicitly released; lives for app duration.
     std::mem::forget(about_item);
 
     // Add "Help" submenu
@@ -223,7 +243,12 @@ pub fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
         Ordering::Release,
     );
 
-    // Keep handler alive
+    // SAFETY: Transferring ownership to global AtomicPtr storage.
+    // The handler must outlive all help menu interactions for the app lifetime.
+    // Preventing drop here is correct because:
+    // - The pointer is stored in menu_bar::HELP_HANDLER (a 'static AtomicPtr)
+    // - The handler is target for Help submenu items (setTarget())
+    // Cleanup: Never explicitly released; lives for app duration.
     std::mem::forget(help_handler);
 
     help_item.setSubmenu(Some(&help_submenu));

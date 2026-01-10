@@ -121,7 +121,12 @@ fn draw_timer_display(view: &NSView) {
             Ordering::Release,
         );
         view.addSubview(&header_label);
-        // Keep retained to prevent deallocation
+        // SAFETY: Transferring ownership to Objective-C runtime and global AtomicPtr.
+        // Preventing drop here is correct because:
+        // - The view is retained by the parent view hierarchy (addSubview)
+        // - The pointer is stored in shield::TIMER_HEADER for potential updates
+        // Cleanup: shield::TIMER_HEADER is set to null in deactivate_shield(),
+        // and the parent view releases subviews when the shield window closes.
         std::mem::forget(header_label);
     }
 
@@ -143,6 +148,12 @@ fn draw_timer_display(view: &NSView) {
             Ordering::Release,
         );
         view.addSubview(&time_label);
+        // SAFETY: Transferring ownership to Objective-C runtime and global AtomicPtr.
+        // Preventing drop here is correct because:
+        // - The view is retained by the parent view hierarchy (addSubview)
+        // - The pointer is stored in shield::TIMER_TIME for countdown updates
+        // Cleanup: shield::TIMER_TIME is set to null in deactivate_shield(),
+        // and the parent view releases subviews when the shield window closes.
         std::mem::forget(time_label);
     } else {
         // Update existing time label
@@ -187,6 +198,12 @@ fn draw_timer_display(view: &NSView) {
             Ordering::Release,
         );
         view.addSubview(&warning_label);
+        // SAFETY: Transferring ownership to Objective-C runtime and global AtomicPtr.
+        // Preventing drop here is correct because:
+        // - The view is retained by the parent view hierarchy (addSubview)
+        // - The pointer is stored in shield::TIMER_WARNING for visibility updates
+        // Cleanup: shield::TIMER_WARNING is set to null in deactivate_shield(),
+        // and the parent view releases subviews when the shield window closes.
         std::mem::forget(warning_label);
     } else {
         // Update existing warning label visibility

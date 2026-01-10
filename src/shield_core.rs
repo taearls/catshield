@@ -89,6 +89,10 @@ pub fn ensure_accessibility(exit_key: &ExitKey) {
     // Poll for permissions every 1 second using CFRunLoopRunInMode
     const POLL_INTERVAL_SECS: f64 = 1.0;
     loop {
+        // SAFETY: CFRunLoopRunInMode is safe to call because:
+        // - kCFRunLoopDefaultMode is a valid, non-null constant from Core Foundation
+        // - The pointer cast is valid for the expected type
+        // - We're calling this on the main thread which owns this run loop
         unsafe {
             let mode = kCFRunLoopDefaultMode.expect("kCFRunLoopDefaultMode should exist");
             CFRunLoopRunInMode((mode as *const CFString).cast(), POLL_INTERVAL_SECS, false);
@@ -116,7 +120,11 @@ pub fn ensure_accessibility(exit_key: &ExitKey) {
 /// # Returns
 /// A retained reference to the configured NSWindow
 pub fn create_shield_window(mtm: MainThreadMarker, frame: CGRect) -> Retained<NSWindow> {
-    // Create a fullscreen, borderless window
+    // SAFETY: NSWindow initialization is safe because:
+    // - mtm (MainThreadMarker) guarantees we're on the main thread
+    // - The frame rect is a valid CGRect with reasonable dimensions
+    // - NSWindowStyleMask::Borderless is a valid style mask
+    // - NSBackingStoreType::Buffered is a valid backing store type
     let window = unsafe {
         let window = NSWindow::alloc(mtm);
         NSWindow::initWithContentRect_styleMask_backing_defer(
@@ -165,7 +173,11 @@ pub fn create_shield_window(mtm: MainThreadMarker, frame: CGRect) -> Retained<NS
     // Set title
     window.setTitle(ns_string!("Cat Shield"));
 
-    // Required when creating NSWindow outside a window controller
+    // SAFETY: setReleasedWhenClosed is safe because:
+    // - The window reference is valid (just created and configured)
+    // - We're on the main thread (guaranteed by mtm)
+    // - Setting to false prevents automatic deallocation, which is correct
+    //   since we manage the window lifetime via Retained<NSWindow>
     unsafe {
         window.setReleasedWhenClosed(false);
     }

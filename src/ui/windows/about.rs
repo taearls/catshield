@@ -181,6 +181,13 @@ pub fn show_about_window(mtm: MainThreadMarker) {
                 Retained::as_ptr(&new_delegate) as *mut c_void,
                 Ordering::Release,
             );
+            // SAFETY: Transferring ownership to global AtomicPtr storage.
+            // The delegate must outlive the about window for the entire app lifetime.
+            // Preventing drop here is correct because:
+            // - The pointer is stored in about::WINDOW_DELEGATE (a 'static AtomicPtr)
+            // - The delegate is reused across multiple window opens/closes
+            // - The Objective-C runtime retains it via setDelegate()
+            // Cleanup: Never explicitly released; lives for app duration.
             std::mem::forget(new_delegate);
             &*(about::WINDOW_DELEGATE.load(Ordering::Acquire) as *const AboutWindowDelegate)
         } else {
@@ -201,6 +208,13 @@ pub fn show_about_window(mtm: MainThreadMarker) {
                 Retained::as_ptr(&new_handler) as *mut c_void,
                 Ordering::Release,
             );
+            // SAFETY: Transferring ownership to global AtomicPtr storage.
+            // The handler must outlive all about window interactions for the app lifetime.
+            // Preventing drop here is correct because:
+            // - The pointer is stored in about::ACTION_HANDLER (a 'static AtomicPtr)
+            // - The handler is target for the Close button (setTarget())
+            // - Reused across multiple about window opens/closes
+            // Cleanup: Never explicitly released; lives for app duration.
             std::mem::forget(new_handler);
             &*(about::ACTION_HANDLER.load(Ordering::Acquire) as *const AboutActionHandler)
         } else {
@@ -239,6 +253,10 @@ pub fn show_about_window(mtm: MainThreadMarker) {
         emoji_label.setStringValue(ns_string!("\u{1F431}")); // 🐱
         emoji_label.setFont(Some(&NSFont::systemFontOfSize(48.0)));
         content_view.addSubview(&emoji_label);
+        // SAFETY: Transferring ownership to Objective-C runtime.
+        // Preventing drop here is correct because:
+        // - The view is retained by NSWindow's content view hierarchy (addSubview)
+        // Cleanup: NSWindow releases all subviews when the window closes.
         std::mem::forget(emoji_label);
 
         // ========================================
@@ -266,6 +284,10 @@ pub fn show_about_window(mtm: MainThreadMarker) {
         name_label.setFont(Some(&NSFont::boldSystemFontOfSize(20.0)));
         name_label.setTextColor(Some(&NSColor::labelColor()));
         content_view.addSubview(&name_label);
+        // SAFETY: Transferring ownership to Objective-C runtime.
+        // Preventing drop here is correct because:
+        // - The view is retained by NSWindow's content view hierarchy (addSubview)
+        // Cleanup: NSWindow releases all subviews when the window closes.
         std::mem::forget(name_label);
 
         // ========================================
@@ -296,6 +318,10 @@ pub fn show_about_window(mtm: MainThreadMarker) {
         version_label.setFont(Some(&NSFont::systemFontOfSize(12.0)));
         version_label.setTextColor(Some(&NSColor::secondaryLabelColor()));
         content_view.addSubview(&version_label);
+        // SAFETY: Transferring ownership to Objective-C runtime.
+        // Preventing drop here is correct because:
+        // - The view is retained by NSWindow's content view hierarchy (addSubview)
+        // Cleanup: NSWindow releases all subviews when the window closes.
         std::mem::forget(version_label);
 
         // ========================================
@@ -322,6 +348,10 @@ pub fn show_about_window(mtm: MainThreadMarker) {
         );
         description_label.setAlignment(NSTextAlignment::Center);
         content_view.addSubview(&description_label);
+        // SAFETY: Transferring ownership to Objective-C runtime.
+        // Preventing drop here is correct because:
+        // - The view is retained by NSWindow's content view hierarchy (addSubview)
+        // Cleanup: NSWindow releases all subviews when the window closes.
         std::mem::forget(description_label);
 
         // ========================================
@@ -353,6 +383,11 @@ pub fn show_about_window(mtm: MainThreadMarker) {
             button
         };
         content_view.addSubview(&close_button);
+        // SAFETY: Transferring ownership to Objective-C runtime.
+        // Preventing drop here is correct because:
+        // - The view is retained by NSWindow's content view hierarchy (addSubview)
+        // - The button action is handled by the AboutActionHandler
+        // Cleanup: NSWindow releases all subviews when the window closes.
         std::mem::forget(close_button);
     }
 
@@ -365,7 +400,13 @@ pub fn show_about_window(mtm: MainThreadMarker) {
     // Show the window
     panel.makeKeyAndOrderFront(None);
 
-    // Keep panel alive
+    // SAFETY: Transferring ownership to global AtomicPtr storage.
+    // Preventing drop here is correct because:
+    // - The pointer was already stored in about::WINDOW earlier in this function
+    // - The window must remain valid while displayed
+    // - The Objective-C runtime also holds references
+    // Cleanup: The window is properly closed and released via
+    // cleanup_about_window_references() when the window closes.
     std::mem::forget(panel);
 
     println!("  About window opened");

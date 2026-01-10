@@ -33,6 +33,10 @@ use crate::ui::state::animation;
 ///
 /// # Safety
 /// This function is called from the CFRunLoop timer and must be `unsafe extern "C"`.
+/// The caller (CFRunLoop) guarantees:
+/// - The function is called on the thread that owns the run loop
+/// - The timer has not been invalidated
+/// - The callback is invoked at regular intervals as configured
 pub unsafe extern "C" fn timer_callback(_timer: *mut c_void, _info: *mut c_void) {
     use crate::ui::state::{close_button, is_hold_complete};
     use objc2_app_kit::{NSApplication, NSView};
@@ -108,6 +112,12 @@ pub unsafe extern "C" fn timer_callback(_timer: *mut c_void, _info: *mut c_void)
 
 /// Start the animation timer for the close button
 fn start_close_button_timer() {
+    // SAFETY: CFRunLoopTimerCreate and related calls are safe because:
+    // - All arguments are valid (null allocator uses default, valid time values)
+    // - timer_callback is a valid extern "C" function
+    // - We check for null return before using the timer
+    // - CFRunLoopAddTimer is called on the current thread's run loop
+    // - The timer pointer is stored in shield::TIMER_REF for later cleanup
     unsafe {
         let timer = CFRunLoopTimerCreate(
             std::ptr::null(),
@@ -130,6 +140,11 @@ fn start_close_button_timer() {
 
 /// Stop the animation timer
 pub fn stop_close_button_timer() {
+    // SAFETY: CFRunLoopTimerInvalidate is safe because:
+    // - The timer pointer was obtained from our own atomic swap
+    // - We check for null before calling invalidate
+    // - The timer was created by CFRunLoopTimerCreate in start_close_button_timer
+    // - After invalidation, the timer will not fire again
     unsafe {
         let timer = shield::TIMER_REF.swap(std::ptr::null_mut(), Ordering::AcqRel);
         if !timer.is_null() {
@@ -174,6 +189,11 @@ pub fn deactivate_shield() {
     // which ensures the NSWindow is properly released when dropped
     let window_ptr = shield::WINDOW.swap(std::ptr::null_mut(), Ordering::AcqRel);
     if !window_ptr.is_null() {
+        // SAFETY: Retained::from_raw is safe because:
+        // - window_ptr was stored from a valid Retained<NSWindow> in activate_shield
+        // - The atomic swap ensures we only reclaim ownership once
+        // - The pointer type cast is correct (it was stored as *mut c_void from NSWindow)
+        // - The window is valid until we drop it here
         unsafe {
             // Reconstruct Retained to take ownership and properly release
             let window: Retained<NSWindow> =
@@ -188,6 +208,10 @@ pub fn deactivate_shield() {
     // The window's content view also holds a reference, but we need to release our ownership
     let close_button_ptr = shield::CLOSE_BUTTON.swap(std::ptr::null_mut(), Ordering::AcqRel);
     if !close_button_ptr.is_null() {
+        // SAFETY: Retained::from_raw is safe because:
+        // - close_button_ptr was stored from a valid Retained<CloseButtonView> in activate_shield
+        // - The atomic swap ensures we only reclaim ownership once
+        // - The pointer type cast is correct (it was stored as *mut c_void from CloseButtonView)
         unsafe {
             // Reconstruct Retained to take ownership and properly release
             let _close_button: Retained<CloseButtonView> =
@@ -201,6 +225,10 @@ pub fn deactivate_shield() {
     let close_button_label_ptr =
         shield::CLOSE_BUTTON_LABEL.swap(std::ptr::null_mut(), Ordering::AcqRel);
     if !close_button_label_ptr.is_null() {
+        // SAFETY: Retained::from_raw is safe because:
+        // - close_button_label_ptr was stored from a valid Retained in activate_shield
+        // - The atomic swap ensures we only reclaim ownership once
+        // - The pointer type cast is correct
         unsafe {
             let _label: Retained<CloseButtonLabelView> =
                 Retained::from_raw(close_button_label_ptr as *mut CloseButtonLabelView)

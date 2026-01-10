@@ -117,6 +117,12 @@ fn draw_close_button_label(view: &NSView) {
         label.setAlignment(NSTextAlignment::Center);
         shield::CLOSE_BUTTON_TEXT.store(Retained::as_ptr(&label) as *mut c_void, Ordering::Release);
         view.addSubview(&label);
+        // SAFETY: Transferring ownership to Objective-C runtime and global AtomicPtr.
+        // Preventing drop here is correct because:
+        // - The view is retained by the parent view hierarchy (addSubview)
+        // - The pointer is stored in shield::CLOSE_BUTTON_TEXT for text updates
+        // Cleanup: shield::CLOSE_BUTTON_TEXT is set to null in deactivate_shield(),
+        // and the parent view releases subviews when the shield window closes.
         std::mem::forget(label);
     } else {
         // Update existing label

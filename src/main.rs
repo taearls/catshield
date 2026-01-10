@@ -56,6 +56,12 @@ use cat_shield::platform::{
 
 /// Start the animation timer for immediate mode
 fn start_close_button_timer() {
+    // SAFETY: CFRunLoopTimerCreate and related calls are safe because:
+    // - All arguments are valid (null allocator uses default, valid time values)
+    // - timer_callback is a valid extern "C" function
+    // - We check for null return before using the timer
+    // - CFRunLoopAddTimer is called on the current thread's run loop
+    // - The timer pointer is stored in shield::TIMER_REF for later cleanup
     unsafe {
         let timer = CFRunLoopTimerCreate(
             std::ptr::null(),
