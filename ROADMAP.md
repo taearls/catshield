@@ -237,6 +237,7 @@ Cat Shield is a macOS utility that creates a semi-transparent overlay to block k
 | ✅ Done | #58 | Test: Add unit tests for lock module (single-instance enforcement) | ~4-6 hours |
 | ✅ Done | #59 | Test: Add unit tests for timer state module | ~3-4 hours |
 | 🟢 Medium | #60 | Test: Expand UI state and settings validation tests | ~2-3 hours |
+| ✅ Done | #75 | Test: Add integration tests for menu bar timer functionality | ~4-6 hours |
 
 **Implementation Order:**
 ```text
@@ -254,6 +255,7 @@ Testing (can be done in parallel):
     #58: Lock Module Tests ✅
     #59: Timer State Tests ✅
     #60: UI State & Validation Tests
+    #75: Menu Bar Timer Integration Tests ✅
 ```
 
 ### Phase 6: Enhanced Input Control
@@ -275,6 +277,7 @@ Testing (can be done in parallel):
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #75 | test: Add integration tests for menu bar timer functionality | 2026-01-10 |
 | #73 | feat: Reduce minimum auto-exit timer to 5 seconds | 2026-01-10 |
 | #53 | perf: Cache redundant atomic loads in timer callback | 2026-01-10 |
 | #57 | Docs: Add safety documentation to std::mem::forget and unsafe blocks | 2026-01-10 |
@@ -297,7 +300,7 @@ Testing (can be done in parallel):
 | Status | Count | Issues |
 |--------|-------|--------|
 | Open | 4 | #54, #60, #64, #65 |
-| Closed | 33 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #55, #56, #57, #58, #59, #73 |
+| Closed | 34 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #55, #56, #57, #58, #59, #73, #75 |
 
 ### By Priority
 - 🔴 Critical: 0
@@ -379,6 +382,27 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-10
+- Completed Issue #75: Add integration tests for menu bar timer functionality
+  - Created `src/timer/integration_tests.rs` with 47 comprehensive tests
+  - Config-based timer activation tests:
+    - Verify `default_timer` parsing for various formats (30m, 2h, 1h30m, 90s)
+    - Verify minimum (5s) and maximum (24h) boundary validation
+    - Verify invalid formats are rejected gracefully
+  - Timer expiry behavior tests:
+    - Verify timer initialization sets correct duration and start time
+    - Verify `get_remaining_seconds()` returns correct values
+    - Verify expired timer returns 0
+    - Verify disabled timer returns `u64::MAX`
+    - Verify `WARNING_SHOWN` flag behavior
+  - Mode consistency tests:
+    - Verify `MODE_MENU_BAR` and `IS_ACTIVE` state management
+    - Verify double-activation prevention
+    - Verify shield can be reactivated after deactivation
+    - Verify deactivation returns to menu bar mode
+  - Additional tests for pointer state initialization, sleep assertions, and config round-trips
+  - All 159 tests pass, clippy clean, build successful
+  - Updated issue counts: 4 open, 34 closed
+
 - Completed Issue #73: Reduce minimum auto-exit timer to 5 seconds and fix timer behavior
   - Updated `MIN_TIMER_SECONDS` constant from 60 to 5 in `src/timer/mod.rs`
   - Updated validation error message to say "at least 5 seconds" instead of "1 minute"
