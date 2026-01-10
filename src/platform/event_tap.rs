@@ -37,7 +37,7 @@ unsafe extern "C-unwind" fn event_tap_callback(
     {
         eprintln!("  ⚠️  Event tap was disabled, re-enabling...");
         // Re-enable the tap using the stored pointer
-        let tap = EVENT_TAP.load(Ordering::SeqCst);
+        let tap = EVENT_TAP.load(Ordering::Acquire);
         if !tap.is_null() {
             CGEventTapEnable(tap, true);
         }
@@ -58,7 +58,7 @@ unsafe extern "C-unwind" fn event_tap_callback(
 
             // In menu bar mode, deactivate shield and return to menu bar
             // In immediate mode, terminate the app
-            if shield::MODE_MENU_BAR.load(Ordering::SeqCst) {
+            if shield::MODE_MENU_BAR.load(Ordering::Acquire) {
                 crate::ui::shield::deactivate_shield();
             } else if let Some(mtm) = MainThreadMarker::new() {
                 let app = NSApplication::sharedApplication(mtm);
@@ -113,18 +113,19 @@ pub fn setup_event_tap() -> bool {
         let tap_ptr = CFRetained::as_ptr(&tap).as_ptr() as *mut c_void;
 
         // Store the tap pointer globally so we can re-enable it from the callback
-        EVENT_TAP.store(tap_ptr, Ordering::SeqCst);
+        // Use Release ordering - callback will use Acquire to synchronize
+        EVENT_TAP.store(tap_ptr, Ordering::Release);
 
         // Create a run loop source and add it to the current run loop
         let run_loop_source = CFMachPortCreateRunLoopSource(std::ptr::null(), tap_ptr, 0);
 
         if run_loop_source.is_null() {
-            EVENT_TAP.store(std::ptr::null_mut(), Ordering::SeqCst);
+            EVENT_TAP.store(std::ptr::null_mut(), Ordering::Release);
             return false;
         }
 
         // Store run loop source for cleanup in disable_event_tap()
-        EVENT_TAP_RUN_LOOP_SOURCE.store(run_loop_source, Ordering::SeqCst);
+        EVENT_TAP_RUN_LOOP_SOURCE.store(run_loop_source, Ordering::Release);
 
         // Add to run loop
         let current_run_loop = CFRunLoopGetCurrent();
@@ -149,8 +150,9 @@ pub fn setup_event_tap() -> bool {
 
 /// Disable and clean up the event tap
 pub fn disable_event_tap() {
-    let tap_ptr = EVENT_TAP.swap(std::ptr::null_mut(), Ordering::SeqCst);
-    let source_ptr = EVENT_TAP_RUN_LOOP_SOURCE.swap(std::ptr::null_mut(), Ordering::SeqCst);
+    // Use AcqRel for swap operations - acquire the old value, release the null
+    let tap_ptr = EVENT_TAP.swap(std::ptr::null_mut(), Ordering::AcqRel);
+    let source_ptr = EVENT_TAP_RUN_LOOP_SOURCE.swap(std::ptr::null_mut(), Ordering::AcqRel);
 
     if !tap_ptr.is_null() {
         unsafe {

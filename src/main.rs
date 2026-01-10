@@ -71,7 +71,7 @@ fn start_close_button_timer() {
             let run_loop = CFRunLoopGetCurrent();
             let mode = kCFRunLoopCommonModes.expect("kCFRunLoopCommonModes should exist");
             CFRunLoopAddTimer(run_loop, timer, (mode as *const CFString) as *const c_void);
-            shield::TIMER_REF.store(timer, Ordering::SeqCst);
+            shield::TIMER_REF.store(timer, Ordering::Release);
         }
     }
 }
@@ -133,7 +133,7 @@ fn main() {
     // Check if we should enter menu bar mode (no CLI args that trigger immediate start)
     if !has_immediate_start_args(&args) {
         // Menu bar mode: show icon in menu bar and wait for user interaction
-        shield::MODE_MENU_BAR.store(true, Ordering::SeqCst);
+        shield::MODE_MENU_BAR.store(true, Ordering::Release);
 
         println!();
         println!("  🐱 CAT SHIELD 🛡️");
@@ -201,11 +201,11 @@ fn main() {
     // before cleanup begins.
     shield::CLOSE_BUTTON.store(
         Retained::as_ptr(&close_button) as *mut c_void,
-        Ordering::SeqCst,
+        Ordering::Release,
     );
     shield::CLOSE_BUTTON_LABEL.store(
         Retained::as_ptr(&close_button_label) as *mut c_void,
-        Ordering::SeqCst,
+        Ordering::Release,
     );
 
     // Add close button and label to the window's content view
@@ -246,7 +246,7 @@ fn main() {
             // Store view reference for timer callback
             shield::TIMER_VIEW.store(
                 Retained::as_ptr(&timer_display) as *mut c_void,
-                Ordering::SeqCst,
+                Ordering::Release,
             );
 
             // Add timer display to the window's content view

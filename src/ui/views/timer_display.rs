@@ -88,9 +88,9 @@ fn draw_timer_display(view: &NSView) {
     let mtm = unsafe { MainThreadMarker::new_unchecked() };
 
     // Create or update NSTextField labels
-    let header_ptr = shield::TIMER_HEADER.load(Ordering::SeqCst);
-    let time_ptr = shield::TIMER_TIME.load(Ordering::SeqCst);
-    let warning_ptr = shield::TIMER_WARNING.load(Ordering::SeqCst);
+    let header_ptr = shield::TIMER_HEADER.load(Ordering::Acquire);
+    let time_ptr = shield::TIMER_TIME.load(Ordering::Acquire);
+    let warning_ptr = shield::TIMER_WARNING.load(Ordering::Acquire);
 
     // Header label "Time Remaining:"
     let header_y = bounds.size.height - 22.0;
@@ -117,7 +117,7 @@ fn draw_timer_display(view: &NSView) {
         );
         shield::TIMER_HEADER.store(
             Retained::as_ptr(&header_label) as *mut c_void,
-            Ordering::SeqCst,
+            Ordering::Release,
         );
         view.addSubview(&header_label);
         // Keep retained to prevent deallocation
@@ -139,7 +139,7 @@ fn draw_timer_display(view: &NSView) {
         let time_label = create_label(mtm, &time_str, time_frame, 20.0, &text_color, true);
         shield::TIMER_TIME.store(
             Retained::as_ptr(&time_label) as *mut c_void,
-            Ordering::SeqCst,
+            Ordering::Release,
         );
         view.addSubview(&time_label);
         std::mem::forget(time_label);
@@ -182,7 +182,7 @@ fn draw_timer_display(view: &NSView) {
         warning_label.setHidden(!is_warning);
         shield::TIMER_WARNING.store(
             Retained::as_ptr(&warning_label) as *mut c_void,
-            Ordering::SeqCst,
+            Ordering::Release,
         );
         view.addSubview(&warning_label);
         std::mem::forget(warning_label);
@@ -195,7 +195,7 @@ fn draw_timer_display(view: &NSView) {
     }
 
     // Draw a progress bar showing remaining time
-    let duration = AUTO_EXIT_DURATION_SECS.load(Ordering::SeqCst);
+    let duration = AUTO_EXIT_DURATION_SECS.load(Ordering::Acquire);
     let progress = if duration > 0 {
         remaining as f64 / duration as f64
     } else {

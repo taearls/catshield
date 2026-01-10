@@ -54,7 +54,7 @@ define_class!(
         #[unsafe(method(controlTextDidChange:))]
         fn control_text_did_change(&self, _notification: &NSNotification) {
             // Read the current value from the exit key field
-            let field_ptr = settings::EXIT_KEY_FIELD.load(Ordering::SeqCst);
+            let field_ptr = settings::EXIT_KEY_FIELD.load(Ordering::Acquire);
             if !field_ptr.is_null() {
                 unsafe {
                     let field: &NSTextField = &*(field_ptr as *const NSTextField);
@@ -92,7 +92,7 @@ define_class!(
         #[unsafe(method(controlTextDidChange:))]
         fn control_text_did_change(&self, _notification: &NSNotification) {
             // Only validate if the timer checkbox is enabled
-            let checkbox_ptr = settings::TIMER_CHECKBOX.load(Ordering::SeqCst);
+            let checkbox_ptr = settings::TIMER_CHECKBOX.load(Ordering::Acquire);
             if !checkbox_ptr.is_null() {
                 unsafe {
                     let checkbox: &NSButton = &*(checkbox_ptr as *const NSButton);
@@ -103,7 +103,7 @@ define_class!(
             }
 
             // Read the current value from the timer field
-            let field_ptr = settings::TIMER_VALUE_FIELD.load(Ordering::SeqCst);
+            let field_ptr = settings::TIMER_VALUE_FIELD.load(Ordering::Acquire);
             if !field_ptr.is_null() {
                 unsafe {
                     let field: &NSTextField = &*(field_ptr as *const NSTextField);
@@ -213,7 +213,7 @@ impl SettingsActionHandler {
 
 /// Update the opacity percentage label
 fn update_opacity_label(value: f64) {
-    let label_ptr = settings::OPACITY_LABEL.load(Ordering::SeqCst);
+    let label_ptr = settings::OPACITY_LABEL.load(Ordering::Acquire);
     if !label_ptr.is_null() {
         unsafe {
             let label: &NSTextField = &*(label_ptr as *const NSTextField);
@@ -226,7 +226,7 @@ fn update_opacity_label(value: f64) {
 /// Update the timer field and dropdown enabled state based on checkbox
 fn update_timer_field_enabled(enabled: bool) {
     // Update number field
-    let field_ptr = settings::TIMER_VALUE_FIELD.load(Ordering::SeqCst);
+    let field_ptr = settings::TIMER_VALUE_FIELD.load(Ordering::Acquire);
     if !field_ptr.is_null() {
         unsafe {
             let field: &NSTextField = &*(field_ptr as *const NSTextField);
@@ -240,7 +240,7 @@ fn update_timer_field_enabled(enabled: bool) {
     }
 
     // Update unit dropdown
-    let dropdown_ptr = settings::TIMER_UNIT_DROPDOWN.load(Ordering::SeqCst);
+    let dropdown_ptr = settings::TIMER_UNIT_DROPDOWN.load(Ordering::Acquire);
     if !dropdown_ptr.is_null() {
         unsafe {
             let dropdown: &NSPopUpButton = &*(dropdown_ptr as *const NSPopUpButton);
@@ -250,7 +250,7 @@ fn update_timer_field_enabled(enabled: bool) {
 
     // Clear validation label when checkbox is unchecked (disabled state)
     if !enabled {
-        update_validation_label(settings::TIMER_VALIDATION.load(Ordering::SeqCst), true, "");
+        update_validation_label(settings::TIMER_VALIDATION.load(Ordering::Acquire), true, "");
     }
 }
 
@@ -258,7 +258,7 @@ fn update_timer_field_enabled(enabled: bool) {
 /// Does NOT auto-save; user must click Save to persist
 fn reset_settings_to_defaults() {
     // Reset Exit Key field to default
-    let exit_key_ptr = settings::EXIT_KEY_FIELD.load(Ordering::SeqCst);
+    let exit_key_ptr = settings::EXIT_KEY_FIELD.load(Ordering::Acquire);
     if !exit_key_ptr.is_null() {
         unsafe {
             let field: &NSTextField = &*(exit_key_ptr as *const NSTextField);
@@ -269,7 +269,7 @@ fn reset_settings_to_defaults() {
     }
 
     // Reset Timer checkbox to disabled (unchecked)
-    let timer_checkbox_ptr = settings::TIMER_CHECKBOX.load(Ordering::SeqCst);
+    let timer_checkbox_ptr = settings::TIMER_CHECKBOX.load(Ordering::Acquire);
     if !timer_checkbox_ptr.is_null() {
         unsafe {
             let checkbox: &NSButton = &*(timer_checkbox_ptr as *const NSButton);
@@ -278,7 +278,7 @@ fn reset_settings_to_defaults() {
     }
 
     // Reset Timer value field to empty
-    let timer_value_ptr = settings::TIMER_VALUE_FIELD.load(Ordering::SeqCst);
+    let timer_value_ptr = settings::TIMER_VALUE_FIELD.load(Ordering::Acquire);
     if !timer_value_ptr.is_null() {
         unsafe {
             let field: &NSTextField = &*(timer_value_ptr as *const NSTextField);
@@ -287,7 +287,7 @@ fn reset_settings_to_defaults() {
     }
 
     // Reset Timer unit dropdown to Minutes (index 0)
-    let timer_unit_ptr = settings::TIMER_UNIT_DROPDOWN.load(Ordering::SeqCst);
+    let timer_unit_ptr = settings::TIMER_UNIT_DROPDOWN.load(Ordering::Acquire);
     if !timer_unit_ptr.is_null() {
         unsafe {
             let dropdown: &NSPopUpButton = &*(timer_unit_ptr as *const NSPopUpButton);
@@ -299,10 +299,10 @@ fn reset_settings_to_defaults() {
     update_timer_field_enabled(false);
 
     // Clear timer validation label
-    update_validation_label(settings::TIMER_VALIDATION.load(Ordering::SeqCst), true, "");
+    update_validation_label(settings::TIMER_VALIDATION.load(Ordering::Acquire), true, "");
 
     // Reset Opacity slider to 50% (0.5)
-    let opacity_ptr = settings::OPACITY_SLIDER.load(Ordering::SeqCst);
+    let opacity_ptr = settings::OPACITY_SLIDER.load(Ordering::Acquire);
     if !opacity_ptr.is_null() {
         unsafe {
             let slider: &NSSlider = &*(opacity_ptr as *const NSSlider);
@@ -320,20 +320,20 @@ fn reset_settings_to_defaults() {
 /// Called both when window is closed programmatically and via X button
 fn cleanup_settings_window_references() {
     // Clear window reference (swap to null to avoid double-cleanup)
-    settings::WINDOW.store(std::ptr::null_mut(), Ordering::SeqCst);
+    settings::WINDOW.store(std::ptr::null_mut(), Ordering::Release);
 
     // Clear UI element references
-    settings::EXIT_KEY_FIELD.store(std::ptr::null_mut(), Ordering::SeqCst);
-    settings::TIMER_VALUE_FIELD.store(std::ptr::null_mut(), Ordering::SeqCst);
-    settings::TIMER_UNIT_DROPDOWN.store(std::ptr::null_mut(), Ordering::SeqCst);
-    settings::TIMER_CHECKBOX.store(std::ptr::null_mut(), Ordering::SeqCst);
-    settings::OPACITY_SLIDER.store(std::ptr::null_mut(), Ordering::SeqCst);
-    settings::OPACITY_LABEL.store(std::ptr::null_mut(), Ordering::SeqCst);
-    settings::EXIT_KEY_VALIDATION.store(std::ptr::null_mut(), Ordering::SeqCst);
-    settings::TIMER_VALIDATION.store(std::ptr::null_mut(), Ordering::SeqCst);
+    settings::EXIT_KEY_FIELD.store(std::ptr::null_mut(), Ordering::Release);
+    settings::TIMER_VALUE_FIELD.store(std::ptr::null_mut(), Ordering::Release);
+    settings::TIMER_UNIT_DROPDOWN.store(std::ptr::null_mut(), Ordering::Release);
+    settings::TIMER_CHECKBOX.store(std::ptr::null_mut(), Ordering::Release);
+    settings::OPACITY_SLIDER.store(std::ptr::null_mut(), Ordering::Release);
+    settings::OPACITY_LABEL.store(std::ptr::null_mut(), Ordering::Release);
+    settings::EXIT_KEY_VALIDATION.store(std::ptr::null_mut(), Ordering::Release);
+    settings::TIMER_VALIDATION.store(std::ptr::null_mut(), Ordering::Release);
 
     // Re-enable the settings menu item
-    let menu_item_ptr = menu_bar::SETTINGS_ITEM.load(Ordering::SeqCst);
+    let menu_item_ptr = menu_bar::SETTINGS_ITEM.load(Ordering::Acquire);
     if !menu_item_ptr.is_null() {
         unsafe {
             let menu_item: &NSMenuItem = &*(menu_item_ptr as *const NSMenuItem);
@@ -346,7 +346,7 @@ fn cleanup_settings_window_references() {
 
 /// Close the settings window (called by Cancel/Save buttons)
 fn close_settings_window() {
-    let window_ptr = settings::WINDOW.load(Ordering::SeqCst);
+    let window_ptr = settings::WINDOW.load(Ordering::Acquire);
     if !window_ptr.is_null() {
         unsafe {
             let window: &NSPanel = &*(window_ptr as *const NSPanel);
@@ -362,7 +362,7 @@ fn save_settings_from_window() {
     let mut has_errors = false;
 
     // Get exit key value and validate
-    let exit_key_ptr = settings::EXIT_KEY_FIELD.load(Ordering::SeqCst);
+    let exit_key_ptr = settings::EXIT_KEY_FIELD.load(Ordering::Acquire);
     if !exit_key_ptr.is_null() {
         let value = unsafe {
             let field: &NSTextField = &*(exit_key_ptr as *const NSTextField);
@@ -382,9 +382,9 @@ fn save_settings_from_window() {
     }
 
     // Get timer value and validate (if checkbox is checked)
-    let timer_checkbox_ptr = settings::TIMER_CHECKBOX.load(Ordering::SeqCst);
-    let timer_value_ptr = settings::TIMER_VALUE_FIELD.load(Ordering::SeqCst);
-    let timer_unit_ptr = settings::TIMER_UNIT_DROPDOWN.load(Ordering::SeqCst);
+    let timer_checkbox_ptr = settings::TIMER_CHECKBOX.load(Ordering::Acquire);
+    let timer_value_ptr = settings::TIMER_VALUE_FIELD.load(Ordering::Acquire);
+    let timer_unit_ptr = settings::TIMER_UNIT_DROPDOWN.load(Ordering::Acquire);
     if !timer_checkbox_ptr.is_null() && !timer_value_ptr.is_null() && !timer_unit_ptr.is_null() {
         unsafe {
             let checkbox: &NSButton = &*(timer_checkbox_ptr as *const NSButton);
@@ -417,14 +417,14 @@ fn save_settings_from_window() {
                                 Ok(_) => {
                                     config.default_timer = Some(duration_str);
                                     update_validation_label(
-                                        settings::TIMER_VALIDATION.load(Ordering::SeqCst),
+                                        settings::TIMER_VALIDATION.load(Ordering::Acquire),
                                         true,
                                         "✓ Valid",
                                     );
                                 }
                                 Err(e) => {
                                     update_validation_label(
-                                        settings::TIMER_VALIDATION.load(Ordering::SeqCst),
+                                        settings::TIMER_VALIDATION.load(Ordering::Acquire),
                                         false,
                                         &e,
                                     );
@@ -434,7 +434,7 @@ fn save_settings_from_window() {
                         }
                         Ok(_) => {
                             update_validation_label(
-                                settings::TIMER_VALIDATION.load(Ordering::SeqCst),
+                                settings::TIMER_VALIDATION.load(Ordering::Acquire),
                                 false,
                                 "Must be greater than 0",
                             );
@@ -442,7 +442,7 @@ fn save_settings_from_window() {
                         }
                         Err(_) => {
                             update_validation_label(
-                                settings::TIMER_VALIDATION.load(Ordering::SeqCst),
+                                settings::TIMER_VALIDATION.load(Ordering::Acquire),
                                 false,
                                 "Enter a number",
                             );
@@ -451,7 +451,7 @@ fn save_settings_from_window() {
                     }
                 } else {
                     update_validation_label(
-                        settings::TIMER_VALIDATION.load(Ordering::SeqCst),
+                        settings::TIMER_VALIDATION.load(Ordering::Acquire),
                         false,
                         "Duration required",
                     );
@@ -460,7 +460,7 @@ fn save_settings_from_window() {
             } else {
                 config.default_timer = None;
                 update_validation_label(
-                    settings::TIMER_VALIDATION.load(Ordering::SeqCst),
+                    settings::TIMER_VALIDATION.load(Ordering::Acquire),
                     true,
                     "",
                 );
@@ -469,7 +469,7 @@ fn save_settings_from_window() {
     }
 
     // Get opacity value
-    let opacity_ptr = settings::OPACITY_SLIDER.load(Ordering::SeqCst);
+    let opacity_ptr = settings::OPACITY_SLIDER.load(Ordering::Acquire);
     if !opacity_ptr.is_null() {
         unsafe {
             let slider: &NSSlider = &*(opacity_ptr as *const NSSlider);
@@ -542,7 +542,7 @@ fn validate_exit_key_input(value: &str) -> ExitKeyValidation {
 
 /// Update the exit key validation label based on validation result
 fn update_exit_key_validation_label(result: &ExitKeyValidation) {
-    let label_ptr = settings::EXIT_KEY_VALIDATION.load(Ordering::SeqCst);
+    let label_ptr = settings::EXIT_KEY_VALIDATION.load(Ordering::Acquire);
     match result {
         ExitKeyValidation::Valid(None) => {
             update_validation_label(
@@ -602,7 +602,7 @@ fn validate_timer_input(value: &str) -> TimerValidation {
 
 /// Validate timer duration field in real-time as user types
 fn validate_timer_realtime(value: &str) {
-    let label_ptr = settings::TIMER_VALIDATION.load(Ordering::SeqCst);
+    let label_ptr = settings::TIMER_VALIDATION.load(Ordering::Acquire);
 
     match validate_timer_input(value) {
         TimerValidation::Valid(_) => {
@@ -652,7 +652,7 @@ const BUTTON_SPACING: CGFloat = 12.0;
 /// Check if settings window is already open, bring to front if so
 /// Returns true if we should continue creating the window, false if already open
 fn prepare_settings_window() -> bool {
-    let existing = settings::WINDOW.load(Ordering::SeqCst);
+    let existing = settings::WINDOW.load(Ordering::Acquire);
     if !existing.is_null() {
         // Bring existing window to front
         unsafe {
@@ -663,7 +663,7 @@ fn prepare_settings_window() -> bool {
     }
 
     // Disable the settings menu item while window is open
-    let menu_item_ptr = menu_bar::SETTINGS_ITEM.load(Ordering::SeqCst);
+    let menu_item_ptr = menu_bar::SETTINGS_ITEM.load(Ordering::Acquire);
     if !menu_item_ptr.is_null() {
         unsafe {
             let menu_item: &NSMenuItem = &*(menu_item_ptr as *const NSMenuItem);
@@ -725,15 +725,15 @@ fn create_settings_panel(mtm: MainThreadMarker) -> Retained<NSPanel> {
 /// Get or create the settings window delegate
 fn get_or_create_window_delegate(mtm: MainThreadMarker) -> &'static SettingsWindowDelegate {
     unsafe {
-        let delegate_ptr = settings::WINDOW_DELEGATE.load(Ordering::SeqCst);
+        let delegate_ptr = settings::WINDOW_DELEGATE.load(Ordering::Acquire);
         if delegate_ptr.is_null() {
             let new_delegate = SettingsWindowDelegate::new(mtm);
             settings::WINDOW_DELEGATE.store(
                 Retained::as_ptr(&new_delegate) as *mut c_void,
-                Ordering::SeqCst,
+                Ordering::Release,
             );
             std::mem::forget(new_delegate);
-            &*(settings::WINDOW_DELEGATE.load(Ordering::SeqCst) as *const SettingsWindowDelegate)
+            &*(settings::WINDOW_DELEGATE.load(Ordering::Acquire) as *const SettingsWindowDelegate)
         } else {
             &*(delegate_ptr as *const SettingsWindowDelegate)
         }
@@ -743,15 +743,15 @@ fn get_or_create_window_delegate(mtm: MainThreadMarker) -> &'static SettingsWind
 /// Get or create the settings action handler
 fn get_or_create_action_handler(mtm: MainThreadMarker) -> &'static SettingsActionHandler {
     unsafe {
-        let handler_ptr = settings::ACTION_HANDLER.load(Ordering::SeqCst);
+        let handler_ptr = settings::ACTION_HANDLER.load(Ordering::Acquire);
         if handler_ptr.is_null() {
             let new_handler = SettingsActionHandler::new(mtm);
             settings::ACTION_HANDLER.store(
                 Retained::as_ptr(&new_handler) as *mut c_void,
-                Ordering::SeqCst,
+                Ordering::Release,
             );
             std::mem::forget(new_handler);
-            &*(settings::ACTION_HANDLER.load(Ordering::SeqCst) as *const SettingsActionHandler)
+            &*(settings::ACTION_HANDLER.load(Ordering::Acquire) as *const SettingsActionHandler)
         } else {
             &*(handler_ptr as *const SettingsActionHandler)
         }
@@ -761,15 +761,15 @@ fn get_or_create_action_handler(mtm: MainThreadMarker) -> &'static SettingsActio
 /// Get or create the exit key field delegate
 fn get_or_create_exit_key_delegate(mtm: MainThreadMarker) -> &'static ExitKeyFieldDelegate {
     unsafe {
-        let delegate_ptr = settings::EXIT_KEY_FIELD_DELEGATE.load(Ordering::SeqCst);
+        let delegate_ptr = settings::EXIT_KEY_FIELD_DELEGATE.load(Ordering::Acquire);
         if delegate_ptr.is_null() {
             let new_delegate = ExitKeyFieldDelegate::new(mtm);
             settings::EXIT_KEY_FIELD_DELEGATE.store(
                 Retained::as_ptr(&new_delegate) as *mut c_void,
-                Ordering::SeqCst,
+                Ordering::Release,
             );
             std::mem::forget(new_delegate);
-            &*(settings::EXIT_KEY_FIELD_DELEGATE.load(Ordering::SeqCst)
+            &*(settings::EXIT_KEY_FIELD_DELEGATE.load(Ordering::Acquire)
                 as *const ExitKeyFieldDelegate)
         } else {
             &*(delegate_ptr as *const ExitKeyFieldDelegate)
@@ -780,15 +780,15 @@ fn get_or_create_exit_key_delegate(mtm: MainThreadMarker) -> &'static ExitKeyFie
 /// Get or create the timer field delegate
 fn get_or_create_timer_field_delegate(mtm: MainThreadMarker) -> &'static TimerFieldDelegate {
     unsafe {
-        let delegate_ptr = settings::TIMER_FIELD_DELEGATE.load(Ordering::SeqCst);
+        let delegate_ptr = settings::TIMER_FIELD_DELEGATE.load(Ordering::Acquire);
         if delegate_ptr.is_null() {
             let new_delegate = TimerFieldDelegate::new(mtm);
             settings::TIMER_FIELD_DELEGATE.store(
                 Retained::as_ptr(&new_delegate) as *mut c_void,
-                Ordering::SeqCst,
+                Ordering::Release,
             );
             std::mem::forget(new_delegate);
-            &*(settings::TIMER_FIELD_DELEGATE.load(Ordering::SeqCst) as *const TimerFieldDelegate)
+            &*(settings::TIMER_FIELD_DELEGATE.load(Ordering::Acquire) as *const TimerFieldDelegate)
         } else {
             &*(delegate_ptr as *const TimerFieldDelegate)
         }
@@ -856,7 +856,7 @@ fn setup_exit_key_section(
     content_view.addSubview(&exit_key_field);
     settings::EXIT_KEY_FIELD.store(
         Retained::as_ptr(&exit_key_field) as *mut c_void,
-        Ordering::SeqCst,
+        Ordering::Release,
     );
     std::mem::forget(exit_key_field);
 
@@ -882,7 +882,7 @@ fn setup_exit_key_section(
     content_view.addSubview(&exit_key_validation);
     settings::EXIT_KEY_VALIDATION.store(
         Retained::as_ptr(&exit_key_validation) as *mut c_void,
-        Ordering::SeqCst,
+        Ordering::Release,
     );
     std::mem::forget(exit_key_validation);
 
@@ -955,7 +955,7 @@ fn setup_timer_section(
     content_view.addSubview(&timer_checkbox);
     settings::TIMER_CHECKBOX.store(
         Retained::as_ptr(&timer_checkbox) as *mut c_void,
-        Ordering::SeqCst,
+        Ordering::Release,
     );
     std::mem::forget(timer_checkbox);
 
@@ -1014,7 +1014,7 @@ fn setup_timer_section(
     content_view.addSubview(&timer_value_field);
     settings::TIMER_VALUE_FIELD.store(
         Retained::as_ptr(&timer_value_field) as *mut c_void,
-        Ordering::SeqCst,
+        Ordering::Release,
     );
     std::mem::forget(timer_value_field);
 
@@ -1038,7 +1038,7 @@ fn setup_timer_section(
     content_view.addSubview(&timer_unit_dropdown);
     settings::TIMER_UNIT_DROPDOWN.store(
         Retained::as_ptr(&timer_unit_dropdown) as *mut c_void,
-        Ordering::SeqCst,
+        Ordering::Release,
     );
     std::mem::forget(timer_unit_dropdown);
 
@@ -1064,7 +1064,7 @@ fn setup_timer_section(
     content_view.addSubview(&timer_validation);
     settings::TIMER_VALIDATION.store(
         Retained::as_ptr(&timer_validation) as *mut c_void,
-        Ordering::SeqCst,
+        Ordering::Release,
     );
     std::mem::forget(timer_validation);
 
@@ -1130,7 +1130,7 @@ fn setup_opacity_section(
     content_view.addSubview(&percentage_label);
     settings::OPACITY_LABEL.store(
         Retained::as_ptr(&percentage_label) as *mut c_void,
-        Ordering::SeqCst,
+        Ordering::Release,
     );
     std::mem::forget(percentage_label);
 
@@ -1207,7 +1207,7 @@ fn setup_opacity_section(
     content_view.addSubview(&opacity_slider);
     settings::OPACITY_SLIDER.store(
         Retained::as_ptr(&opacity_slider) as *mut c_void,
-        Ordering::SeqCst,
+        Ordering::Release,
     );
     std::mem::forget(opacity_slider);
 
@@ -1331,7 +1331,7 @@ pub fn show_settings_window(mtm: MainThreadMarker) {
     panel.setDelegate(Some(ProtocolObject::from_ref(delegate)));
 
     // Store window reference
-    settings::WINDOW.store(Retained::as_ptr(&panel) as *mut c_void, Ordering::SeqCst);
+    settings::WINDOW.store(Retained::as_ptr(&panel) as *mut c_void, Ordering::Release);
 
     // Get action handler
     let handler = get_or_create_action_handler(mtm);

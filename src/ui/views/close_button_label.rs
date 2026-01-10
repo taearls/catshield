@@ -93,7 +93,7 @@ fn draw_close_button_label(view: &NSView) {
     let mtm = unsafe { MainThreadMarker::new_unchecked() };
 
     // Create or update NSTextField label
-    let label_ptr = shield::CLOSE_BUTTON_TEXT.load(Ordering::SeqCst);
+    let label_ptr = shield::CLOSE_BUTTON_TEXT.load(Ordering::Acquire);
 
     // Calculate centered frame for the label
     let label_frame = CGRect {
@@ -114,7 +114,7 @@ fn draw_close_button_label(view: &NSView) {
         let label = create_label(mtm, &text, label_frame, font_size, color, false);
         // Center the text horizontally
         label.setAlignment(NSTextAlignment::Center);
-        shield::CLOSE_BUTTON_TEXT.store(Retained::as_ptr(&label) as *mut c_void, Ordering::SeqCst);
+        shield::CLOSE_BUTTON_TEXT.store(Retained::as_ptr(&label) as *mut c_void, Ordering::Release);
         view.addSubview(&label);
         std::mem::forget(label);
     } else {
