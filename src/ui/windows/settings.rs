@@ -1659,8 +1659,9 @@ fn add_allowed_key_from_field() {
             // Add to the list
             let mut keys = config.allowed_keys.unwrap_or_default();
 
-            // Check for duplicates
-            if keys.contains(&trimmed.to_string()) {
+            // Check for duplicates (case-insensitive since key parsing normalizes case)
+            let trimmed_lower = trimmed.to_lowercase();
+            if keys.iter().any(|k| k.to_lowercase() == trimmed_lower) {
                 set_validation_label(&settings::ADD_KEY_VALIDATION, false, "Key already in list");
                 return;
             }

@@ -3,7 +3,7 @@
 //! Provides parsing, validation, and checking of keyboard shortcuts
 //! that are allowed to pass through the shield overlay.
 
-use super::exit_key::ExitKey;
+use super::exit_key::{ExitKey, ERR_NO_MODIFIER};
 use objc2_core_graphics::CGEventFlags;
 use std::sync::RwLock;
 
@@ -32,7 +32,8 @@ impl AllowedKey {
             Ok(key) => key,
             Err(e) => {
                 // If parsing failed due to missing modifier, try parsing as a simple key
-                if e.contains("At least one modifier required") {
+                // Uses shared constant to avoid fragile string matching
+                if e.contains(ERR_NO_MODIFIER) {
                     return Self::parse_simple_key(input);
                 }
                 return Err(e);
