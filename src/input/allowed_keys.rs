@@ -440,11 +440,7 @@ mod tests {
 
     #[test]
     fn test_add_preset_keys_all_existing() {
-        let mut keys = vec![
-            "F10".to_string(),
-            "F11".to_string(),
-            "F12".to_string(),
-        ];
+        let mut keys = vec!["F10".to_string(), "F11".to_string(), "F12".to_string()];
         let added = add_preset_keys(presets::MEDIA_KEYS, &mut keys);
         // All keys already exist
         assert_eq!(added, 0);
