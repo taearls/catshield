@@ -22,6 +22,9 @@ pub struct Config {
 
     /// Overlay opacity (0.2 to 0.8, default 0.5)
     pub overlay_opacity: Option<f64>,
+
+    /// Keys that are allowed to pass through the shield (e.g., ["Cmd+Space", "F11", "F12"])
+    pub allowed_keys: Option<Vec<String>>,
 }
 
 impl Config {
@@ -213,6 +216,7 @@ another_unknown = 42
             exit_key: Some("Cmd+Option+U".to_string()),
             default_timer: None,
             overlay_opacity: None,
+            allowed_keys: None,
         };
 
         config.save_to_path(&config_path).unwrap();
@@ -229,6 +233,7 @@ another_unknown = 42
             exit_key: Some("Cmd+Option+U".to_string()),
             default_timer: None,
             overlay_opacity: None,
+            allowed_keys: None,
         };
 
         config.save_to_path(&config_path).unwrap();
@@ -245,6 +250,7 @@ another_unknown = 42
             exit_key: Some("Cmd+Shift+X".to_string()),
             default_timer: Some("1h".to_string()),
             overlay_opacity: Some(0.7),
+            allowed_keys: None,
         };
 
         config.save_to_path(&config_path).unwrap();
@@ -265,6 +271,7 @@ another_unknown = 42
             exit_key: Some("Cmd+Option+A".to_string()),
             default_timer: None,
             overlay_opacity: None,
+            allowed_keys: None,
         };
         config1.save_to_path(&config_path).unwrap();
 
@@ -273,6 +280,7 @@ another_unknown = 42
             exit_key: Some("Cmd+Option+B".to_string()),
             default_timer: Some("2h".to_string()),
             overlay_opacity: Some(0.3),
+            allowed_keys: None,
         };
         config2.save_to_path(&config_path).unwrap();
 
@@ -291,6 +299,7 @@ another_unknown = 42
             exit_key: Some("Ctrl+Option+Escape".to_string()),
             default_timer: Some("45m".to_string()),
             overlay_opacity: Some(0.65),
+            allowed_keys: None,
         };
 
         original.save_to_path(&config_path).unwrap();
@@ -310,6 +319,7 @@ another_unknown = 42
             exit_key: Some("Cmd+Shift+Q".to_string()),
             default_timer: None,
             overlay_opacity: Some(0.4),
+            allowed_keys: None,
         };
 
         original.save_to_path(&config_path).unwrap();
@@ -326,6 +336,7 @@ another_unknown = 42
             exit_key: None,
             default_timer: None,
             overlay_opacity: None,
+            allowed_keys: None,
         };
 
         assert_eq!(config.opacity(), DEFAULT_OVERLAY_OPACITY);
@@ -338,6 +349,7 @@ another_unknown = 42
             exit_key: None,
             default_timer: None,
             overlay_opacity: Some(0.1), // Below MIN_OVERLAY_OPACITY (0.2)
+            allowed_keys: None,
         };
 
         assert_eq!(config.opacity(), MIN_OVERLAY_OPACITY);
@@ -350,6 +362,7 @@ another_unknown = 42
             exit_key: None,
             default_timer: None,
             overlay_opacity: Some(0.95), // Above MAX_OVERLAY_OPACITY (0.8)
+            allowed_keys: None,
         };
 
         assert_eq!(config.opacity(), MAX_OVERLAY_OPACITY);
@@ -362,8 +375,98 @@ another_unknown = 42
             exit_key: None,
             default_timer: None,
             overlay_opacity: Some(0.6),
+            allowed_keys: None,
         };
 
         assert_eq!(config.opacity(), 0.6);
+    }
+
+    #[test]
+    fn test_config_allowed_keys_single_key() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+        std::fs::write(
+            &config_path,
+            r#"
+allowed_keys = ["Cmd+Space"]
+"#,
+        )
+        .unwrap();
+
+        let config = Config::load_from_path(&config_path);
+
+        assert_eq!(config.allowed_keys, Some(vec!["Cmd+Space".to_string()]));
+    }
+
+    #[test]
+    fn test_config_allowed_keys_multiple_keys() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+        std::fs::write(
+            &config_path,
+            r#"
+allowed_keys = ["Cmd+Space", "F11", "F12", "Ctrl+Option+A"]
+"#,
+        )
+        .unwrap();
+
+        let config = Config::load_from_path(&config_path);
+
+        assert_eq!(
+            config.allowed_keys,
+            Some(vec![
+                "Cmd+Space".to_string(),
+                "F11".to_string(),
+                "F12".to_string(),
+                "Ctrl+Option+A".to_string()
+            ])
+        );
+    }
+
+    #[test]
+    fn test_config_allowed_keys_empty_array() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+        std::fs::write(&config_path, r#"allowed_keys = []"#).unwrap();
+
+        let config = Config::load_from_path(&config_path);
+
+        assert_eq!(config.allowed_keys, Some(vec![]));
+    }
+
+    #[test]
+    fn test_config_allowed_keys_none_when_missing() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+        std::fs::write(&config_path, r#"exit_key = "Cmd+Q""#).unwrap();
+
+        let config = Config::load_from_path(&config_path);
+
+        assert!(config.allowed_keys.is_none());
+    }
+
+    #[test]
+    fn test_config_round_trip_with_allowed_keys() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+
+        let original = Config {
+            exit_key: Some("Cmd+Q".to_string()),
+            default_timer: Some("30m".to_string()),
+            overlay_opacity: Some(0.6),
+            allowed_keys: Some(vec![
+                "Cmd+Space".to_string(),
+                "F11".to_string(),
+                "F12".to_string(),
+            ]),
+        };
+
+        original.save_to_path(&config_path).unwrap();
+        let loaded = Config::load_from_path(&config_path);
+
+        assert_eq!(original.exit_key, loaded.exit_key);
+        assert_eq!(original.default_timer, loaded.default_timer);
+        assert_eq!(original.overlay_opacity, loaded.overlay_opacity);
+        assert_eq!(original.allowed_keys, loaded.allowed_keys);
     }
 }

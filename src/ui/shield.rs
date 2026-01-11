@@ -341,6 +341,10 @@ pub fn deactivate_shield() {
     MOUSE_DOWN_TIME.with(|time| time.set(None));
     IS_MOUSE_INSIDE.with(|inside| inside.set(false));
 
+    // Clear allowed keys
+    use crate::input::clear_allowed_keys;
+    clear_allowed_keys();
+
     // Re-enable the "Start Protection" menu item
     unsafe {
         with_ptr_void::<NSMenuItem, _>(&menu_bar::START_ITEM, |menu_item| {
@@ -453,6 +457,25 @@ pub fn activate_shield(mtm: MainThreadMarker) {
     } else {
         None
     };
+
+    // Load allowed keys from config
+    if let Some(ref allowed_keys_strs) = config.allowed_keys {
+        use crate::input::parse_and_set_allowed_keys;
+
+        match parse_and_set_allowed_keys(allowed_keys_strs) {
+            Ok(()) => {
+                if !allowed_keys_strs.is_empty() {
+                    println!("  ✓ Allowed keys: {}", allowed_keys_strs.join(", "));
+                }
+            }
+            Err(errors) => {
+                eprintln!("  ⚠️  Invalid allowed_keys in config:");
+                for error in errors {
+                    eprintln!("      {}", error);
+                }
+            }
+        }
+    }
 
     // Prevent sleep
     if let Some(assertion_id) = prevent_sleep() {

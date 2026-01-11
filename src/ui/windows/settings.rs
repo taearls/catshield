@@ -37,6 +37,9 @@ pub struct ExitKeyFieldDelegateIvars {}
 /// Empty ivars for the TimerFieldDelegate
 pub struct TimerFieldDelegateIvars {}
 
+/// Empty ivars for the AddKeyFieldDelegate
+pub struct AddKeyFieldDelegateIvars {}
+
 // Delegate for exit key text field to handle real-time text changes
 define_class!(
     #[unsafe(super(NSObject))]
@@ -197,6 +200,18 @@ define_class!(
         unsafe fn reset_defaults(&self, _sender: Option<&NSButton>) {
             reset_settings_to_defaults();
         }
+
+        /// Action method called when "Add Key" button is clicked
+        #[unsafe(method(addAllowedKey:))]
+        unsafe fn add_allowed_key(&self, _sender: Option<&NSButton>) {
+            add_allowed_key_from_field();
+        }
+
+        /// Action method called when "Clear All" button is clicked
+        #[unsafe(method(clearAllowedKeys:))]
+        unsafe fn clear_allowed_keys_list(&self, _sender: Option<&NSButton>) {
+            clear_all_allowed_keys();
+        }
     }
 );
 
@@ -296,6 +311,27 @@ fn reset_settings_to_defaults() {
     // Update opacity label to 50%
     update_opacity_label(DEFAULT_OVERLAY_OPACITY);
 
+    // Reset Allowed Keys (clear the list)
+    unsafe {
+        use objc2_app_kit::NSTextView;
+
+        with_ptr_void::<NSTextView, _>(&settings::ALLOWED_KEYS_VIEW, |text_view| {
+            text_view.setString(ns_string!("No allowed keys configured"));
+        });
+
+        with_ptr_void::<NSTextField, _>(&settings::ADD_KEY_FIELD, |field| {
+            field.setStringValue(ns_string!(""));
+        });
+    }
+
+    // Update config to reflect reset allowed keys
+    let mut config = get_current_config();
+    config.allowed_keys = Some(Vec::new());
+    set_current_config(config);
+
+    // Clear validation label
+    set_validation_label(&settings::ADD_KEY_VALIDATION, true, "");
+
     println!("  Settings reset to defaults (not saved)");
 }
 
@@ -314,6 +350,12 @@ fn cleanup_settings_window_references() {
     settings::OPACITY_LABEL.store(std::ptr::null_mut(), Ordering::Release);
     settings::EXIT_KEY_VALIDATION.store(std::ptr::null_mut(), Ordering::Release);
     settings::TIMER_VALIDATION.store(std::ptr::null_mut(), Ordering::Release);
+    settings::ALLOWED_KEYS_VIEW.store(std::ptr::null_mut(), Ordering::Release);
+    settings::ALLOWED_KEYS_SCROLL.store(std::ptr::null_mut(), Ordering::Release);
+    settings::ADD_KEY_FIELD.store(std::ptr::null_mut(), Ordering::Release);
+    settings::ADD_KEY_VALIDATION.store(std::ptr::null_mut(), Ordering::Release);
+    // Note: ADD_KEY_FIELD_DELEGATE is NOT cleared here - it's reused across window opens
+    // (same pattern as EXIT_KEY_FIELD_DELEGATE and TIMER_FIELD_DELEGATE)
 
     // Re-enable the settings menu item
     unsafe {
@@ -597,7 +639,7 @@ fn validate_timer_realtime(value: &str) {
 
 /// Window dimensions
 const WINDOW_WIDTH: CGFloat = 400.0;
-const WINDOW_HEIGHT: CGFloat = 370.0;
+const WINDOW_HEIGHT: CGFloat = 550.0; // Increased to fit allowed keys section
 
 /// Layout constants
 const MARGIN: CGFloat = 20.0;
@@ -784,6 +826,32 @@ fn get_or_create_timer_field_delegate(mtm: MainThreadMarker) -> &'static TimerFi
             &*(settings::TIMER_FIELD_DELEGATE.load(Ordering::Acquire) as *const TimerFieldDelegate)
         } else {
             &*(delegate_ptr as *const TimerFieldDelegate)
+        }
+    }
+}
+
+/// Get or create the add key field delegate
+fn get_or_create_add_key_delegate(mtm: MainThreadMarker) -> &'static AddKeyFieldDelegate {
+    unsafe {
+        let delegate_ptr = settings::ADD_KEY_FIELD_DELEGATE.load(Ordering::Acquire);
+        if delegate_ptr.is_null() {
+            let new_delegate = AddKeyFieldDelegate::new(mtm);
+            settings::ADD_KEY_FIELD_DELEGATE.store(
+                Retained::as_ptr(&new_delegate) as *mut c_void,
+                Ordering::Release,
+            );
+            // SAFETY: Transferring ownership to global AtomicPtr storage.
+            // The delegate handles real-time text validation for the add key field.
+            // Preventing drop here is correct because:
+            // - The pointer is stored in settings::ADD_KEY_FIELD_DELEGATE (a 'static AtomicPtr)
+            // - NSTextField retains the delegate via setDelegate()
+            // - Reused across multiple settings window opens/closes
+            // Cleanup: Never explicitly released; lives for app duration.
+            std::mem::forget(new_delegate);
+            &*(settings::ADD_KEY_FIELD_DELEGATE.load(Ordering::Acquire)
+                as *const AddKeyFieldDelegate)
+        } else {
+            &*(delegate_ptr as *const AddKeyFieldDelegate)
         }
     }
 }
@@ -1252,6 +1320,9 @@ fn setup_opacity_section(
     // and NSWindow releases the view when the window closes.
     std::mem::forget(opacity_slider);
 
+    // Account for the slider row height before returning
+    y_offset -= FIELD_HEIGHT + ROW_SPACING;
+
     y_offset
 }
 
@@ -1353,6 +1424,361 @@ fn setup_button_section(
     std::mem::forget(save_button);
 }
 
+// ============================================================================
+// Allowed Keys Section
+// ============================================================================
+
+/// Set up the allowed keys section with list view and add/clear buttons
+fn setup_allowed_keys_section(
+    mtm: MainThreadMarker,
+    content_view: &objc2_app_kit::NSView,
+    config: &crate::config::Config,
+    handler: &SettingsActionHandler,
+    mut y_offset: CGFloat,
+) -> CGFloat {
+    use objc2_app_kit::{NSScrollView, NSTextView};
+
+    // Section label
+    let label = create_label(
+        mtm,
+        "Allowed Keys (pass through shield):",
+        CGRect {
+            origin: CGPoint {
+                x: MARGIN,
+                y: y_offset,
+            },
+            size: CGSize {
+                width: WINDOW_WIDTH - (MARGIN * 2.0),
+                height: LABEL_HEIGHT,
+            },
+        },
+        13.0,
+        &NSColor::labelColor(),
+        true,
+    );
+    content_view.addSubview(&label);
+    y_offset -= LABEL_HEIGHT + 5.0;
+
+    // Scroll view for list of keys
+    let scroll_view = {
+        let scroll = NSScrollView::new(mtm);
+        scroll.setFrame(CGRect {
+            origin: CGPoint {
+                x: MARGIN,
+                y: y_offset - 80.0,
+            },
+            size: CGSize {
+                width: WINDOW_WIDTH - (MARGIN * 2.0),
+                height: 80.0,
+            },
+        });
+        scroll.setBorderType(objc2_app_kit::NSBorderType::BezelBorder);
+        scroll.setHasVerticalScroller(true);
+        scroll.setAutohidesScrollers(true);
+        scroll
+    };
+
+    // Text view inside scroll view
+    let text_view = {
+        let text = NSTextView::new(mtm);
+        text.setEditable(false);
+        text.setSelectable(true);
+        text.setFont(Some(&NSFont::systemFontOfSize(12.0)));
+
+        // Display current allowed keys
+        if let Some(ref keys) = config.allowed_keys {
+            let keys_text = if keys.is_empty() {
+                "No allowed keys configured".to_string()
+            } else {
+                keys.join("\n")
+            };
+            text.setString(&NSString::from_str(&keys_text));
+        } else {
+            text.setString(ns_string!("No allowed keys configured"));
+        }
+
+        text
+    };
+
+    scroll_view.setDocumentView(Some(&text_view));
+    content_view.addSubview(&scroll_view);
+
+    // Store references
+    settings::ALLOWED_KEYS_VIEW.store(
+        Retained::as_ptr(&text_view) as *mut c_void,
+        Ordering::Release,
+    );
+    settings::ALLOWED_KEYS_SCROLL.store(
+        Retained::as_ptr(&scroll_view) as *mut c_void,
+        Ordering::Release,
+    );
+
+    std::mem::forget(text_view);
+    std::mem::forget(scroll_view);
+
+    y_offset -= 85.0;
+
+    // Add key input field
+    let add_field = {
+        let field = NSTextField::new(mtm);
+        field.setFrame(CGRect {
+            origin: CGPoint {
+                x: MARGIN,
+                y: y_offset - 24.0,
+            },
+            size: CGSize {
+                width: 200.0,
+                height: 24.0,
+            },
+        });
+        field.setPlaceholderString(Some(ns_string!("e.g. Cmd+Space, F11")));
+        field.setFont(Some(&NSFont::systemFontOfSize(12.0)));
+        field
+    };
+
+    // Set up delegate for real-time validation
+    let add_key_delegate = get_or_create_add_key_delegate(mtm);
+    unsafe {
+        add_field.setDelegate(Some(ProtocolObject::from_ref(add_key_delegate)));
+    }
+
+    content_view.addSubview(&add_field);
+    settings::ADD_KEY_FIELD.store(
+        Retained::as_ptr(&add_field) as *mut c_void,
+        Ordering::Release,
+    );
+    std::mem::forget(add_field);
+
+    // Add button
+    let add_button = unsafe {
+        let button = NSButton::buttonWithTitle_target_action(
+            ns_string!("Add"),
+            Some(handler),
+            Some(objc2::sel!(addAllowedKey:)),
+            mtm,
+        );
+        button.setFrame(CGRect {
+            origin: CGPoint {
+                x: MARGIN + 205.0,
+                y: y_offset - 24.0,
+            },
+            size: CGSize {
+                width: 60.0,
+                height: 24.0,
+            },
+        });
+        button.setButtonType(NSButtonType::MomentaryPushIn);
+        button
+    };
+    content_view.addSubview(&add_button);
+    std::mem::forget(add_button);
+
+    // Clear All button
+    let clear_button = unsafe {
+        let button = NSButton::buttonWithTitle_target_action(
+            ns_string!("Clear All"),
+            Some(handler),
+            Some(objc2::sel!(clearAllowedKeys:)),
+            mtm,
+        );
+        button.setFrame(CGRect {
+            origin: CGPoint {
+                x: MARGIN + 270.0,
+                y: y_offset - 24.0,
+            },
+            size: CGSize {
+                width: 80.0,
+                height: 24.0,
+            },
+        });
+        button.setButtonType(NSButtonType::MomentaryPushIn);
+        button
+    };
+    content_view.addSubview(&clear_button);
+    std::mem::forget(clear_button);
+
+    y_offset -= 29.0;
+
+    // Validation label
+    let validation_label = create_label(
+        mtm,
+        "",
+        CGRect {
+            origin: CGPoint {
+                x: MARGIN,
+                y: y_offset - 20.0,
+            },
+            size: CGSize {
+                width: WINDOW_WIDTH - (MARGIN * 2.0),
+                height: 20.0,
+            },
+        },
+        11.0,
+        &NSColor::systemGreenColor(),
+        false,
+    );
+    content_view.addSubview(&validation_label);
+    settings::ADD_KEY_VALIDATION.store(
+        Retained::as_ptr(&validation_label) as *mut c_void,
+        Ordering::Release,
+    );
+    std::mem::forget(validation_label);
+
+    y_offset -= 30.0;
+
+    y_offset
+}
+
+/// Add a key from the input field to the allowed keys list
+fn add_allowed_key_from_field() {
+    use crate::input::AllowedKey;
+    use objc2_app_kit::NSTextView;
+
+    let key_str = unsafe {
+        with_ptr::<NSTextField, _, _>(&settings::ADD_KEY_FIELD, |field| {
+            field.stringValue().to_string()
+        })
+    };
+
+    let Some(key_str) = key_str else {
+        return;
+    };
+
+    let trimmed = key_str.trim();
+    if trimmed.is_empty() {
+        set_validation_label(
+            &settings::ADD_KEY_VALIDATION,
+            false,
+            "Enter a key combination",
+        );
+        return;
+    }
+
+    // Validate the key
+    match AllowedKey::parse(trimmed) {
+        Ok(_) => {
+            // Get current config
+            let mut config = get_current_config();
+
+            // Add to the list
+            let mut keys = config.allowed_keys.unwrap_or_default();
+
+            // Check for duplicates (case-insensitive since key parsing normalizes case)
+            let trimmed_lower = trimmed.to_lowercase();
+            if keys.iter().any(|k| k.to_lowercase() == trimmed_lower) {
+                set_validation_label(&settings::ADD_KEY_VALIDATION, false, "Key already in list");
+                return;
+            }
+
+            keys.push(trimmed.to_string());
+            config.allowed_keys = Some(keys.clone());
+
+            // Update the display
+            unsafe {
+                with_ptr_void::<NSTextView, _>(&settings::ALLOWED_KEYS_VIEW, |text_view| {
+                    text_view.setString(&NSString::from_str(&keys.join("\n")));
+                });
+            }
+
+            // Clear the input field
+            unsafe {
+                with_ptr_void::<NSTextField, _>(&settings::ADD_KEY_FIELD, |field| {
+                    field.setStringValue(ns_string!(""));
+                });
+            }
+
+            // Update config in memory (not saved until user clicks Save)
+            set_current_config(config);
+
+            set_validation_label(
+                &settings::ADD_KEY_VALIDATION,
+                true,
+                "✓ Added (click Save to persist)",
+            );
+        }
+        Err(e) => {
+            set_validation_label(&settings::ADD_KEY_VALIDATION, false, &e);
+        }
+    }
+}
+
+/// Clear all allowed keys from the list
+fn clear_all_allowed_keys() {
+    use objc2_app_kit::NSTextView;
+
+    let mut config = get_current_config();
+    config.allowed_keys = Some(Vec::new());
+
+    // Update the display
+    unsafe {
+        with_ptr_void::<NSTextView, _>(&settings::ALLOWED_KEYS_VIEW, |text_view| {
+            text_view.setString(ns_string!("No allowed keys configured"));
+        });
+    }
+
+    // Update config in memory
+    set_current_config(config);
+
+    set_validation_label(
+        &settings::ADD_KEY_VALIDATION,
+        true,
+        "✓ Cleared (click Save to persist)",
+    );
+}
+
+/// Validate the add key field in real-time
+fn validate_add_key_realtime(value: &str) {
+    use crate::input::AllowedKey;
+
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        set_validation_label(&settings::ADD_KEY_VALIDATION, true, "");
+        return;
+    }
+
+    match AllowedKey::parse(trimmed) {
+        Ok(_) => {
+            set_validation_label(&settings::ADD_KEY_VALIDATION, true, "✓ Valid");
+        }
+        Err(e) => {
+            set_validation_label(&settings::ADD_KEY_VALIDATION, false, &e);
+        }
+    }
+}
+
+// Delegate for add key text field to handle real-time text changes
+define_class!(
+    #[unsafe(super(NSObject))]
+    #[thread_kind = MainThreadOnly]
+    #[name = "AddKeyFieldDelegate"]
+    #[ivars = AddKeyFieldDelegateIvars]
+    pub struct AddKeyFieldDelegate;
+
+    unsafe impl NSObjectProtocol for AddKeyFieldDelegate {}
+
+    unsafe impl NSTextFieldDelegate for AddKeyFieldDelegate {}
+
+    unsafe impl NSControlTextEditingDelegate for AddKeyFieldDelegate {
+        #[unsafe(method(controlTextDidChange:))]
+        fn control_text_did_change(&self, _notification: &NSNotification) {
+            unsafe {
+                with_ptr_void::<NSTextField, _>(&settings::ADD_KEY_FIELD, |field| {
+                    let value = field.stringValue().to_string();
+                    validate_add_key_realtime(&value);
+                });
+            }
+        }
+    }
+);
+
+impl AddKeyFieldDelegate {
+    pub fn new(mtm: MainThreadMarker) -> Retained<Self> {
+        let this = mtm.alloc::<AddKeyFieldDelegate>();
+        let this = this.set_ivars(AddKeyFieldDelegateIvars {});
+        unsafe { msg_send![super(this), init] }
+    }
+}
+
 /// Finalize window setup and display it
 fn finalize_and_show_window(mtm: MainThreadMarker, panel: Retained<NSPanel>) {
     // Activate the application so the window can receive focus
@@ -1410,7 +1836,8 @@ pub fn show_settings_window(mtm: MainThreadMarker) {
         // Set up each section
         y_offset = setup_exit_key_section(mtm, &content_view, &config, y_offset);
         y_offset = setup_timer_section(mtm, &content_view, &config, handler, y_offset);
-        let _ = setup_opacity_section(mtm, &content_view, &config, handler, y_offset);
+        y_offset = setup_opacity_section(mtm, &content_view, &config, handler, y_offset);
+        let _ = setup_allowed_keys_section(mtm, &content_view, &config, handler, y_offset);
         setup_button_section(mtm, &content_view, handler);
     }
 

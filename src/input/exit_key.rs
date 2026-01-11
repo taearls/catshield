@@ -10,6 +10,9 @@ use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 /// Default exit key configuration (Cmd+Q is standard macOS quit shortcut)
 pub const DEFAULT_EXIT_KEY: &str = "Cmd+Q";
 
+/// Error message prefix when no modifier is provided (used by allowed_keys for fallback parsing)
+pub const ERR_NO_MODIFIER: &str = "At least one modifier required";
+
 /// Represents a parsed exit key combination
 #[derive(Debug, Clone)]
 pub struct ExitKey {
@@ -79,10 +82,10 @@ impl ExitKey {
 
         // Require at least one modifier
         if !requires_cmd && !requires_option && !requires_shift && !requires_ctrl {
-            return Err(
-                "At least one modifier required (Cmd/Command, Option/Alt, Shift, or Ctrl)"
-                    .to_string(),
-            );
+            return Err(format!(
+                "{} (Cmd/Command, Option/Alt, Shift, or Ctrl)",
+                ERR_NO_MODIFIER
+            ));
         }
 
         Ok(ExitKey {
