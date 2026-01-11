@@ -354,7 +354,8 @@ fn cleanup_settings_window_references() {
     settings::ALLOWED_KEYS_SCROLL.store(std::ptr::null_mut(), Ordering::Release);
     settings::ADD_KEY_FIELD.store(std::ptr::null_mut(), Ordering::Release);
     settings::ADD_KEY_VALIDATION.store(std::ptr::null_mut(), Ordering::Release);
-    settings::ADD_KEY_FIELD_DELEGATE.store(std::ptr::null_mut(), Ordering::Release);
+    // Note: ADD_KEY_FIELD_DELEGATE is NOT cleared here - it's reused across window opens
+    // (same pattern as EXIT_KEY_FIELD_DELEGATE and TIMER_FIELD_DELEGATE)
 
     // Re-enable the settings menu item
     unsafe {
@@ -1318,6 +1319,9 @@ fn setup_opacity_section(
     // Cleanup: cleanup_settings_window_references() sets the AtomicPtr to null,
     // and NSWindow releases the view when the window closes.
     std::mem::forget(opacity_slider);
+
+    // Account for the slider row height before returning
+    y_offset -= FIELD_HEIGHT + ROW_SPACING;
 
     y_offset
 }
