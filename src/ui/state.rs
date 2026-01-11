@@ -171,6 +171,21 @@ pub mod settings {
 
     /// Opacity value label
     pub static OPACITY_LABEL: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+
+    /// Allowed keys text view (displays list of allowed keys)
+    pub static ALLOWED_KEYS_VIEW: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+
+    /// Allowed keys scroll view (wraps the text view)
+    pub static ALLOWED_KEYS_SCROLL: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+
+    /// Add key text field (for entering new keys)
+    pub static ADD_KEY_FIELD: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+
+    /// Add key validation label
+    pub static ADD_KEY_VALIDATION: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+
+    /// Add key field delegate for real-time validation
+    pub static ADD_KEY_FIELD_DELEGATE: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 }
 
 // ============================================================================

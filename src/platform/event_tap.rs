@@ -6,7 +6,7 @@ use super::bindings::{
     CFMachPortCreateRunLoopSource, CFRelease, CFRunLoopAddSource, CFRunLoopGetCurrent,
     CFRunLoopRemoveSource, CGEventTapEnable,
 };
-use crate::input::check_exit_key;
+use crate::input::{check_exit_key, is_key_allowed};
 use crate::ui::state::shield;
 use objc2_app_kit::NSApplication;
 use objc2_core_foundation::{kCFRunLoopCommonModes, CFMachPort, CFRetained, CFString};
@@ -53,16 +53,18 @@ unsafe extern "C-unwind" fn event_tap_callback(
         return event.as_ptr();
     }
 
-    // Check for configured exit key combination
-    if event_type == CGEventType::KeyDown {
+    // Check for keyboard events
+    if event_type == CGEventType::KeyDown
+        || event_type == CGEventType::KeyUp
+        || event_type == CGEventType::FlagsChanged
+    {
         let cg_event = event.as_ref();
-
         let flags = CGEvent::flags(Some(cg_event));
         let keycode =
             CGEvent::integer_value_field(Some(cg_event), CGEventField::KeyboardEventKeycode);
 
-        // Check if the key combination matches the configured exit key
-        if check_exit_key(keycode, flags) {
+        // Check for configured exit key combination (only on KeyDown)
+        if event_type == CGEventType::KeyDown && check_exit_key(keycode, flags) {
             println!("\n  🔓 Exit key combination detected!");
 
             // In menu bar mode, deactivate shield and return to menu bar
@@ -77,19 +79,18 @@ unsafe extern "C-unwind" fn event_tap_callback(
             // Let this event through
             return event.as_ptr();
         }
-    }
 
-    // Block keyboard events by returning NULL
-    // Mouse events are allowed through so our close button can work
-    // (our topmost window captures all mouse events anyway)
-    if event_type == CGEventType::KeyDown
-        || event_type == CGEventType::KeyUp
-        || event_type == CGEventType::FlagsChanged
-    {
-        // Return NULL to block the event
+        // Check if this key is in the allowed keys list
+        if is_key_allowed(keycode, flags) {
+            // Let this event through
+            return event.as_ptr();
+        }
+
+        // Block all other keyboard events by returning NULL
         return std::ptr::null_mut();
     }
 
+    // Allow all non-keyboard events through
     event.as_ptr()
 }
 
