@@ -168,6 +168,65 @@ pub fn clear_allowed_keys() {
     }
 }
 
+// ============================================================================
+// KEY PRESETS
+// ============================================================================
+
+/// Preset key combinations for common use cases
+pub mod presets {
+    /// Media Keys preset: F10 (Mute), F11 (Volume Down), F12 (Volume Up)
+    pub const MEDIA_KEYS: &[&str] = &["F10", "F11", "F12"];
+    /// Media Keys preset display name
+    pub const MEDIA_KEYS_NAME: &str = "Media Keys";
+    /// Media Keys preset tooltip
+    pub const MEDIA_KEYS_TOOLTIP: &str = "Adds F10 (Mute), F11 (Volume Down), F12 (Volume Up)";
+
+    /// Spotlight preset: Cmd+Space
+    pub const SPOTLIGHT: &[&str] = &["Cmd+Space"];
+    /// Spotlight preset display name
+    pub const SPOTLIGHT_NAME: &str = "Spotlight";
+    /// Spotlight preset tooltip
+    pub const SPOTLIGHT_TOOLTIP: &str = "Adds Cmd+Space (Spotlight search)";
+
+    /// Mission Control preset: Ctrl+Up/Down/Left/Right
+    pub const MISSION_CONTROL: &[&str] = &["Ctrl+Up", "Ctrl+Down", "Ctrl+Left", "Ctrl+Right"];
+    /// Mission Control preset display name
+    pub const MISSION_CONTROL_NAME: &str = "Mission Control";
+    /// Mission Control preset tooltip
+    pub const MISSION_CONTROL_TOOLTIP: &str =
+        "Adds Ctrl+Up/Down/Left/Right (Mission Control & Spaces)";
+
+    /// Screenshots preset: Cmd+Shift+3/4/5
+    pub const SCREENSHOTS: &[&str] = &["Cmd+Shift+3", "Cmd+Shift+4", "Cmd+Shift+5"];
+    /// Screenshots preset display name
+    pub const SCREENSHOTS_NAME: &str = "Screenshots";
+    /// Screenshots preset tooltip
+    pub const SCREENSHOTS_TOOLTIP: &str =
+        "Adds Cmd+Shift+3 (full), Cmd+Shift+4 (selection), Cmd+Shift+5 (options)";
+}
+
+/// Add keys from a preset to the current allowed keys list.
+/// Returns the number of keys actually added (excluding duplicates).
+pub fn add_preset_keys(preset_keys: &[&str], current_keys: &mut Vec<String>) -> usize {
+    let mut added_count = 0;
+
+    for &key in preset_keys {
+        // Check for duplicates (case-insensitive)
+        let key_lower = key.to_lowercase();
+        let already_exists = current_keys.iter().any(|k| k.to_lowercase() == key_lower);
+
+        if !already_exists {
+            // Validate the key before adding
+            if AllowedKey::parse(key).is_ok() {
+                current_keys.push(key.to_string());
+                added_count += 1;
+            }
+        }
+    }
+
+    added_count
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -312,5 +371,148 @@ mod tests {
         let flags =
             CGEventFlags::MaskCommand | CGEventFlags::MaskShift | CGEventFlags::MaskAlternate;
         assert!(!key.matches(0, flags));
+    }
+
+    // ========================================================================
+    // Preset Tests
+    // ========================================================================
+
+    #[test]
+    fn test_add_preset_keys_media_keys() {
+        let mut keys = Vec::new();
+        let added = add_preset_keys(presets::MEDIA_KEYS, &mut keys);
+        assert_eq!(added, 3);
+        assert_eq!(keys.len(), 3);
+        assert!(keys.contains(&"F10".to_string()));
+        assert!(keys.contains(&"F11".to_string()));
+        assert!(keys.contains(&"F12".to_string()));
+    }
+
+    #[test]
+    fn test_add_preset_keys_spotlight() {
+        let mut keys = Vec::new();
+        let added = add_preset_keys(presets::SPOTLIGHT, &mut keys);
+        assert_eq!(added, 1);
+        assert_eq!(keys.len(), 1);
+        assert!(keys.contains(&"Cmd+Space".to_string()));
+    }
+
+    #[test]
+    fn test_add_preset_keys_mission_control() {
+        let mut keys = Vec::new();
+        let added = add_preset_keys(presets::MISSION_CONTROL, &mut keys);
+        assert_eq!(added, 4);
+        assert_eq!(keys.len(), 4);
+        assert!(keys.contains(&"Ctrl+Up".to_string()));
+        assert!(keys.contains(&"Ctrl+Down".to_string()));
+        assert!(keys.contains(&"Ctrl+Left".to_string()));
+        assert!(keys.contains(&"Ctrl+Right".to_string()));
+    }
+
+    #[test]
+    fn test_add_preset_keys_screenshots() {
+        let mut keys = Vec::new();
+        let added = add_preset_keys(presets::SCREENSHOTS, &mut keys);
+        assert_eq!(added, 3);
+        assert_eq!(keys.len(), 3);
+        assert!(keys.contains(&"Cmd+Shift+3".to_string()));
+        assert!(keys.contains(&"Cmd+Shift+4".to_string()));
+        assert!(keys.contains(&"Cmd+Shift+5".to_string()));
+    }
+
+    #[test]
+    fn test_add_preset_keys_no_duplicates() {
+        let mut keys = vec!["F11".to_string()]; // Already has F11
+        let added = add_preset_keys(presets::MEDIA_KEYS, &mut keys);
+        // Should only add F10 and F12, not F11 (already exists)
+        assert_eq!(added, 2);
+        assert_eq!(keys.len(), 3);
+    }
+
+    #[test]
+    fn test_add_preset_keys_case_insensitive_duplicates() {
+        let mut keys = vec!["cmd+space".to_string()]; // Lowercase version
+        let added = add_preset_keys(presets::SPOTLIGHT, &mut keys);
+        // Should not add Cmd+Space since cmd+space already exists (case-insensitive)
+        assert_eq!(added, 0);
+        assert_eq!(keys.len(), 1);
+    }
+
+    #[test]
+    fn test_add_preset_keys_all_existing() {
+        let mut keys = vec![
+            "F10".to_string(),
+            "F11".to_string(),
+            "F12".to_string(),
+        ];
+        let added = add_preset_keys(presets::MEDIA_KEYS, &mut keys);
+        // All keys already exist
+        assert_eq!(added, 0);
+        assert_eq!(keys.len(), 3);
+    }
+
+    #[test]
+    fn test_add_preset_keys_multiple_presets() {
+        let mut keys = Vec::new();
+
+        // Add Media Keys
+        let added1 = add_preset_keys(presets::MEDIA_KEYS, &mut keys);
+        assert_eq!(added1, 3);
+
+        // Add Spotlight
+        let added2 = add_preset_keys(presets::SPOTLIGHT, &mut keys);
+        assert_eq!(added2, 1);
+
+        // Add Mission Control
+        let added3 = add_preset_keys(presets::MISSION_CONTROL, &mut keys);
+        assert_eq!(added3, 4);
+
+        // Add Screenshots
+        let added4 = add_preset_keys(presets::SCREENSHOTS, &mut keys);
+        assert_eq!(added4, 3);
+
+        // Total should be 11 keys
+        assert_eq!(keys.len(), 11);
+    }
+
+    #[test]
+    fn test_preset_constants_not_empty() {
+        assert!(!presets::MEDIA_KEYS.is_empty());
+        assert!(!presets::SPOTLIGHT.is_empty());
+        assert!(!presets::MISSION_CONTROL.is_empty());
+        assert!(!presets::SCREENSHOTS.is_empty());
+    }
+
+    #[test]
+    fn test_preset_names_not_empty() {
+        assert!(!presets::MEDIA_KEYS_NAME.is_empty());
+        assert!(!presets::SPOTLIGHT_NAME.is_empty());
+        assert!(!presets::MISSION_CONTROL_NAME.is_empty());
+        assert!(!presets::SCREENSHOTS_NAME.is_empty());
+    }
+
+    #[test]
+    fn test_preset_tooltips_not_empty() {
+        assert!(!presets::MEDIA_KEYS_TOOLTIP.is_empty());
+        assert!(!presets::SPOTLIGHT_TOOLTIP.is_empty());
+        assert!(!presets::MISSION_CONTROL_TOOLTIP.is_empty());
+        assert!(!presets::SCREENSHOTS_TOOLTIP.is_empty());
+    }
+
+    #[test]
+    fn test_all_preset_keys_are_valid() {
+        // Verify all preset keys can be parsed
+        for key in presets::MEDIA_KEYS {
+            assert!(AllowedKey::parse(key).is_ok(), "Failed to parse: {}", key);
+        }
+        for key in presets::SPOTLIGHT {
+            assert!(AllowedKey::parse(key).is_ok(), "Failed to parse: {}", key);
+        }
+        for key in presets::MISSION_CONTROL {
+            assert!(AllowedKey::parse(key).is_ok(), "Failed to parse: {}", key);
+        }
+        for key in presets::SCREENSHOTS {
+            assert!(AllowedKey::parse(key).is_ok(), "Failed to parse: {}", key);
+        }
     }
 }
