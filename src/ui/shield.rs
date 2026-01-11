@@ -465,10 +465,7 @@ pub fn activate_shield(mtm: MainThreadMarker) {
         match parse_and_set_allowed_keys(allowed_keys_strs) {
             Ok(()) => {
                 if !allowed_keys_strs.is_empty() {
-                    println!(
-                        "  ✓ Allowed keys: {}",
-                        allowed_keys_strs.join(", ")
-                    );
+                    println!("  ✓ Allowed keys: {}", allowed_keys_strs.join(", "));
                 }
             }
             Err(errors) => {

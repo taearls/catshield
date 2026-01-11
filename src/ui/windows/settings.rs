@@ -1610,7 +1610,11 @@ fn add_allowed_key_from_field() {
 
     let trimmed = key_str.trim();
     if trimmed.is_empty() {
-        set_validation_label(&settings::ADD_KEY_VALIDATION, false, "Enter a key combination");
+        set_validation_label(
+            &settings::ADD_KEY_VALIDATION,
+            false,
+            "Enter a key combination",
+        );
         return;
     }
 
@@ -1649,7 +1653,11 @@ fn add_allowed_key_from_field() {
             // Update config in memory (not saved until user clicks Save)
             set_current_config(config);
 
-            set_validation_label(&settings::ADD_KEY_VALIDATION, true, "✓ Added (click Save to persist)");
+            set_validation_label(
+                &settings::ADD_KEY_VALIDATION,
+                true,
+                "✓ Added (click Save to persist)",
+            );
         }
         Err(e) => {
             set_validation_label(&settings::ADD_KEY_VALIDATION, false, &e);
@@ -1674,7 +1682,11 @@ fn clear_all_allowed_keys() {
     // Update config in memory
     set_current_config(config);
 
-    set_validation_label(&settings::ADD_KEY_VALIDATION, true, "✓ Cleared (click Save to persist)");
+    set_validation_label(
+        &settings::ADD_KEY_VALIDATION,
+        true,
+        "✓ Cleared (click Save to persist)",
+    );
 }
 
 /// Validate the add key field in real-time

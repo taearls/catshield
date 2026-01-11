@@ -395,10 +395,7 @@ allowed_keys = ["Cmd+Space"]
 
         let config = Config::load_from_path(&config_path);
 
-        assert_eq!(
-            config.allowed_keys,
-            Some(vec!["Cmd+Space".to_string()])
-        );
+        assert_eq!(config.allowed_keys, Some(vec!["Cmd+Space".to_string()]));
     }
 
     #[test]
