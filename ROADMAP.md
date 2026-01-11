@@ -264,19 +264,36 @@ Testing (can be done in parallel):
 
 | Priority | Issue | Title | Dependencies | Effort |
 |----------|-------|-------|--------------|--------|
-| 🟢 Medium | #64 | Add configurable key allowlist to pass specific keys through the shield | None | ~2-3 days |
-| 🔵 Low | #65 | Add preset groups for key allowlist (Media Keys, System Shortcuts) | #64 | ~0.5 day |
+| ✅ Done | #64 | Add configurable key allowlist to pass specific keys through the shield | None | ~2-3 days |
+| 🔵 Low | #65 | Add preset groups for key allowlist (Media Keys, System Shortcuts) | ✅ #64 | ~0.5 day |
 
 **Implementation Order:**
 ```text
-#64: Key Allowlist Feature
+#64: Key Allowlist Feature ✅
     └── #65: Preset Groups (depends on #64)
 ```
+
+- [x] **Issue #64**: Add configurable key allowlist to pass specific keys through the shield
+  - Added `allowed_keys` field to Config struct for persistent storage
+  - Created `src/input/allowed_keys.rs` module for key management
+  - Supports same format as exit keys (e.g., "Cmd+Space", "F11", "Ctrl+Option+A")
+  - Also supports simple keys without modifiers (e.g., "F11", "Space")
+  - Modified event tap callback to check allowed keys before blocking
+  - Added "Allowed Keys" section to Settings window with:
+    - Scrollable list view showing current allowed keys
+    - Input field with real-time validation
+    - "Add" and "Clear All" buttons for list management
+    - Duplicate detection
+  - Keys loaded from config on shield activation
+  - Keys cleared on shield deactivation
+  - Added 19 comprehensive tests (6 config + 13 allowed_keys module)
+  - Enables media controls, Spotlight, Mission Control, and custom shortcuts while shield is active
 
 ### Recently Completed
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #64 | feat: Add configurable key allowlist to pass keys through shield | 2026-01-10 |
 | #54 | perf: Cache formatted duration string in timer display | 2026-01-10 |
 | #60 | test: Expand UI state and settings validation tests | 2026-01-10 |
 | #75 | test: Add integration tests for menu bar timer functionality | 2026-01-10 |
@@ -301,13 +318,13 @@ Testing (can be done in parallel):
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 2 | #64, #65 |
-| Closed | 36 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #73, #75 |
+| Open | 1 | #65 |
+| Closed | 37 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #73, #75 |
 
 ### By Priority
 - 🔴 Critical: 0
 - 🟡 High: 0
-- 🟢 Medium: 1 (#64)
+- 🟢 Medium: 0
 - 🔵 Low: 1 (#65)
 
 ## Recommended Implementation Order
@@ -339,7 +356,11 @@ Testing (can be done in parallel):
 9. ~~**#54** - Cache formatted duration string~~ ✅
 
 ### Phase 6: Enhanced Input Control
-10. **#64** - Add configurable key allowlist (new feature, medium priority)
+
+**Completed:**
+10. ~~**#64** - Add configurable key allowlist (new feature, medium priority)~~ ✅
+
+**Next:**
 11. **#65** - Add preset groups for key allowlist (depends on #64, low priority)
 
 ## Critical Path
@@ -365,8 +386,8 @@ Maintenance:    #55 (Settings Refactor) ✅ ─┬── All Complete
                 #56 (Pointer Helper) ✅ ────┤
                 #57 (Safety Docs) ✅ ────────┘
 
-Phase 6 (NEXT):
-Input Control:  #64 (Key Allowlist) ─── #65 (Preset Groups)
+Phase 6 (CURRENT):
+Input Control:  #64 (Key Allowlist) ✅ ─── #65 (Preset Groups)
 ```
 
 ## Future Considerations
@@ -382,6 +403,55 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-10
+- Completed Issue #64: Add configurable key allowlist to pass keys through shield
+  - Added `allowed_keys: Option<Vec<String>>` field to Config struct
+  - Added 6 comprehensive config tests for serialization/deserialization of allowed_keys
+  - Created `src/input/allowed_keys.rs` module for key management:
+    - `AllowedKey` struct with parsing and matching logic
+    - Global RwLock-protected state for thread-safe key storage
+    - `parse_and_set_allowed_keys()` for bulk key validation with detailed error messages
+    - `is_key_allowed()` for event filtering
+    - `clear_allowed_keys()` for cleanup
+    - Added 13 comprehensive unit tests covering parsing, validation, and event matching
+  - Supports same format as exit keys (e.g., "Cmd+Space", "F11", "Ctrl+Option+A")
+  - Also supports simple keys without modifiers (e.g., "F11", "Space")
+  - Modified event tap callback in `src/platform/event_tap.rs`:
+    - Checks if incoming key events match allowed keys before blocking
+    - Allowed keys pass through to the system
+    - Exit key check remains highest priority
+  - Shield integration in `src/ui/shield.rs`:
+    - Load allowed keys from config during shield activation
+    - Display configured keys in activation banner if any are set
+    - Clear allowed keys on shield deactivation
+    - Handle invalid keys gracefully with warning messages
+  - Settings UI in `src/ui/windows/settings.rs`:
+    - Increased window height from 370 to 550 pixels
+    - Added "Allowed Keys" section with:
+      - Scrollable NSTextView showing current allowed keys (one per line)
+      - NSScrollView wrapper with vertical scrollbar
+      - Input field for adding new keys with placeholder hint "e.g. Cmd+Space, F11"
+      - Real-time validation as user types
+      - "Add" button to add validated keys to the list
+      - "Clear All" button to remove all keys from the list
+      - Duplicate detection to prevent adding same key twice
+    - Created `AddKeyFieldDelegate` for real-time input validation
+    - Added action handlers: `addAllowedKey:` and `clearAllowedKeys:`
+    - Keys are added/removed in memory, persisted when user clicks "Save"
+    - "Reset to Default" button clears allowed keys list
+  - UI state management in `src/ui/state.rs`:
+    - Added 5 new atomic pointer state variables:
+      - `ALLOWED_KEYS_VIEW` - NSTextView displaying keys
+      - `ALLOWED_KEYS_SCROLL` - NSScrollView wrapper
+      - `ADD_KEY_FIELD` - Input field for new keys
+      - `ADD_KEY_VALIDATION` - Validation message label
+      - `ADD_KEY_FIELD_DELEGATE` - Real-time validation delegate
+    - Proper cleanup on window close
+  - Total of 19 new tests added (6 config + 13 allowed_keys module)
+  - Enables media controls (F10-F12), Spotlight (Cmd+Space), Mission Control, and custom shortcuts while shield is active
+  - Config file format: `allowed_keys = ["Cmd+Space", "F11", "F12"]`
+  - Updated issue counts: 1 open, 37 closed
+  - Updated priority counts: 0 Medium, 1 Low
+
 - Completed Issue #54: Cache formatted duration string in timer display
   - Added `format_duration_cached()` function in `src/timer/formatting.rs`
   - Uses thread-local storage to cache the formatted string and last-seen seconds value
