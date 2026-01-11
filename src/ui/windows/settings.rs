@@ -37,6 +37,9 @@ pub struct ExitKeyFieldDelegateIvars {}
 /// Empty ivars for the TimerFieldDelegate
 pub struct TimerFieldDelegateIvars {}
 
+/// Empty ivars for the AddKeyFieldDelegate
+pub struct AddKeyFieldDelegateIvars {}
+
 // Delegate for exit key text field to handle real-time text changes
 define_class!(
     #[unsafe(super(NSObject))]
@@ -1699,7 +1702,7 @@ define_class!(
     #[unsafe(super(NSObject))]
     #[thread_kind = MainThreadOnly]
     #[name = "AddKeyFieldDelegate"]
-    #[ivars = ExitKeyFieldDelegateIvars]
+    #[ivars = AddKeyFieldDelegateIvars]
     pub struct AddKeyFieldDelegate;
 
     unsafe impl NSObjectProtocol for AddKeyFieldDelegate {}
@@ -1722,7 +1725,7 @@ define_class!(
 impl AddKeyFieldDelegate {
     pub fn new(mtm: MainThreadMarker) -> Retained<Self> {
         let this = mtm.alloc::<AddKeyFieldDelegate>();
-        let this = this.set_ivars(ExitKeyFieldDelegateIvars {});
+        let this = this.set_ivars(AddKeyFieldDelegateIvars {});
         unsafe { msg_send![super(this), init] }
     }
 }
