@@ -10,11 +10,17 @@ use std::sync::RwLock;
 /// Represents a single allowed key combination
 #[derive(Debug, Clone, PartialEq)]
 pub struct AllowedKey {
+    /// Virtual keycode for the key
     pub keycode: i64,
+    /// Whether Command/Cmd modifier is required
     pub requires_cmd: bool,
+    /// Whether Option/Alt modifier is required
     pub requires_option: bool,
+    /// Whether Shift modifier is required
     pub requires_shift: bool,
+    /// Whether Control/Ctrl modifier is required
     pub requires_ctrl: bool,
+    /// Display name for the key combination
     pub display_name: String,
 }
 
