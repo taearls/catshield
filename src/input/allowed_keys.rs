@@ -26,6 +26,7 @@ pub struct AllowedKey {
 
 impl AllowedKey {
     /// Parse a key combination string using the same format as ExitKey
+    #[must_use = "parsing may fail, check the Result"]
     pub fn parse(input: &str) -> Result<Self, String> {
         // Reuse the ExitKey parser but relax the modifier requirement
         let exit_key = match ExitKey::parse(input) {
@@ -109,6 +110,7 @@ pub fn set_allowed_keys(keys: Vec<AllowedKey>) {
 }
 
 /// Parse and set allowed keys from string list
+#[must_use = "parsing may fail, check the Result for errors"]
 pub fn parse_and_set_allowed_keys(key_strings: &[String]) -> Result<(), Vec<String>> {
     let mut parsed_keys = Vec::new();
     let mut errors = Vec::new();
@@ -208,6 +210,9 @@ mod tests {
 
     #[test]
     fn test_parse_and_set_allowed_keys_success() {
+        // Clear any state from other tests for isolation
+        clear_allowed_keys();
+
         let keys = vec![
             "Cmd+Space".to_string(),
             "F11".to_string(),
@@ -226,6 +231,9 @@ mod tests {
 
     #[test]
     fn test_parse_and_set_allowed_keys_with_errors() {
+        // Clear any state from other tests for isolation
+        clear_allowed_keys();
+
         let keys = vec![
             "Cmd+Space".to_string(),
             "InvalidKey".to_string(),
@@ -242,6 +250,9 @@ mod tests {
 
     #[test]
     fn test_clear_allowed_keys() {
+        // Clear any state from other tests for isolation
+        clear_allowed_keys();
+
         let keys = vec!["F11".to_string(), "F12".to_string()];
         parse_and_set_allowed_keys(&keys).unwrap();
 
@@ -253,6 +264,9 @@ mod tests {
 
     #[test]
     fn test_is_key_allowed_matches() {
+        // Clear any state from other tests for isolation
+        clear_allowed_keys();
+
         let keys = vec!["Cmd+Space".to_string(), "F11".to_string()];
         parse_and_set_allowed_keys(&keys).unwrap();
 
@@ -267,6 +281,9 @@ mod tests {
 
     #[test]
     fn test_is_key_allowed_no_match() {
+        // Clear any state from other tests for isolation
+        clear_allowed_keys();
+
         let keys = vec!["Cmd+Space".to_string()];
         parse_and_set_allowed_keys(&keys).unwrap();
 
