@@ -829,6 +829,32 @@ fn get_or_create_timer_field_delegate(mtm: MainThreadMarker) -> &'static TimerFi
     }
 }
 
+/// Get or create the add key field delegate
+fn get_or_create_add_key_delegate(mtm: MainThreadMarker) -> &'static AddKeyFieldDelegate {
+    unsafe {
+        let delegate_ptr = settings::ADD_KEY_FIELD_DELEGATE.load(Ordering::Acquire);
+        if delegate_ptr.is_null() {
+            let new_delegate = AddKeyFieldDelegate::new(mtm);
+            settings::ADD_KEY_FIELD_DELEGATE.store(
+                Retained::as_ptr(&new_delegate) as *mut c_void,
+                Ordering::Release,
+            );
+            // SAFETY: Transferring ownership to global AtomicPtr storage.
+            // The delegate handles real-time text validation for the add key field.
+            // Preventing drop here is correct because:
+            // - The pointer is stored in settings::ADD_KEY_FIELD_DELEGATE (a 'static AtomicPtr)
+            // - NSTextField retains the delegate via setDelegate()
+            // - Reused across multiple settings window opens/closes
+            // Cleanup: Never explicitly released; lives for app duration.
+            std::mem::forget(new_delegate);
+            &*(settings::ADD_KEY_FIELD_DELEGATE.load(Ordering::Acquire)
+                as *const AddKeyFieldDelegate)
+        } else {
+            &*(delegate_ptr as *const AddKeyFieldDelegate)
+        }
+    }
+}
+
 // ============================================================================
 // Settings Section Setup Functions
 // ============================================================================
@@ -1409,23 +1435,28 @@ fn setup_allowed_keys_section(
     use objc2_app_kit::{NSScrollView, NSTextView};
 
     // Section label
-    let label = create_label(mtm, "Allowed Keys (pass through shield):");
-    label.setFrame(CGRect {
-        origin: CGPoint {
-            x: MARGIN,
-            y: y_offset,
+    let label = create_label(
+        mtm,
+        "Allowed Keys (pass through shield):",
+        CGRect {
+            origin: CGPoint {
+                x: MARGIN,
+                y: y_offset,
+            },
+            size: CGSize {
+                width: WINDOW_WIDTH - (MARGIN * 2.0),
+                height: LABEL_HEIGHT,
+            },
         },
-        size: CGSize {
-            width: WINDOW_WIDTH - (MARGIN * 2.0),
-            height: LABEL_HEIGHT,
-        },
-    });
+        13.0,
+        &NSColor::labelColor(),
+        true,
+    );
     content_view.addSubview(&label);
-    std::mem::forget(label);
     y_offset -= LABEL_HEIGHT + 5.0;
 
     // Scroll view for list of keys
-    let scroll_view = unsafe {
+    let scroll_view = {
         let scroll = NSScrollView::new(mtm);
         scroll.setFrame(CGRect {
             origin: CGPoint {
@@ -1444,7 +1475,7 @@ fn setup_allowed_keys_section(
     };
 
     // Text view inside scroll view
-    let text_view = unsafe {
+    let text_view = {
         let text = NSTextView::new(mtm);
         text.setEditable(false);
         text.setSelectable(true);
@@ -1484,7 +1515,7 @@ fn setup_allowed_keys_section(
     y_offset -= 85.0;
 
     // Add key input field
-    let add_field = unsafe {
+    let add_field = {
         let field = NSTextField::new(mtm);
         field.setFrame(CGRect {
             origin: CGPoint {
@@ -1501,21 +1532,18 @@ fn setup_allowed_keys_section(
         field
     };
 
-    // Create delegate for real-time validation
-    let add_key_delegate = AddKeyFieldDelegate::new(mtm);
-    add_field.setDelegate(Some(ProtocolObject::from_ref(&add_key_delegate)));
+    // Set up delegate for real-time validation
+    let add_key_delegate = get_or_create_add_key_delegate(mtm);
+    unsafe {
+        add_field.setDelegate(Some(ProtocolObject::from_ref(add_key_delegate)));
+    }
 
     content_view.addSubview(&add_field);
     settings::ADD_KEY_FIELD.store(
         Retained::as_ptr(&add_field) as *mut c_void,
         Ordering::Release,
     );
-    settings::ADD_KEY_FIELD_DELEGATE.store(
-        Retained::as_ptr(&add_key_delegate) as *mut c_void,
-        Ordering::Release,
-    );
     std::mem::forget(add_field);
-    std::mem::forget(add_key_delegate);
 
     // Add button
     let add_button = unsafe {
@@ -1568,19 +1596,23 @@ fn setup_allowed_keys_section(
     y_offset -= 29.0;
 
     // Validation label
-    let validation_label = create_label(mtm, "");
-    validation_label.setFrame(CGRect {
-        origin: CGPoint {
-            x: MARGIN,
-            y: y_offset - 20.0,
+    let validation_label = create_label(
+        mtm,
+        "",
+        CGRect {
+            origin: CGPoint {
+                x: MARGIN,
+                y: y_offset - 20.0,
+            },
+            size: CGSize {
+                width: WINDOW_WIDTH - (MARGIN * 2.0),
+                height: 20.0,
+            },
         },
-        size: CGSize {
-            width: WINDOW_WIDTH - (MARGIN * 2.0),
-            height: 20.0,
-        },
-    });
-    validation_label.setFont(Some(&NSFont::systemFontOfSize(11.0)));
-    validation_label.setTextColor(Some(&NSColor::systemGreenColor()));
+        11.0,
+        &NSColor::systemGreenColor(),
+        false,
+    );
     content_view.addSubview(&validation_label);
     settings::ADD_KEY_VALIDATION.store(
         Retained::as_ptr(&validation_label) as *mut c_void,

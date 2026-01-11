@@ -73,6 +73,7 @@ mod tests {
             exit_key: None,
             default_timer: None,
             overlay_opacity: None,
+            allowed_keys: None,
         };
 
         // When no default_timer is set, parsing should fail (empty string)
@@ -90,6 +91,7 @@ mod tests {
             exit_key: None,
             default_timer: Some("30m".to_string()),
             overlay_opacity: None,
+            allowed_keys: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -106,6 +108,7 @@ mod tests {
             exit_key: None,
             default_timer: Some("2h".to_string()),
             overlay_opacity: None,
+            allowed_keys: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -122,6 +125,7 @@ mod tests {
             exit_key: None,
             default_timer: Some("1h30m".to_string()),
             overlay_opacity: None,
+            allowed_keys: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -138,6 +142,7 @@ mod tests {
             exit_key: None,
             default_timer: Some("90s".to_string()),
             overlay_opacity: None,
+            allowed_keys: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -155,6 +160,7 @@ mod tests {
             exit_key: None,
             default_timer: Some("5s".to_string()),
             overlay_opacity: None,
+            allowed_keys: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -172,6 +178,7 @@ mod tests {
             exit_key: None,
             default_timer: Some("4s".to_string()),
             overlay_opacity: None,
+            allowed_keys: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -190,6 +197,7 @@ mod tests {
             exit_key: None,
             default_timer: Some("24h".to_string()),
             overlay_opacity: None,
+            allowed_keys: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -207,6 +215,7 @@ mod tests {
             exit_key: None,
             default_timer: Some("25h".to_string()),
             overlay_opacity: None,
+            allowed_keys: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -622,6 +631,7 @@ mod tests {
             exit_key: Some("Cmd+Shift+Q".to_string()),
             default_timer: Some("30m".to_string()),
             overlay_opacity: Some(0.6),
+            allowed_keys: None,
         };
 
         original.save_to_path(&config_path).unwrap();
@@ -644,6 +654,7 @@ mod tests {
             exit_key: Some("Cmd+Q".to_string()),
             default_timer: None,
             overlay_opacity: None,
+            allowed_keys: None,
         };
 
         original.save_to_path(&config_path).unwrap();
