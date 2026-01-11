@@ -8,7 +8,7 @@
 //!
 //! All atomic pointers store raw `*mut c_void` for FFI compatibility with objc2.
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::ffi::c_void;
 use std::sync::atomic::{AtomicBool, AtomicPtr, AtomicU64};
 use std::time::Instant;
@@ -186,6 +186,44 @@ pub mod settings {
 
     /// Add key field delegate for real-time validation
     pub static ADD_KEY_FIELD_DELEGATE: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+
+    // Thread-local state for pending allowed keys changes.
+    // This allows Cancel to discard changes without affecting the global config.
+    thread_local! {
+        /// Pending allowed keys changes (not yet saved to config).
+        /// `None` means no pending changes (use config value).
+        /// `Some(vec)` means there are pending changes to be saved/discarded.
+        pub static PENDING_ALLOWED_KEYS: RefCell<Option<Vec<String>>> = const { RefCell::new(None) };
+    }
+
+    /// Initialize pending allowed keys from current config.
+    /// Called when settings window opens.
+    pub fn init_pending_allowed_keys(keys: Option<Vec<String>>) {
+        PENDING_ALLOWED_KEYS.with(|pending| {
+            *pending.borrow_mut() = keys;
+        });
+    }
+
+    /// Get the current pending allowed keys list.
+    /// Returns a clone of the current pending state.
+    pub fn get_pending_allowed_keys() -> Option<Vec<String>> {
+        PENDING_ALLOWED_KEYS.with(|pending| pending.borrow().clone())
+    }
+
+    /// Set the pending allowed keys list.
+    pub fn set_pending_allowed_keys(keys: Option<Vec<String>>) {
+        PENDING_ALLOWED_KEYS.with(|pending| {
+            *pending.borrow_mut() = keys;
+        });
+    }
+
+    /// Clear pending allowed keys state (discard changes).
+    /// Called when settings window is closed/cancelled.
+    pub fn clear_pending_allowed_keys() {
+        PENDING_ALLOWED_KEYS.with(|pending| {
+            *pending.borrow_mut() = None;
+        });
+    }
 }
 
 // ============================================================================
@@ -346,5 +384,75 @@ mod tests {
     #[test]
     fn test_screen_saver_window_level_valid() {
         const { assert!(window_level::SCREEN_SAVER > 0) };
+    }
+
+    // ========================================================================
+    // Pending Allowed Keys Tests
+    // ========================================================================
+
+    #[test]
+    fn test_pending_allowed_keys_init_with_some() {
+        settings::init_pending_allowed_keys(Some(vec!["Cmd+Space".to_string()]));
+        let keys = settings::get_pending_allowed_keys();
+        assert_eq!(keys, Some(vec!["Cmd+Space".to_string()]));
+        settings::clear_pending_allowed_keys();
+    }
+
+    #[test]
+    fn test_pending_allowed_keys_init_with_none() {
+        settings::init_pending_allowed_keys(None);
+        let keys = settings::get_pending_allowed_keys();
+        assert!(keys.is_none());
+        settings::clear_pending_allowed_keys();
+    }
+
+    #[test]
+    fn test_pending_allowed_keys_set_updates_state() {
+        settings::init_pending_allowed_keys(Some(vec!["F11".to_string()]));
+        settings::set_pending_allowed_keys(Some(vec!["F11".to_string(), "F12".to_string()]));
+        let keys = settings::get_pending_allowed_keys();
+        assert_eq!(keys, Some(vec!["F11".to_string(), "F12".to_string()]));
+        settings::clear_pending_allowed_keys();
+    }
+
+    #[test]
+    fn test_pending_allowed_keys_clear_discards_state() {
+        settings::init_pending_allowed_keys(Some(vec!["Cmd+Q".to_string()]));
+        settings::clear_pending_allowed_keys();
+        let keys = settings::get_pending_allowed_keys();
+        assert!(keys.is_none());
+    }
+
+    #[test]
+    fn test_pending_allowed_keys_set_empty_vec() {
+        settings::init_pending_allowed_keys(Some(vec!["Key1".to_string()]));
+        settings::set_pending_allowed_keys(Some(Vec::new()));
+        let keys = settings::get_pending_allowed_keys();
+        assert_eq!(keys, Some(Vec::new()));
+        settings::clear_pending_allowed_keys();
+    }
+
+    #[test]
+    fn test_pending_allowed_keys_multiple_operations() {
+        // Simulate typical workflow: init -> add -> add -> clear all -> save workflow
+        settings::init_pending_allowed_keys(Some(vec!["Existing".to_string()]));
+
+        // Add another key
+        let mut keys = settings::get_pending_allowed_keys().unwrap_or_default();
+        keys.push("NewKey".to_string());
+        settings::set_pending_allowed_keys(Some(keys));
+
+        let result = settings::get_pending_allowed_keys();
+        assert_eq!(
+            result,
+            Some(vec!["Existing".to_string(), "NewKey".to_string()])
+        );
+
+        // Clear all
+        settings::set_pending_allowed_keys(Some(Vec::new()));
+        assert_eq!(settings::get_pending_allowed_keys(), Some(Vec::new()));
+
+        // Final cleanup
+        settings::clear_pending_allowed_keys();
     }
 }

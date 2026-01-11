@@ -335,7 +335,7 @@ fn reset_settings_to_defaults() {
     // Update opacity label to 50%
     update_opacity_label(DEFAULT_OVERLAY_OPACITY);
 
-    // Reset Allowed Keys (clear the list)
+    // Reset Allowed Keys (clear the list) - update pending state, not global config
     unsafe {
         use objc2_app_kit::NSTextView;
 
@@ -348,10 +348,8 @@ fn reset_settings_to_defaults() {
         });
     }
 
-    // Update config to reflect reset allowed keys
-    let mut config = get_current_config();
-    config.allowed_keys = Some(Vec::new());
-    set_current_config(config);
+    // Update pending state (not global config) - changes committed on Save
+    settings::set_pending_allowed_keys(Some(Vec::new()));
 
     // Clear validation label
     set_validation_label(&settings::ADD_KEY_VALIDATION, true, "");
@@ -380,6 +378,9 @@ fn cleanup_settings_window_references() {
     settings::ADD_KEY_VALIDATION.store(std::ptr::null_mut(), Ordering::Release);
     // Note: ADD_KEY_FIELD_DELEGATE is NOT cleared here - it's reused across window opens
     // (same pattern as EXIT_KEY_FIELD_DELEGATE and TIMER_FIELD_DELEGATE)
+
+    // Clear pending allowed keys state (discard any unsaved changes)
+    settings::clear_pending_allowed_keys();
 
     // Re-enable the settings menu item
     unsafe {
@@ -507,6 +508,11 @@ fn save_settings_from_window() {
         with_ptr::<NSSlider, _, _>(&settings::OPACITY_SLIDER, |slider| slider.doubleValue())
     } {
         config.overlay_opacity = Some(opacity);
+    }
+
+    // Get pending allowed keys and commit to config
+    if let Some(pending_keys) = settings::get_pending_allowed_keys() {
+        config.allowed_keys = Some(pending_keys);
     }
 
     if has_errors {
@@ -1817,11 +1823,8 @@ fn add_allowed_key_from_field() {
     // Validate the key
     match AllowedKey::parse(trimmed) {
         Ok(_) => {
-            // Get current config
-            let mut config = get_current_config();
-
-            // Add to the list
-            let mut keys = config.allowed_keys.unwrap_or_default();
+            // Get current pending keys (not global config)
+            let mut keys = settings::get_pending_allowed_keys().unwrap_or_default();
 
             // Check for duplicates (case-insensitive since key parsing normalizes case)
             let trimmed_lower = trimmed.to_lowercase();
@@ -1831,7 +1834,9 @@ fn add_allowed_key_from_field() {
             }
 
             keys.push(trimmed.to_string());
-            config.allowed_keys = Some(keys.clone());
+
+            // Update pending state (not global config) - changes committed on Save
+            settings::set_pending_allowed_keys(Some(keys.clone()));
 
             // Update the display
             unsafe {
@@ -1846,9 +1851,6 @@ fn add_allowed_key_from_field() {
                     field.setStringValue(ns_string!(""));
                 });
             }
-
-            // Update config in memory (not saved until user clicks Save)
-            set_current_config(config);
 
             set_validation_label(
                 &settings::ADD_KEY_VALIDATION,
@@ -1866,8 +1868,8 @@ fn add_allowed_key_from_field() {
 fn clear_all_allowed_keys() {
     use objc2_app_kit::NSTextView;
 
-    let mut config = get_current_config();
-    config.allowed_keys = Some(Vec::new());
+    // Update pending state (not global config) - changes committed on Save
+    settings::set_pending_allowed_keys(Some(Vec::new()));
 
     // Update the display
     unsafe {
@@ -1875,9 +1877,6 @@ fn clear_all_allowed_keys() {
             text_view.setString(ns_string!("No allowed keys configured"));
         });
     }
-
-    // Update config in memory
-    set_current_config(config);
 
     set_validation_label(
         &settings::ADD_KEY_VALIDATION,
@@ -1891,16 +1890,14 @@ fn add_preset(preset_keys: &[&str]) {
     use crate::input::add_preset_keys;
     use objc2_app_kit::NSTextView;
 
-    // Get current config
-    let mut config = get_current_config();
-    let mut keys = config.allowed_keys.unwrap_or_default();
+    // Get current pending keys (not global config)
+    let mut keys = settings::get_pending_allowed_keys().unwrap_or_default();
 
     // Add preset keys (duplicates are automatically filtered)
     let added_count = add_preset_keys(preset_keys, &mut keys);
 
-    // Update config
-    config.allowed_keys = Some(keys.clone());
-    set_current_config(config);
+    // Update pending state (not global config) - changes committed on Save
+    settings::set_pending_allowed_keys(Some(keys.clone()));
 
     // Update the display
     unsafe {
@@ -2032,6 +2029,10 @@ pub fn show_settings_window(mtm: MainThreadMarker) {
 
     // Load current config
     let config = get_current_config();
+
+    // Initialize pending allowed keys state from config.
+    // This allows Cancel to discard changes without affecting the saved config.
+    settings::init_pending_allowed_keys(config.allowed_keys.clone());
 
     // Create content view with controls
     if let Some(content_view) = panel.contentView() {

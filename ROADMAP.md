@@ -293,6 +293,7 @@ Testing (can be done in parallel):
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #80 | fix: Settings Cancel button does not discard allowed_keys changes | 2026-01-11 |
 | #65 | feat: Add preset groups for key allowlist (Media Keys, System Shortcuts) | 2026-01-11 |
 | #64 | feat: Add configurable key allowlist to pass keys through shield | 2026-01-10 |
 | #54 | perf: Cache formatted duration string in timer display | 2026-01-10 |
@@ -320,7 +321,7 @@ Testing (can be done in parallel):
 | Status | Count | Issues |
 |--------|-------|--------|
 | Open | 0 | - |
-| Closed | 38 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75 |
+| Closed | 39 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80 |
 
 ### By Priority
 - 🔴 Critical: 0
@@ -402,6 +403,20 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-11
+- Completed Issue #80: Fix Settings Cancel button not discarding allowed_keys changes
+  - Root cause: allowed_keys modifications were immediately applied to global config via `set_current_config()`
+  - Added pending state management for allowed_keys in Settings window
+  - Created `PENDING_ALLOWED_KEYS` thread-local storage in `src/ui/state.rs`
+  - Added helper functions: `init_pending_allowed_keys()`, `get_pending_allowed_keys()`, `set_pending_allowed_keys()`, `clear_pending_allowed_keys()`
+  - Modified `add_allowed_key_from_field()`, `clear_all_allowed_keys()`, `add_preset()`, and `reset_settings_to_defaults()` to update pending state instead of global config
+  - Modified `save_settings_from_window()` to commit pending state to config on Save
+  - Modified `cleanup_settings_window_references()` to clear pending state on Cancel/close (discards changes)
+  - Modified `show_settings_window()` to initialize pending state from config on window open
+  - Behavior now matches other settings fields: changes are only persisted when user clicks Save
+  - Added 6 new unit tests for pending allowed keys state management
+  - All 211 tests pass, clippy clean, build successful
+  - Updated issue counts: 0 open, 39 closed
+
 - Completed Issue #65: Add preset groups for key allowlist (Media Keys, System Shortcuts)
   - Added `presets` module in `src/input/allowed_keys.rs` with four preset definitions:
     - Media Keys: F10 (Mute), F11 (Volume Down), F12 (Volume Up)
