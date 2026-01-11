@@ -265,12 +265,12 @@ Testing (can be done in parallel):
 | Priority | Issue | Title | Dependencies | Effort |
 |----------|-------|-------|--------------|--------|
 | ✅ Done | #64 | Add configurable key allowlist to pass specific keys through the shield | None | ~2-3 days |
-| 🔵 Low | #65 | Add preset groups for key allowlist (Media Keys, System Shortcuts) | ✅ #64 | ~0.5 day |
+| ✅ Done | #65 | Add preset groups for key allowlist (Media Keys, System Shortcuts) | ✅ #64 | ~0.5 day |
 
 **Implementation Order:**
 ```text
 #64: Key Allowlist Feature ✅
-    └── #65: Preset Groups (depends on #64)
+    └── #65: Preset Groups ✅
 ```
 
 - [x] **Issue #64**: Add configurable key allowlist to pass specific keys through the shield
@@ -293,6 +293,7 @@ Testing (can be done in parallel):
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #65 | feat: Add preset groups for key allowlist (Media Keys, System Shortcuts) | 2026-01-11 |
 | #64 | feat: Add configurable key allowlist to pass keys through shield | 2026-01-10 |
 | #54 | perf: Cache formatted duration string in timer display | 2026-01-10 |
 | #60 | test: Expand UI state and settings validation tests | 2026-01-10 |
@@ -318,14 +319,14 @@ Testing (can be done in parallel):
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 1 | #65 |
-| Closed | 37 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #73, #75 |
+| Open | 0 | - |
+| Closed | 38 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75 |
 
 ### By Priority
 - 🔴 Critical: 0
 - 🟡 High: 0
 - 🟢 Medium: 0
-- 🔵 Low: 1 (#65)
+- 🔵 Low: 0
 
 ## Recommended Implementation Order
 
@@ -355,13 +356,11 @@ Testing (can be done in parallel):
 8. ~~**#60** - Expand UI state and validation tests~~ ✅
 9. ~~**#54** - Cache formatted duration string~~ ✅
 
-### Phase 6: Enhanced Input Control
+### Phase 6: Enhanced Input Control - COMPLETE ✅
 
 **Completed:**
 10. ~~**#64** - Add configurable key allowlist (new feature, medium priority)~~ ✅
-
-**Next:**
-11. **#65** - Add preset groups for key allowlist (depends on #64, low priority)
+11. ~~**#65** - Add preset groups for key allowlist (depends on #64, low priority)~~ ✅
 
 ## Critical Path
 
@@ -386,8 +385,8 @@ Maintenance:    #55 (Settings Refactor) ✅ ─┬── All Complete
                 #56 (Pointer Helper) ✅ ────┤
                 #57 (Safety Docs) ✅ ────────┘
 
-Phase 6 (CURRENT):
-Input Control:  #64 (Key Allowlist) ✅ ─── #65 (Preset Groups)
+Phase 6 (COMPLETE):
+Input Control:  #64 (Key Allowlist) ✅ ─── #65 (Preset Groups) ✅
 ```
 
 ## Future Considerations
@@ -401,6 +400,40 @@ Potential future enhancements (not yet tracked as issues):
 - Custom overlay themes
 
 ## Changelog
+
+### 2026-01-11
+- Completed Issue #65: Add preset groups for key allowlist (Media Keys, System Shortcuts)
+  - Added `presets` module in `src/input/allowed_keys.rs` with four preset definitions:
+    - Media Keys: F10 (Mute), F11 (Volume Down), F12 (Volume Up)
+    - Spotlight: Cmd+Space
+    - Mission Control: Ctrl+Up/Down/Left/Right
+    - Screenshots: Cmd+Shift+3/4/5
+  - Each preset includes name, key list, and descriptive tooltip
+  - Added `add_preset_keys()` helper function to merge presets into existing key list
+    - Handles duplicate detection (case-insensitive)
+    - Validates keys before adding
+    - Returns count of keys actually added
+  - Settings window UI updates (`src/ui/windows/settings.rs`):
+    - Increased window height from 550 to 600 pixels
+    - Added "Quick Add:" label row with preset buttons
+    - Two rows of small, clickable buttons: [Media Keys] [Spotlight] and [Mission Control] [Screenshots]
+    - All preset buttons have tooltips showing which keys will be added
+    - Clicking a preset adds all its keys (excluding duplicates) to the allowlist
+    - Visual feedback shows how many keys were added
+  - Added 4 new action handlers to SettingsActionHandler:
+    - `addMediaKeysPreset:`, `addSpotlightPreset:`, `addMissionControlPreset:`, `addScreenshotsPreset:`
+  - Added `add_preset()` helper function to handle preset button clicks
+    - Updates config in memory
+    - Refreshes keys display in text view
+    - Shows appropriate feedback message
+  - Added 13 new unit tests for preset functionality:
+    - Tests for each preset adding correct keys
+    - Tests for duplicate handling (case-insensitive)
+    - Tests for multiple preset combinations
+    - Tests validating preset constants are non-empty and all keys are valid
+  - All 205 tests pass, clippy clean, build successful
+  - Updated issue counts: 0 open, 38 closed
+  - Phase 6: Enhanced Input Control is now complete
 
 ### 2026-01-10
 - Completed Issue #64: Add configurable key allowlist to pass keys through shield

@@ -212,6 +212,30 @@ define_class!(
         unsafe fn clear_allowed_keys_list(&self, _sender: Option<&NSButton>) {
             clear_all_allowed_keys();
         }
+
+        /// Action method called when "Media Keys" preset button is clicked
+        #[unsafe(method(addMediaKeysPreset:))]
+        unsafe fn add_media_keys_preset(&self, _sender: Option<&NSButton>) {
+            add_preset(crate::input::presets::MEDIA_KEYS);
+        }
+
+        /// Action method called when "Spotlight" preset button is clicked
+        #[unsafe(method(addSpotlightPreset:))]
+        unsafe fn add_spotlight_preset(&self, _sender: Option<&NSButton>) {
+            add_preset(crate::input::presets::SPOTLIGHT);
+        }
+
+        /// Action method called when "Mission Control" preset button is clicked
+        #[unsafe(method(addMissionControlPreset:))]
+        unsafe fn add_mission_control_preset(&self, _sender: Option<&NSButton>) {
+            add_preset(crate::input::presets::MISSION_CONTROL);
+        }
+
+        /// Action method called when "Screenshots" preset button is clicked
+        #[unsafe(method(addScreenshotsPreset:))]
+        unsafe fn add_screenshots_preset(&self, _sender: Option<&NSButton>) {
+            add_preset(crate::input::presets::SCREENSHOTS);
+        }
     }
 );
 
@@ -639,7 +663,7 @@ fn validate_timer_realtime(value: &str) {
 
 /// Window dimensions
 const WINDOW_WIDTH: CGFloat = 400.0;
-const WINDOW_HEIGHT: CGFloat = 550.0; // Increased to fit allowed keys section
+const WINDOW_HEIGHT: CGFloat = 600.0; // Increased to fit allowed keys section with presets
 
 /// Layout constants
 const MARGIN: CGFloat = 20.0;
@@ -1436,6 +1460,7 @@ fn setup_allowed_keys_section(
     handler: &SettingsActionHandler,
     mut y_offset: CGFloat,
 ) -> CGFloat {
+    use crate::input::presets;
     use objc2_app_kit::{NSScrollView, NSTextView};
 
     // Section label
@@ -1458,6 +1483,141 @@ fn setup_allowed_keys_section(
     );
     content_view.addSubview(&label);
     y_offset -= LABEL_HEIGHT + 5.0;
+
+    // Quick Add label
+    let quick_add_label = create_label(
+        mtm,
+        "Quick Add:",
+        CGRect {
+            origin: CGPoint {
+                x: MARGIN,
+                y: y_offset,
+            },
+            size: CGSize {
+                width: 70.0,
+                height: LABEL_HEIGHT,
+            },
+        },
+        11.0,
+        &NSColor::secondaryLabelColor(),
+        false,
+    );
+    content_view.addSubview(&quick_add_label);
+
+    // Preset button dimensions
+    let preset_button_height: CGFloat = 22.0;
+    let preset_button_spacing: CGFloat = 6.0;
+
+    // First row of preset buttons (Media Keys, Spotlight)
+    let media_keys_button = unsafe {
+        let button = NSButton::buttonWithTitle_target_action(
+            &NSString::from_str(presets::MEDIA_KEYS_NAME),
+            Some(handler),
+            Some(objc2::sel!(addMediaKeysPreset:)),
+            mtm,
+        );
+        button.setFrame(CGRect {
+            origin: CGPoint {
+                x: MARGIN + 75.0,
+                y: y_offset,
+            },
+            size: CGSize {
+                width: 80.0,
+                height: preset_button_height,
+            },
+        });
+        button.setButtonType(NSButtonType::MomentaryPushIn);
+        button.setControlSize(NSControlSize::Small);
+        button.setToolTip(Some(&NSString::from_str(presets::MEDIA_KEYS_TOOLTIP)));
+        button
+    };
+    content_view.addSubview(&media_keys_button);
+    // SAFETY: Transferring ownership to Objective-C runtime.
+    // Button is retained by content view hierarchy and lives until window closes.
+    std::mem::forget(media_keys_button);
+
+    let spotlight_button = unsafe {
+        let button = NSButton::buttonWithTitle_target_action(
+            &NSString::from_str(presets::SPOTLIGHT_NAME),
+            Some(handler),
+            Some(objc2::sel!(addSpotlightPreset:)),
+            mtm,
+        );
+        button.setFrame(CGRect {
+            origin: CGPoint {
+                x: MARGIN + 75.0 + 80.0 + preset_button_spacing,
+                y: y_offset,
+            },
+            size: CGSize {
+                width: 70.0,
+                height: preset_button_height,
+            },
+        });
+        button.setButtonType(NSButtonType::MomentaryPushIn);
+        button.setControlSize(NSControlSize::Small);
+        button.setToolTip(Some(&NSString::from_str(presets::SPOTLIGHT_TOOLTIP)));
+        button
+    };
+    content_view.addSubview(&spotlight_button);
+    // SAFETY: Transferring ownership to Objective-C runtime.
+    std::mem::forget(spotlight_button);
+
+    y_offset -= preset_button_height + 4.0;
+
+    // Second row of preset buttons (Mission Control, Screenshots)
+    let mission_control_button = unsafe {
+        let button = NSButton::buttonWithTitle_target_action(
+            &NSString::from_str(presets::MISSION_CONTROL_NAME),
+            Some(handler),
+            Some(objc2::sel!(addMissionControlPreset:)),
+            mtm,
+        );
+        button.setFrame(CGRect {
+            origin: CGPoint {
+                x: MARGIN + 75.0,
+                y: y_offset,
+            },
+            size: CGSize {
+                width: 110.0,
+                height: preset_button_height,
+            },
+        });
+        button.setButtonType(NSButtonType::MomentaryPushIn);
+        button.setControlSize(NSControlSize::Small);
+        button.setToolTip(Some(&NSString::from_str(presets::MISSION_CONTROL_TOOLTIP)));
+        button
+    };
+    content_view.addSubview(&mission_control_button);
+    // SAFETY: Transferring ownership to Objective-C runtime.
+    std::mem::forget(mission_control_button);
+
+    let screenshots_button = unsafe {
+        let button = NSButton::buttonWithTitle_target_action(
+            &NSString::from_str(presets::SCREENSHOTS_NAME),
+            Some(handler),
+            Some(objc2::sel!(addScreenshotsPreset:)),
+            mtm,
+        );
+        button.setFrame(CGRect {
+            origin: CGPoint {
+                x: MARGIN + 75.0 + 110.0 + preset_button_spacing,
+                y: y_offset,
+            },
+            size: CGSize {
+                width: 85.0,
+                height: preset_button_height,
+            },
+        });
+        button.setButtonType(NSButtonType::MomentaryPushIn);
+        button.setControlSize(NSControlSize::Small);
+        button.setToolTip(Some(&NSString::from_str(presets::SCREENSHOTS_TOOLTIP)));
+        button
+    };
+    content_view.addSubview(&screenshots_button);
+    // SAFETY: Transferring ownership to Objective-C runtime.
+    std::mem::forget(screenshots_button);
+
+    y_offset -= preset_button_height + 8.0;
 
     // Scroll view for list of keys
     let scroll_view = {
@@ -1724,6 +1884,50 @@ fn clear_all_allowed_keys() {
         true,
         "✓ Cleared (click Save to persist)",
     );
+}
+
+/// Add keys from a preset to the allowed keys list
+fn add_preset(preset_keys: &[&str]) {
+    use crate::input::add_preset_keys;
+    use objc2_app_kit::NSTextView;
+
+    // Get current config
+    let mut config = get_current_config();
+    let mut keys = config.allowed_keys.unwrap_or_default();
+
+    // Add preset keys (duplicates are automatically filtered)
+    let added_count = add_preset_keys(preset_keys, &mut keys);
+
+    // Update config
+    config.allowed_keys = Some(keys.clone());
+    set_current_config(config);
+
+    // Update the display
+    unsafe {
+        with_ptr_void::<NSTextView, _>(&settings::ALLOWED_KEYS_VIEW, |text_view| {
+            if keys.is_empty() {
+                text_view.setString(ns_string!("No allowed keys configured"));
+            } else {
+                text_view.setString(&NSString::from_str(&keys.join("\n")));
+            }
+        });
+    }
+
+    // Show feedback
+    if added_count > 0 {
+        let message = format!(
+            "✓ Added {} key{} (click Save to persist)",
+            added_count,
+            if added_count == 1 { "" } else { "s" }
+        );
+        set_validation_label(&settings::ADD_KEY_VALIDATION, true, &message);
+    } else {
+        set_validation_label(
+            &settings::ADD_KEY_VALIDATION,
+            true,
+            "All keys already in list",
+        );
+    }
 }
 
 /// Validate the add key field in real-time

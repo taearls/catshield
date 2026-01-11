@@ -10,8 +10,8 @@ mod exit_key;
 mod keycodes;
 
 pub use allowed_keys::{
-    clear_allowed_keys, get_allowed_keys, is_key_allowed, parse_and_set_allowed_keys,
-    set_allowed_keys, AllowedKey,
+    add_preset_keys, clear_allowed_keys, get_allowed_keys, is_key_allowed,
+    parse_and_set_allowed_keys, presets, set_allowed_keys, AllowedKey,
 };
 pub use exit_key::{
     check_exit_key, format_exit_key_display, get_exit_key, set_exit_key, ExitKey, DEFAULT_EXIT_KEY,
