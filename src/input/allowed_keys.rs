@@ -211,16 +211,28 @@ pub fn add_preset_keys(preset_keys: &[&str], current_keys: &mut Vec<String>) -> 
     let mut added_count = 0;
 
     for &key in preset_keys {
-        // Check for duplicates (case-insensitive)
-        let key_lower = key.to_lowercase();
-        let already_exists = current_keys.iter().any(|k| k.to_lowercase() == key_lower);
+        // Parse the new key first
+        let Ok(new_key) = AllowedKey::parse(key) else {
+            continue; // Skip invalid keys
+        };
+
+        // Check for duplicates by comparing parsed keys (handles aliases like Esc/Escape)
+        let already_exists = current_keys.iter().any(|k| {
+            if let Ok(existing_key) = AllowedKey::parse(k) {
+                // Compare by keycode and modifier flags, not string representation
+                existing_key.keycode == new_key.keycode
+                    && existing_key.requires_cmd == new_key.requires_cmd
+                    && existing_key.requires_option == new_key.requires_option
+                    && existing_key.requires_shift == new_key.requires_shift
+                    && existing_key.requires_ctrl == new_key.requires_ctrl
+            } else {
+                false
+            }
+        });
 
         if !already_exists {
-            // Validate the key before adding
-            if AllowedKey::parse(key).is_ok() {
-                current_keys.push(key.to_string());
-                added_count += 1;
-            }
+            current_keys.push(key.to_string());
+            added_count += 1;
         }
     }
 
@@ -451,6 +463,30 @@ mod tests {
         // All keys already exist
         assert_eq!(added, 0);
         assert_eq!(keys.len(), 3);
+    }
+
+    #[test]
+    fn test_add_preset_keys_detects_key_aliases_as_duplicates() {
+        // Test that key aliases (Esc/Escape, Return/Enter, etc.) are detected as duplicates
+        let mut keys = vec!["Esc".to_string()]; // Short alias
+        let added = add_preset_keys(&["Escape"], &mut keys);
+        // Should not add Escape since Esc (keycode 53) already exists
+        assert_eq!(added, 0);
+        assert_eq!(keys.len(), 1);
+
+        // Test Return/Enter alias
+        let mut keys = vec!["Enter".to_string()];
+        let added = add_preset_keys(&["Return"], &mut keys);
+        // Should not add Return since Enter (keycode 36) already exists
+        assert_eq!(added, 0);
+        assert_eq!(keys.len(), 1);
+
+        // Test Delete/Backspace alias
+        let mut keys = vec!["Backspace".to_string()];
+        let added = add_preset_keys(&["Delete"], &mut keys);
+        // Should not add Delete since Backspace (keycode 51) already exists
+        assert_eq!(added, 0);
+        assert_eq!(keys.len(), 1);
     }
 
     #[test]
