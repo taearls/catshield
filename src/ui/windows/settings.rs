@@ -356,8 +356,9 @@ fn reset_settings_to_defaults() {
     crate::ui::views::refresh_allowed_keys_list();
     crate::ui::views::update_remove_button_enabled();
 
-    // Clear validation label
-    set_validation_label(&settings::ADD_KEY_VALIDATION, true, "");
+    // Re-validate add key field (list is now empty, so clear validation)
+    // Since we already cleared the add key field above, this will show empty validation
+    revalidate_add_key_field();
 
     println!("  Settings reset to defaults (not saved)");
 }
@@ -1922,11 +1923,8 @@ fn clear_all_allowed_keys() {
     refresh_allowed_keys_list();
     update_remove_button_enabled();
 
-    set_validation_label(
-        &settings::ADD_KEY_VALIDATION,
-        true,
-        "✓ Cleared (click Save to persist)",
-    );
+    // Re-validate add key field (all inputs are now valid since list is empty)
+    revalidate_add_key_field();
 }
 
 /// Remove the currently selected allowed key from the list
@@ -1961,11 +1959,8 @@ fn remove_selected_allowed_key() {
     refresh_allowed_keys_list();
     update_remove_button_enabled();
 
-    set_validation_label(
-        &settings::ADD_KEY_VALIDATION,
-        true,
-        "✓ Removed (click Save to persist)",
-    );
+    // Re-validate add key field (removed key may now be valid to add)
+    revalidate_add_key_field();
 }
 
 /// Add keys from a preset to the allowed keys list
@@ -1977,7 +1972,7 @@ fn add_preset(preset_keys: &[&str]) {
     let mut keys = settings::get_pending_allowed_keys().unwrap_or_default();
 
     // Add preset keys (duplicates are automatically filtered)
-    let added_count = add_preset_keys(preset_keys, &mut keys);
+    let _added_count = add_preset_keys(preset_keys, &mut keys);
 
     // Update pending state (not global config) - changes committed on Save
     settings::set_pending_allowed_keys(Some(keys));
@@ -1985,21 +1980,8 @@ fn add_preset(preset_keys: &[&str]) {
     // Refresh the list view display
     refresh_allowed_keys_list();
 
-    // Show feedback
-    if added_count > 0 {
-        let message = format!(
-            "✓ Added {} key{} (click Save to persist)",
-            added_count,
-            if added_count == 1 { "" } else { "s" }
-        );
-        set_validation_label(&settings::ADD_KEY_VALIDATION, true, &message);
-    } else {
-        set_validation_label(
-            &settings::ADD_KEY_VALIDATION,
-            true,
-            "All keys already in list",
-        );
-    }
+    // Re-validate add key field (input may now be a duplicate)
+    revalidate_add_key_field();
 }
 
 /// Validate the add key field in real-time
@@ -2015,6 +1997,15 @@ fn validate_add_key_realtime(value: &str) {
 
     match AllowedKey::parse(trimmed) {
         Ok(_) => {
+            // Check for duplicates in pending allowed keys (case-insensitive)
+            let keys = settings::get_pending_allowed_keys().unwrap_or_default();
+            let trimmed_lower = trimmed.to_lowercase();
+            if keys.iter().any(|k| k.to_lowercase() == trimmed_lower) {
+                set_validation_label(&settings::ADD_KEY_VALIDATION, false, "Key already in list");
+                update_add_button_enabled(false);
+                return;
+            }
+
             set_validation_label(&settings::ADD_KEY_VALIDATION, true, "✓ Valid");
             update_add_button_enabled(true);
         }
@@ -2031,6 +2022,19 @@ fn update_add_button_enabled(enabled: bool) {
         with_ptr_void::<NSButton, _>(&settings::ADD_KEY_BUTTON, |button| {
             button.setEnabled(enabled);
         });
+    }
+}
+
+/// Re-validate the add key field after the allowed keys list changes.
+/// This ensures validation updates correctly when keys are removed, added via preset, or cleared.
+fn revalidate_add_key_field() {
+    let value = unsafe {
+        with_ptr::<NSTextField, _, _>(&settings::ADD_KEY_FIELD, |field| {
+            field.stringValue().to_string()
+        })
+    };
+    if let Some(value) = value {
+        validate_add_key_realtime(&value);
     }
 }
 

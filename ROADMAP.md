@@ -296,13 +296,13 @@ Testing (can be done in parallel):
 | Priority | Issue | Title | Dependencies | Effort |
 |----------|-------|-------|--------------|--------|
 | ~~🔴 Critical~~ | ~~#87~~ | ~~Settings menu item stays disabled after closing Settings window~~ | ~~None~~ | ~~✅ Complete~~ |
-| 🟢 Medium | #86 | Show real-time validation error when entering duplicate allowed key | None | ~1-2 hours |
+| ~~🟢 Medium~~ | ~~#86~~ | ~~Show real-time validation error when entering duplicate allowed key~~ | ~~None~~ | ~~✅ Complete~~ |
 | 🔵 Low | #85 | Add Undo button to Settings window for reverting individual changes | None | ~1-2 days |
 
 **Implementation Order (priority-based, all independent):**
 ```text
 1. #87: Fix Settings menu item ✅ COMPLETE
-2. #86: Duplicate key validation (Medium priority)
+2. #86: Duplicate key validation ✅ COMPLETE
 3. #85: Undo button (Low priority)
 ```
 
@@ -310,6 +310,7 @@ Testing (can be done in parallel):
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #86 | feat: Show real-time validation error when entering duplicate allowed key | 2026-01-12 |
 | #87 | fix: Settings menu item stays disabled after closing Settings window | 2026-01-12 |
 | #83 | feat: Add ability to select and remove individual allowed keys in Settings | 2026-01-11 |
 | #80 | fix: Settings Cancel button does not discard allowed_keys changes | 2026-01-11 |
@@ -339,13 +340,13 @@ Testing (can be done in parallel):
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 2 | #85, #86 |
-| Closed | 41 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80, #83, #87 |
+| Open | 1 | #85 |
+| Closed | 42 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80, #83, #86, #87 |
 
 ### By Priority
 - 🔴 Critical: 0
 - 🟡 High: 0
-- 🟢 Medium: 1 (#86 - Duplicate key validation)
+- 🟢 Medium: 0
 - 🔵 Low: 1 (#85 - Undo button)
 
 ## Recommended Implementation Order
@@ -384,9 +385,11 @@ Testing (can be done in parallel):
 
 ### Current Sprint: Phase 7 - Settings Window Polish
 
-**Priority Order:**
-1. **#87** - Fix Settings menu item disabled bug (🔴 Critical - blocks Settings access)
-2. **#86** - Real-time duplicate key validation (🟢 Medium - UX improvement)
+**Completed:**
+1. ~~**#87** - Fix Settings menu item disabled bug~~ ✅
+2. ~~**#86** - Real-time duplicate key validation~~ ✅
+
+**Remaining:**
 3. **#85** - Add Undo button to Settings (🔵 Low - nice-to-have feature)
 
 ## Critical Path
@@ -416,7 +419,7 @@ Phase 6 (COMPLETE):
 Input Control:  #64 (Key Allowlist) ✅ ─── #65 (Preset Groups) ✅
 
 Phase 7 (CURRENT):
-Settings Polish: #87 (Menu Bug) 🔴 ─── #86 (Duplicate Validation) 🟢 ─── #85 (Undo Button) 🔵
+Settings Polish: #87 (Menu Bug) ✅ ─── #86 (Duplicate Validation) ✅ ─── #85 (Undo Button) 🔵
 ```
 
 ## Future Considerations
@@ -432,6 +435,19 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-12
+- Completed Issue #86: Show real-time validation error when entering duplicate allowed key
+  - Modified `validate_add_key_realtime()` in `src/ui/windows/settings.rs` to check for duplicates
+  - When a valid key is entered, checks against pending allowed keys list (case-insensitive)
+  - Shows "Key already in list" error (red) and keeps Add button disabled for duplicates
+  - Added `revalidate_add_key_field()` function to re-validate after list changes
+  - List-modifying functions now call `revalidate_add_key_field()`:
+    - `remove_selected_allowed_key()`: removed key may now be valid to add
+    - `clear_all_allowed_keys()`: all inputs become valid
+    - `add_preset()`: input may now be a duplicate
+    - `reset_settings_to_defaults()`: clears list and input field
+  - Updated issue counts: 1 open, 42 closed
+  - Updated priority counts: 0 Medium, 1 Low
+
 - Completed Issue #87: Fix Settings menu item staying disabled after closing Settings window
   - Added missing `std::mem::forget(settings_item)` in `src/ui/menu_bar/setup.rs`
   - This matches the pattern used for `about_item` and prevents the menu item from being invalidated
