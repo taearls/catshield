@@ -289,24 +289,94 @@ Testing (can be done in parallel):
   - Added 19 comprehensive tests (6 config + 13 allowed_keys module)
   - Enables media controls, Spotlight, Mission Control, and custom shortcuts while shield is active
 
-### Phase 7: Settings Window Polish
+### Phase 7: Settings Window Polish - COMPLETE ✅
 
 **Summary**: Bug fixes and UX improvements for the Settings window.
 
 | Priority | Issue | Title | Dependencies | Effort |
 |----------|-------|-------|--------------|--------|
-| ~~🔴 Critical~~ | ~~#87~~ | ~~Settings menu item stays disabled after closing Settings window~~ | ~~None~~ | ~~✅ Complete~~ |
-| ~~🔴 High~~ | ~~#91~~ | ~~Action feedback clear called from background thread violates AppKit threading~~ | ~~None~~ | ~~✅ Complete~~ |
-| ~~🟢 Medium~~ | ~~#86~~ | ~~Show real-time validation error when entering duplicate allowed key~~ | ~~None~~ | ~~✅ Complete~~ |
-| ~~🔵 Low~~ | ~~#85~~ | ~~Add Undo button to Settings window for reverting individual changes~~ | ~~None~~ | ~~✅ Complete~~ |
+| ✅ Done | #87 | Settings menu item stays disabled after closing Settings window | None | ~0.5 day |
+| ✅ Done | #91 | Action feedback clear called from background thread violates AppKit threading | None | ~0.5 day |
+| ✅ Done | #86 | Show real-time validation error when entering duplicate allowed key | None | ~0.5 day |
+| ✅ Done | #85 | Add Undo button to Settings window for reverting individual changes | None | ~1 day |
 
-**Implementation Order (priority-based, all independent):**
+### Phase 8: Cross-Platform Support
+
+**Summary**: Extend Cat Shield to support Windows and Linux in addition to macOS.
+
+#### Phase 8.1: Platform Abstraction Foundation
+
+| Priority | Issue | Title | Dependencies | Effort |
+|----------|-------|-------|--------------|--------|
+| 🔴 Critical | #94 | Create platform abstraction traits | None | ~2 days |
+| 🟡 High | #95 | Reorganize macOS platform code into subdirectory | #94 | ~1 day |
+| 🟡 High | #96 | Implement platform traits for macOS | #94, #95 | ~2 days |
+| 🟡 High | #97 | Create canonical Key enum and split keycodes by platform | #94 | ~1 day |
+| 🟢 Medium | #98 | Update shield_core.rs to use platform traits | #96 | ~1-2 days |
+| 🟢 Medium | #99 | Update Cargo.toml for conditional platform dependencies | #94 | ~0.5 day |
+
+**Implementation Order:**
 ```text
-1. #87: Fix Settings menu item ✅ COMPLETE
-2. #91: Fix AppKit threading violation ✅ COMPLETE
-3. #86: Duplicate key validation ✅ COMPLETE
-4. #85: Undo button ✅ COMPLETE
+#94: Platform Abstraction Traits (foundation)
+    ├── #95: Reorganize macOS Code
+    │       └── #96: Implement macOS Traits
+    │               └── #98: Update shield_core.rs
+    └── #97: Canonical Key Enum
+            └── #99: Conditional Dependencies
 ```
+
+#### Phase 8.2: Windows Support
+
+| Priority | Issue | Title | Dependencies | Effort |
+|----------|-------|-------|--------------|--------|
+| 🟡 High | #100 | Add Windows keyboard hook implementation (InputBlocker) | #94, #96 | ~2-3 days |
+| 🟡 High | #101 | Add Windows power management (PowerManager) | #94 | ~1 day |
+| 🟢 Medium | #102 | Add Windows system tray implementation | #94, #96 | ~2 days |
+| 🟢 Medium | #103 | Add Windows overlay window implementation | #94, #96 | ~2 days |
+| 🟢 Medium | #104 | Add Windows keycode mappings | #97 | ~1 day |
+| 🟢 Medium | #105 | Create Windows entry point and event loop integration | #100, #102, #103 | ~1-2 days |
+
+**Implementation Order:**
+```text
+#100: Windows Keyboard Hook ─┬─ #105: Windows Entry Point
+#101: Windows Power Mgmt ────┤
+#102: Windows System Tray ───┤
+#103: Windows Overlay ───────┘
+#104: Windows Keycodes (parallel with #97)
+```
+
+#### Phase 8.3: Linux Support
+
+| Priority | Issue | Title | Dependencies | Effort |
+|----------|-------|-------|--------------|--------|
+| 🟡 High | #106 | Add X11 keyboard grab implementation (InputBlocker) | #94, #96 | ~2-3 days |
+| 🟡 High | #107 | Research Wayland input blocking solutions | None | ~1-2 days |
+| 🟢 Medium | #108 | Add Linux power management via DBus | #94 | ~1-2 days |
+| 🟢 Medium | #109 | Add Linux system tray via libappindicator | #94, #96 | ~2 days |
+| 🟢 Medium | #110 | Add Linux overlay window (X11 + Wayland) | #94, #96, #107 | ~2-3 days |
+| 🟢 Medium | #111 | Add Linux keycode mappings | #97 | ~1 day |
+
+**Implementation Order:**
+```text
+#107: Research Wayland ──┬─ #110: Linux Overlay
+#106: X11 Keyboard Grab ─┤
+#108: Linux Power Mgmt ──┤
+#109: Linux System Tray ─┘
+#111: Linux Keycodes (parallel with #97)
+```
+
+#### Phase 8.4: Cross-Platform CI & Testing
+
+| Priority | Issue | Title | Dependencies | Effort |
+|----------|-------|-------|--------------|--------|
+| 🟢 Medium | #112 | Set up cross-platform GitHub Actions CI | #96, #100, #106 | ~1 day |
+| 🟢 Medium | #113 | Add platform-specific integration tests | #112 | ~2 days |
+
+### Phase 9: Feature Enhancements
+
+| Priority | Issue | Title | Dependencies | Effort |
+|----------|-------|-------|--------------|--------|
+| 🔵 Low | #114 | Add optional animated cat companion to shield overlay | None | ~2-3 days |
 
 ### Recently Completed
 
@@ -344,14 +414,14 @@ Testing (can be done in parallel):
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 0 | None |
+| Open | 21 | #94, #95, #96, #97, #98, #99, #100, #101, #102, #103, #104, #105, #106, #107, #108, #109, #110, #111, #112, #113, #114 |
 | Closed | 44 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80, #83, #85, #86, #87, #91 |
 
 ### By Priority
-- 🔴 Critical: 0
-- 🟡 High: 0
-- 🟢 Medium: 0
-- 🔵 Low: 0
+- 🔴 Critical: 1 (#94)
+- 🟡 High: 7 (#95, #96, #97, #100, #101, #106, #107)
+- 🟢 Medium: 12 (#98, #99, #102, #103, #104, #105, #108, #109, #110, #111, #112, #113)
+- 🔵 Low: 1 (#114)
 
 ## Recommended Implementation Order
 
@@ -387,12 +457,26 @@ Testing (can be done in parallel):
 10. ~~**#64** - Add configurable key allowlist (new feature, medium priority)~~ ✅
 11. ~~**#65** - Add preset groups for key allowlist (depends on #64, low priority)~~ ✅
 
-### Current Sprint: Phase 7 - Settings Window Polish - COMPLETE ✅
+### Current Sprint: Phase 8 - Cross-Platform Support
 
-**Completed:**
-1. ~~**#87** - Fix Settings menu item disabled bug~~ ✅
-2. ~~**#86** - Real-time duplicate key validation~~ ✅
-3. ~~**#85** - Add Undo button to Settings~~ ✅
+**Next Up (Platform Abstraction Foundation):**
+1. **#94** - Create platform abstraction traits (critical foundation - must be first)
+2. **#95** - Reorganize macOS platform code into subdirectory (depends on #94)
+3. **#97** - Create canonical Key enum and split keycodes by platform (depends on #94)
+4. **#96** - Implement platform traits for macOS (depends on #94, #95)
+5. **#99** - Update Cargo.toml for conditional platform dependencies (depends on #94)
+6. **#98** - Update shield_core.rs to use platform traits (depends on #96)
+
+**Parallel Work (can start after foundation):**
+- Windows team: #100, #101, #102, #103, #104, #105
+- Linux team: #106, #107, #108, #109, #110, #111
+
+**Final Integration:**
+- **#112** - Set up cross-platform GitHub Actions CI
+- **#113** - Add platform-specific integration tests
+
+**Future Feature:**
+- **#114** - Add optional animated cat companion to shield overlay (low priority, independent)
 
 ## Critical Path
 
@@ -404,7 +488,7 @@ Foundation:     #14 (Menu Bar) ✅ ──┬── #17 (Refactor Overlay) ✅
                                                  │                                    │
 Parallel:       #18 (Config) ✅ ────────────────┘                                    └─ #30 (Exit Key Validation) ✅
 
-Phase 5 (CURRENT):
+Phase 5 (COMPLETE):
 Testing:        #58 (Lock Tests) ✅ ──┬─── All Complete
                 #59 (Timer Tests) ✅ ─┤
                 #60 (UI State Tests) ✅ ┘
@@ -422,6 +506,28 @@ Input Control:  #64 (Key Allowlist) ✅ ─── #65 (Preset Groups) ✅
 
 Phase 7 (COMPLETE):
 Settings Polish: #87 (Menu Bug) ✅ ─── #91 (Threading Fix) ✅ ─── #86 (Duplicate Validation) ✅ ─── #85 (Undo Button) ✅
+
+Phase 8 (CURRENT):
+Foundation:     #94 (Platform Traits) ─┬── #95 (Reorganize macOS) ── #96 (macOS Traits) ── #98 (Update shield_core)
+                                       │
+                                       └── #97 (Key Enum) ── #99 (Conditional Deps)
+
+Windows:        #100 (Keyboard Hook) ─┬── #105 (Entry Point)
+                #101 (Power Mgmt) ────┤
+                #102 (System Tray) ───┤
+                #103 (Overlay) ───────┘
+                #104 (Keycodes) ──────── (parallel with #97)
+
+Linux:          #107 (Wayland Research) ─┬── #110 (Overlay)
+                #106 (X11 Keyboard) ─────┤
+                #108 (Power via DBus) ───┤
+                #109 (System Tray) ──────┘
+                #111 (Keycodes) ────────── (parallel with #97)
+
+CI:             #112 (Cross-Platform CI) ── #113 (Platform Tests)
+
+Phase 9 (FUTURE):
+Enhancement:    #114 (Animated Cat Companion)
 ```
 
 ## Future Considerations
@@ -435,6 +541,39 @@ Potential future enhancements (not yet tracked as issues):
 - Custom overlay themes
 
 ## Changelog
+
+### 2026-01-12 (Roadmap Update)
+- Added Phase 8: Cross-Platform Support with 20 new issues organized into sub-phases:
+  - Phase 8.1: Platform Abstraction Foundation (#94-#99) - 6 issues
+    - #94: Create platform abstraction traits (critical foundation)
+    - #95: Reorganize macOS platform code into subdirectory
+    - #96: Implement platform traits for macOS
+    - #97: Create canonical Key enum and split keycodes by platform
+    - #98: Update shield_core.rs to use platform traits
+    - #99: Update Cargo.toml for conditional platform dependencies
+  - Phase 8.2: Windows Support (#100-#105) - 6 issues
+    - #100: Add Windows keyboard hook implementation (InputBlocker)
+    - #101: Add Windows power management (PowerManager)
+    - #102: Add Windows system tray implementation
+    - #103: Add Windows overlay window implementation
+    - #104: Add Windows keycode mappings
+    - #105: Create Windows entry point and event loop integration
+  - Phase 8.3: Linux Support (#106-#111) - 6 issues
+    - #106: Add X11 keyboard grab implementation (InputBlocker)
+    - #107: Research Wayland input blocking solutions
+    - #108: Add Linux power management via DBus
+    - #109: Add Linux system tray via libappindicator
+    - #110: Add Linux overlay window (X11 + Wayland)
+    - #111: Add Linux keycode mappings
+  - Phase 8.4: Cross-Platform CI & Testing (#112-#113) - 2 issues
+    - #112: Set up cross-platform GitHub Actions CI
+    - #113: Add platform-specific integration tests
+- Added Phase 9: Feature Enhancements
+  - #114: Add optional animated cat companion to shield overlay (low priority)
+- Updated issue counts: 21 open, 44 closed
+- Updated priority counts: 1 Critical, 7 High, 12 Medium, 1 Low
+- Updated critical path diagram for Phase 8 cross-platform work
+- Marked Phase 7: Settings Window Polish as COMPLETE
 
 ### 2026-01-12
 - Completed Issue #85: Add Undo button to Settings window for reverting individual changes
