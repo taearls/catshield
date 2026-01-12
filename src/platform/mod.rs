@@ -22,24 +22,27 @@ pub use types::{KeyEvent, Modifiers, Rect, SleepAssertion};
 pub mod macos;
 
 // Re-export platform-specific items for backward compatibility
+// High-level APIs (accessibility, power, event tap)
 #[cfg(target_os = "macos")]
 pub use macos::{
     allow_sleep, check_accessibility, check_accessibility_with_prompt, disable_event_tap,
     open_accessibility_settings, prevent_sleep, setup_event_tap, EVENT_TAP,
     EVENT_TAP_RUN_LOOP_SOURCE,
 };
+
+// Low-level FFI bindings (grouped by framework)
 #[cfg(target_os = "macos")]
 pub use macos::{
+    // ApplicationServices - Accessibility APIs
     kAXTrustedCheckOptionPrompt,
+    // CoreFoundation - Run loop and utility functions
     kCFBooleanTrue,
-    // Process management
+    // libc - Process management
     kill,
     AXIsProcessTrusted,
-    // ApplicationServices
     AXIsProcessTrustedWithOptions,
     CFAbsoluteTimeGetCurrent,
     CFDictionaryCreate,
-    // CoreFoundation
     CFMachPortCreateRunLoopSource,
     CFRelease,
     CFRunLoopAddSource,
@@ -49,9 +52,9 @@ pub use macos::{
     CFRunLoopRunInMode,
     CFRunLoopTimerCreate,
     CFRunLoopTimerInvalidate,
-    // CoreGraphics
+    // CoreGraphics - Event tap control
     CGEventTapEnable,
-    // IOKit power management
+    // IOKit - Power management
     IOPMAssertionCreateWithName,
     IOPMAssertionRelease,
     K_IOPM_ASSERTION_LEVEL_ON,
