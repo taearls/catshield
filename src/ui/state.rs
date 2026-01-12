@@ -196,6 +196,9 @@ pub mod settings {
     /// Add key button (enabled when input is valid)
     pub static ADD_KEY_BUTTON: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 
+    /// Undo button (enabled when undo stack is non-empty)
+    pub static UNDO_BUTTON: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+
     // Thread-local state for pending allowed keys changes.
     // This allows Cancel to discard changes without affecting the global config.
     thread_local! {
@@ -209,6 +212,71 @@ pub mod settings {
         /// `None` means no selection.
         /// `Some(index)` means the key at that index is selected.
         static SELECTED_ALLOWED_KEY_INDEX: Cell<Option<isize>> = const { Cell::new(None) };
+
+        /// Undo stack for tracking settings changes.
+        /// Each entry represents one undoable action.
+        static UNDO_STACK: RefCell<Vec<SettingsChange>> = const { RefCell::new(Vec::new()) };
+
+        /// Tracking state for opacity slider (captures value at drag start)
+        static OPACITY_TRACKING_VALUE: Cell<Option<f64>> = const { Cell::new(None) };
+
+        /// Tracking state for exit key field (captures value at focus start)
+        static EXIT_KEY_TRACKING_VALUE: RefCell<Option<String>> = const { RefCell::new(None) };
+
+        /// Tracking state for timer value field (captures value at focus start)
+        static TIMER_VALUE_TRACKING: RefCell<Option<String>> = const { RefCell::new(None) };
+
+        /// Tracking state for timer unit dropdown (captures value at focus start)
+        static TIMER_UNIT_TRACKING: Cell<Option<isize>> = const { Cell::new(None) };
+    }
+
+    /// Represents a single change that can be undone in the Settings window.
+    /// Each variant stores the state needed to revert that specific change.
+    #[derive(Debug, Clone)]
+    pub enum SettingsChange {
+        /// Exit key field was modified
+        ExitKey { old: String },
+        /// Timer enabled/disabled checkbox was toggled
+        TimerEnabled { old: bool },
+        /// Timer value field was modified
+        TimerValue { old: String },
+        /// Timer unit dropdown was changed
+        TimerUnit { old: isize },
+        /// Opacity slider was adjusted
+        Opacity { old: f64 },
+        /// A key was added to the allowed keys list
+        AllowedKeyAdded {
+            /// The index where the key was added
+            index: usize,
+        },
+        /// A key was removed from the allowed keys list
+        AllowedKeyRemoved {
+            /// The key that was removed
+            key: String,
+            /// The index where it was removed from
+            index: usize,
+        },
+        /// All allowed keys were cleared
+        AllowedKeysCleared {
+            /// The keys that were cleared
+            old_keys: Vec<String>,
+        },
+        /// A preset was added
+        AllowedKeysPresetAdded {
+            /// The keys that were added by the preset
+            keys_added: Vec<String>,
+            /// The indices where they were added (for removal in reverse order)
+            indices: Vec<usize>,
+        },
+        /// Reset to defaults was clicked - restores all previous values
+        ResetToDefaults {
+            old_exit_key: String,
+            old_timer_enabled: bool,
+            old_timer_value: String,
+            old_timer_unit: isize,
+            old_opacity: f64,
+            old_allowed_keys: Vec<String>,
+        },
     }
 
     /// Initialize pending allowed keys from current config.
@@ -254,6 +322,104 @@ pub mod settings {
     /// Called when settings window is closed or after removing a key.
     pub fn clear_selected_allowed_key_index() {
         SELECTED_ALLOWED_KEY_INDEX.with(|idx| idx.set(None));
+    }
+
+    // ========================================================================
+    // Undo Stack Functions
+    // ========================================================================
+
+    /// Push a change onto the undo stack.
+    /// Called before making a change to capture the previous state.
+    pub fn push_undo(change: SettingsChange) {
+        UNDO_STACK.with(|stack| {
+            stack.borrow_mut().push(change);
+        });
+    }
+
+    /// Pop the most recent change from the undo stack.
+    /// Returns None if the stack is empty.
+    pub fn pop_undo() -> Option<SettingsChange> {
+        UNDO_STACK.with(|stack| stack.borrow_mut().pop())
+    }
+
+    /// Check if there are any undoable changes.
+    pub fn has_undo() -> bool {
+        UNDO_STACK.with(|stack| !stack.borrow().is_empty())
+    }
+
+    /// Get the number of undoable changes.
+    #[cfg(test)]
+    pub fn undo_stack_len() -> usize {
+        UNDO_STACK.with(|stack| stack.borrow().len())
+    }
+
+    /// Clear the undo stack.
+    /// Called when settings are saved or the window is closed/cancelled.
+    pub fn clear_undo_stack() {
+        UNDO_STACK.with(|stack| {
+            stack.borrow_mut().clear();
+        });
+    }
+
+    // ========================================================================
+    // Change Tracking Functions
+    // ========================================================================
+
+    /// Start tracking opacity slider value (called at drag start)
+    pub fn start_tracking_opacity(value: f64) {
+        OPACITY_TRACKING_VALUE.with(|tracking| tracking.set(Some(value)));
+    }
+
+    /// Get the tracked opacity value and clear tracking
+    pub fn take_tracked_opacity() -> Option<f64> {
+        OPACITY_TRACKING_VALUE.with(|tracking| tracking.take())
+    }
+
+    /// Start tracking exit key field value (called at focus start)
+    pub fn start_tracking_exit_key(value: String) {
+        EXIT_KEY_TRACKING_VALUE.with(|tracking| {
+            *tracking.borrow_mut() = Some(value);
+        });
+    }
+
+    /// Get the tracked exit key value and clear tracking
+    pub fn take_tracked_exit_key() -> Option<String> {
+        EXIT_KEY_TRACKING_VALUE.with(|tracking| tracking.borrow_mut().take())
+    }
+
+    /// Start tracking timer value field (called at focus start)
+    pub fn start_tracking_timer_value(value: String) {
+        TIMER_VALUE_TRACKING.with(|tracking| {
+            *tracking.borrow_mut() = Some(value);
+        });
+    }
+
+    /// Get the tracked timer value and clear tracking
+    pub fn take_tracked_timer_value() -> Option<String> {
+        TIMER_VALUE_TRACKING.with(|tracking| tracking.borrow_mut().take())
+    }
+
+    /// Start tracking timer unit dropdown (called when dropdown opens)
+    pub fn start_tracking_timer_unit(value: isize) {
+        TIMER_UNIT_TRACKING.with(|tracking| tracking.set(Some(value)));
+    }
+
+    /// Get the tracked timer unit value and clear tracking
+    pub fn take_tracked_timer_unit() -> Option<isize> {
+        TIMER_UNIT_TRACKING.with(|tracking| tracking.take())
+    }
+
+    /// Clear all change tracking state.
+    /// Called when settings window is closed.
+    pub fn clear_change_tracking() {
+        OPACITY_TRACKING_VALUE.with(|tracking| tracking.set(None));
+        EXIT_KEY_TRACKING_VALUE.with(|tracking| {
+            *tracking.borrow_mut() = None;
+        });
+        TIMER_VALUE_TRACKING.with(|tracking| {
+            *tracking.borrow_mut() = None;
+        });
+        TIMER_UNIT_TRACKING.with(|tracking| tracking.set(None));
     }
 }
 
@@ -536,5 +702,255 @@ mod tests {
         assert_eq!(settings::get_selected_allowed_key_index(), Some(3));
 
         settings::clear_selected_allowed_key_index();
+    }
+
+    // ========================================================================
+    // Undo Stack Tests
+    // ========================================================================
+
+    #[test]
+    fn test_undo_stack_initially_empty() {
+        settings::clear_undo_stack();
+        assert!(!settings::has_undo());
+        assert_eq!(settings::undo_stack_len(), 0);
+    }
+
+    #[test]
+    fn test_undo_stack_push_and_has_undo() {
+        settings::clear_undo_stack();
+        settings::push_undo(settings::SettingsChange::ExitKey {
+            old: "Cmd+Q".to_string(),
+        });
+        assert!(settings::has_undo());
+        assert_eq!(settings::undo_stack_len(), 1);
+        settings::clear_undo_stack();
+    }
+
+    #[test]
+    fn test_undo_stack_pop_returns_pushed_value() {
+        settings::clear_undo_stack();
+        settings::push_undo(settings::SettingsChange::Opacity { old: 0.6 });
+
+        let popped = settings::pop_undo();
+        assert!(popped.is_some());
+        if let Some(settings::SettingsChange::Opacity { old }) = popped {
+            assert!((old - 0.6).abs() < f64::EPSILON);
+        } else {
+            panic!("Expected Opacity change");
+        }
+
+        assert!(!settings::has_undo());
+        settings::clear_undo_stack();
+    }
+
+    #[test]
+    fn test_undo_stack_lifo_order() {
+        settings::clear_undo_stack();
+        settings::push_undo(settings::SettingsChange::TimerEnabled { old: false });
+        settings::push_undo(settings::SettingsChange::TimerValue {
+            old: "30".to_string(),
+        });
+        settings::push_undo(settings::SettingsChange::TimerUnit { old: 1 });
+
+        // Pop in LIFO order
+        let first = settings::pop_undo();
+        assert!(matches!(
+            first,
+            Some(settings::SettingsChange::TimerUnit { old: 1 })
+        ));
+
+        let second = settings::pop_undo();
+        assert!(matches!(
+            second,
+            Some(settings::SettingsChange::TimerValue { old }) if old == "30"
+        ));
+
+        let third = settings::pop_undo();
+        assert!(matches!(
+            third,
+            Some(settings::SettingsChange::TimerEnabled { old: false })
+        ));
+
+        assert!(settings::pop_undo().is_none());
+        settings::clear_undo_stack();
+    }
+
+    #[test]
+    fn test_undo_stack_clear_empties_stack() {
+        settings::clear_undo_stack();
+        settings::push_undo(settings::SettingsChange::ExitKey {
+            old: "Cmd+A".to_string(),
+        });
+        settings::push_undo(settings::SettingsChange::Opacity { old: 0.5 });
+
+        assert_eq!(settings::undo_stack_len(), 2);
+
+        settings::clear_undo_stack();
+
+        assert!(!settings::has_undo());
+        assert_eq!(settings::undo_stack_len(), 0);
+        assert!(settings::pop_undo().is_none());
+    }
+
+    #[test]
+    fn test_undo_stack_pop_empty_returns_none() {
+        settings::clear_undo_stack();
+        assert!(settings::pop_undo().is_none());
+    }
+
+    #[test]
+    fn test_undo_stack_allowed_key_added_variant() {
+        settings::clear_undo_stack();
+        settings::push_undo(settings::SettingsChange::AllowedKeyAdded { index: 3 });
+
+        let popped = settings::pop_undo();
+        assert!(matches!(
+            popped,
+            Some(settings::SettingsChange::AllowedKeyAdded { index: 3 })
+        ));
+        settings::clear_undo_stack();
+    }
+
+    #[test]
+    fn test_undo_stack_allowed_key_removed_variant() {
+        settings::clear_undo_stack();
+        settings::push_undo(settings::SettingsChange::AllowedKeyRemoved {
+            key: "Cmd+Space".to_string(),
+            index: 0,
+        });
+
+        let popped = settings::pop_undo();
+        if let Some(settings::SettingsChange::AllowedKeyRemoved { key, index }) = popped {
+            assert_eq!(key, "Cmd+Space");
+            assert_eq!(index, 0);
+        } else {
+            panic!("Expected AllowedKeyRemoved change");
+        }
+        settings::clear_undo_stack();
+    }
+
+    #[test]
+    fn test_undo_stack_allowed_keys_cleared_variant() {
+        settings::clear_undo_stack();
+        settings::push_undo(settings::SettingsChange::AllowedKeysCleared {
+            old_keys: vec!["F10".to_string(), "F11".to_string()],
+        });
+
+        let popped = settings::pop_undo();
+        if let Some(settings::SettingsChange::AllowedKeysCleared { old_keys }) = popped {
+            assert_eq!(old_keys, vec!["F10".to_string(), "F11".to_string()]);
+        } else {
+            panic!("Expected AllowedKeysCleared change");
+        }
+        settings::clear_undo_stack();
+    }
+
+    #[test]
+    fn test_undo_stack_reset_to_defaults_variant() {
+        settings::clear_undo_stack();
+        settings::push_undo(settings::SettingsChange::ResetToDefaults {
+            old_exit_key: "Cmd+Shift+Q".to_string(),
+            old_timer_enabled: true,
+            old_timer_value: "60".to_string(),
+            old_timer_unit: 0,
+            old_opacity: 0.7,
+            old_allowed_keys: vec!["Cmd+Space".to_string()],
+        });
+
+        let popped = settings::pop_undo();
+        if let Some(settings::SettingsChange::ResetToDefaults {
+            old_exit_key,
+            old_timer_enabled,
+            old_timer_value,
+            old_timer_unit,
+            old_opacity,
+            old_allowed_keys,
+        }) = popped
+        {
+            assert_eq!(old_exit_key, "Cmd+Shift+Q");
+            assert!(old_timer_enabled);
+            assert_eq!(old_timer_value, "60");
+            assert_eq!(old_timer_unit, 0);
+            assert!((old_opacity - 0.7).abs() < f64::EPSILON);
+            assert_eq!(old_allowed_keys, vec!["Cmd+Space".to_string()]);
+        } else {
+            panic!("Expected ResetToDefaults change");
+        }
+        settings::clear_undo_stack();
+    }
+
+    // ========================================================================
+    // Change Tracking Tests
+    // ========================================================================
+
+    #[test]
+    fn test_opacity_tracking_start_and_take() {
+        settings::clear_change_tracking();
+        settings::start_tracking_opacity(0.65);
+
+        let tracked = settings::take_tracked_opacity();
+        assert!(tracked.is_some());
+        assert!((tracked.unwrap() - 0.65).abs() < f64::EPSILON);
+
+        // Second take should return None
+        assert!(settings::take_tracked_opacity().is_none());
+        settings::clear_change_tracking();
+    }
+
+    #[test]
+    fn test_exit_key_tracking_start_and_take() {
+        settings::clear_change_tracking();
+        settings::start_tracking_exit_key("Cmd+Option+U".to_string());
+
+        let tracked = settings::take_tracked_exit_key();
+        assert_eq!(tracked, Some("Cmd+Option+U".to_string()));
+
+        // Second take should return None
+        assert!(settings::take_tracked_exit_key().is_none());
+        settings::clear_change_tracking();
+    }
+
+    #[test]
+    fn test_timer_value_tracking_start_and_take() {
+        settings::clear_change_tracking();
+        settings::start_tracking_timer_value("45".to_string());
+
+        let tracked = settings::take_tracked_timer_value();
+        assert_eq!(tracked, Some("45".to_string()));
+
+        // Second take should return None
+        assert!(settings::take_tracked_timer_value().is_none());
+        settings::clear_change_tracking();
+    }
+
+    #[test]
+    fn test_timer_unit_tracking_start_and_take() {
+        settings::clear_change_tracking();
+        settings::start_tracking_timer_unit(2);
+
+        let tracked = settings::take_tracked_timer_unit();
+        assert_eq!(tracked, Some(2));
+
+        // Second take should return None
+        assert!(settings::take_tracked_timer_unit().is_none());
+        settings::clear_change_tracking();
+    }
+
+    #[test]
+    fn test_clear_change_tracking_clears_all() {
+        // Set all tracking values
+        settings::start_tracking_opacity(0.5);
+        settings::start_tracking_exit_key("Test".to_string());
+        settings::start_tracking_timer_value("30".to_string());
+        settings::start_tracking_timer_unit(1);
+
+        // Clear all
+        settings::clear_change_tracking();
+
+        // All should be None
+        assert!(settings::take_tracked_opacity().is_none());
+        assert!(settings::take_tracked_exit_key().is_none());
+        assert!(settings::take_tracked_timer_value().is_none());
+        assert!(settings::take_tracked_timer_unit().is_none());
     }
 }

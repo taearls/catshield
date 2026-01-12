@@ -8,7 +8,7 @@ use crate::input::{set_exit_key, ExitKey, DEFAULT_EXIT_KEY};
 use crate::timer::{parse_duration, parse_timer_value_and_unit};
 use crate::ui::helpers::create_label;
 use crate::ui::ptr_helper::{with_ptr, with_ptr_void};
-use crate::ui::state::{menu_bar, settings};
+use crate::ui::state::{menu_bar, settings, settings::SettingsChange};
 use objc2::rc::Retained;
 use objc2::runtime::ProtocolObject;
 use objc2::{define_class, msg_send, MainThreadOnly};
@@ -65,6 +65,35 @@ define_class!(
                 });
             }
         }
+
+        /// Called when editing begins in the control (field gains focus)
+        #[unsafe(method(controlTextDidBeginEditing:))]
+        fn control_text_did_begin_editing(&self, _notification: &NSNotification) {
+            // Capture the current value when editing starts
+            unsafe {
+                with_ptr_void::<NSTextField, _>(&settings::EXIT_KEY_FIELD, |field| {
+                    let value = field.stringValue().to_string();
+                    settings::start_tracking_exit_key(value);
+                });
+            }
+        }
+
+        /// Called when editing ends in the control (field loses focus)
+        #[unsafe(method(controlTextDidEndEditing:))]
+        fn control_text_did_end_editing(&self, _notification: &NSNotification) {
+            // Compare current value with tracked value and push undo if different
+            if let Some(old_value) = settings::take_tracked_exit_key() {
+                unsafe {
+                    with_ptr_void::<NSTextField, _>(&settings::EXIT_KEY_FIELD, |field| {
+                        let new_value = field.stringValue().to_string();
+                        if old_value != new_value {
+                            settings::push_undo(SettingsChange::ExitKey { old: old_value });
+                            update_undo_button_enabled();
+                        }
+                    });
+                }
+            }
+        }
     }
 );
 
@@ -110,6 +139,35 @@ define_class!(
                     let value = field.stringValue().to_string();
                     validate_timer_realtime(&value);
                 });
+            }
+        }
+
+        /// Called when editing begins in the control (field gains focus)
+        #[unsafe(method(controlTextDidBeginEditing:))]
+        fn control_text_did_begin_editing(&self, _notification: &NSNotification) {
+            // Capture the current value when editing starts
+            unsafe {
+                with_ptr_void::<NSTextField, _>(&settings::TIMER_VALUE_FIELD, |field| {
+                    let value = field.stringValue().to_string();
+                    settings::start_tracking_timer_value(value);
+                });
+            }
+        }
+
+        /// Called when editing ends in the control (field loses focus)
+        #[unsafe(method(controlTextDidEndEditing:))]
+        fn control_text_did_end_editing(&self, _notification: &NSNotification) {
+            // Compare current value with tracked value and push undo if different
+            if let Some(old_value) = settings::take_tracked_timer_value() {
+                unsafe {
+                    with_ptr_void::<NSTextField, _>(&settings::TIMER_VALUE_FIELD, |field| {
+                        let new_value = field.stringValue().to_string();
+                        if old_value != new_value {
+                            settings::push_undo(SettingsChange::TimerValue { old: old_value });
+                            update_undo_button_enabled();
+                        }
+                    });
+                }
             }
         }
     }
@@ -182,7 +240,20 @@ define_class!(
         #[unsafe(method(opacityChanged:))]
         unsafe fn opacity_changed(&self, sender: Option<&NSSlider>) {
             if let Some(slider) = sender {
-                update_opacity_label(slider.doubleValue());
+                let current_value = slider.doubleValue();
+
+                // Check if we have a tracked original value and if this is a real change
+                if let Some(original_value) = settings::take_tracked_opacity() {
+                    // Value differs from original - push undo
+                    if (original_value - current_value).abs() > 0.001 {
+                        settings::push_undo(SettingsChange::Opacity { old: original_value });
+                        update_undo_button_enabled();
+                        // Re-start tracking for the next drag sequence
+                        settings::start_tracking_opacity(current_value);
+                    }
+                }
+
+                update_opacity_label(current_value);
             }
         }
 
@@ -191,7 +262,27 @@ define_class!(
         unsafe fn timer_checkbox_changed(&self, sender: Option<&NSButton>) {
             if let Some(checkbox) = sender {
                 let is_enabled = checkbox.state() == NSControlStateValueOn;
+                // Push undo for the opposite state (what it was before this change)
+                settings::push_undo(SettingsChange::TimerEnabled { old: !is_enabled });
+                update_undo_button_enabled();
                 update_timer_field_enabled(is_enabled);
+            }
+        }
+
+        /// Action method called when timer unit dropdown changes
+        #[unsafe(method(timerUnitChanged:))]
+        unsafe fn timer_unit_changed(&self, sender: Option<&NSPopUpButton>) {
+            if let Some(dropdown) = sender {
+                let current_index = dropdown.indexOfSelectedItem();
+                // Check if we have a tracked original value
+                if let Some(original_index) = settings::take_tracked_timer_unit() {
+                    if original_index != current_index {
+                        settings::push_undo(SettingsChange::TimerUnit { old: original_index });
+                        update_undo_button_enabled();
+                        // Re-start tracking for the next change
+                        settings::start_tracking_timer_unit(current_index);
+                    }
+                }
             }
         }
 
@@ -241,6 +332,12 @@ define_class!(
         #[unsafe(method(removeSelectedKey:))]
         unsafe fn remove_selected_key(&self, _sender: Option<&NSButton>) {
             remove_selected_allowed_key();
+        }
+
+        /// Action method called when "Undo" button is clicked
+        #[unsafe(method(undoChange:))]
+        unsafe fn undo_change(&self, _sender: Option<&NSButton>) {
+            undo_last_change();
         }
     }
 );
@@ -298,6 +395,53 @@ fn update_timer_field_enabled(enabled: bool) {
 /// Reset all settings fields to their default values
 /// Does NOT auto-save; user must click Save to persist
 fn reset_settings_to_defaults() {
+    // Capture current state before resetting for undo
+    let old_exit_key = unsafe {
+        with_ptr::<NSTextField, _, _>(&settings::EXIT_KEY_FIELD, |field| {
+            field.stringValue().to_string()
+        })
+    }
+    .unwrap_or_default();
+
+    let old_timer_enabled = unsafe {
+        with_ptr::<NSButton, _, _>(&settings::TIMER_CHECKBOX, |checkbox| {
+            checkbox.state() == NSControlStateValueOn
+        })
+    }
+    .unwrap_or(false);
+
+    let old_timer_value = unsafe {
+        with_ptr::<NSTextField, _, _>(&settings::TIMER_VALUE_FIELD, |field| {
+            field.stringValue().to_string()
+        })
+    }
+    .unwrap_or_default();
+
+    let old_timer_unit = unsafe {
+        with_ptr::<NSPopUpButton, _, _>(&settings::TIMER_UNIT_DROPDOWN, |dropdown| {
+            dropdown.indexOfSelectedItem()
+        })
+    }
+    .unwrap_or(0);
+
+    let old_opacity = unsafe {
+        with_ptr::<NSSlider, _, _>(&settings::OPACITY_SLIDER, |slider| slider.doubleValue())
+    }
+    .unwrap_or(DEFAULT_OVERLAY_OPACITY);
+
+    let old_allowed_keys = settings::get_pending_allowed_keys().unwrap_or_default();
+
+    // Push undo entry before making changes
+    settings::push_undo(SettingsChange::ResetToDefaults {
+        old_exit_key,
+        old_timer_enabled,
+        old_timer_value,
+        old_timer_unit,
+        old_opacity,
+        old_allowed_keys,
+    });
+    update_undo_button_enabled();
+
     // Reset Exit Key field to default
     unsafe {
         with_ptr_void::<NSTextField, _>(&settings::EXIT_KEY_FIELD, |field| {
@@ -384,11 +528,18 @@ fn cleanup_settings_window_references() {
     settings::ACTION_FEEDBACK_LABEL.store(std::ptr::null_mut(), Ordering::Release);
     settings::REMOVE_KEY_BUTTON.store(std::ptr::null_mut(), Ordering::Release);
     settings::ADD_KEY_BUTTON.store(std::ptr::null_mut(), Ordering::Release);
+    settings::UNDO_BUTTON.store(std::ptr::null_mut(), Ordering::Release);
     // Note: ADD_KEY_FIELD_DELEGATE is NOT cleared here - it's reused across window opens
     // (same pattern as EXIT_KEY_FIELD_DELEGATE and TIMER_FIELD_DELEGATE)
 
     // Clear pending allowed keys state (discard any unsaved changes)
     settings::clear_pending_allowed_keys();
+
+    // Clear undo stack (discard undo history)
+    settings::clear_undo_stack();
+
+    // Clear change tracking state
+    settings::clear_change_tracking();
 
     // Clear selection state
     settings::clear_selected_allowed_key_index();
@@ -679,7 +830,7 @@ fn validate_timer_realtime(value: &str) {
 // ============================================================================
 
 /// Window dimensions
-const WINDOW_WIDTH: CGFloat = 400.0;
+const WINDOW_WIDTH: CGFloat = 480.0; // Increased to fit Undo button in button row
 const WINDOW_HEIGHT: CGFloat = 620.0; // Increased to fit allowed keys section with presets and action feedback
 
 /// Layout constants
@@ -1161,6 +1312,12 @@ fn setup_timer_section(
     timer_unit_dropdown.addItemWithTitle(ns_string!("Seconds"));
     timer_unit_dropdown.selectItemAtIndex(timer_unit_index);
     timer_unit_dropdown.setEnabled(config.default_timer.is_some());
+    // Track initial timer unit for undo
+    settings::start_tracking_timer_unit(timer_unit_index);
+    unsafe {
+        timer_unit_dropdown.setTarget(Some(handler));
+        timer_unit_dropdown.setAction(Some(objc2::sel!(timerUnitChanged:)));
+    }
     content_view.addSubview(&timer_unit_dropdown);
     settings::TIMER_UNIT_DROPDOWN.store(
         Retained::as_ptr(&timer_unit_dropdown) as *mut c_void,
@@ -1342,6 +1499,8 @@ fn setup_opacity_section(
         slider.setMinValue(MIN_OVERLAY_OPACITY);
         slider.setMaxValue(MAX_OVERLAY_OPACITY);
         slider.setDoubleValue(current_opacity);
+        // Track the initial opacity value for undo
+        settings::start_tracking_opacity(current_opacity);
         unsafe {
             slider.setTarget(Some(handler));
             slider.setAction(Some(objc2::sel!(opacityChanged:)));
@@ -1367,6 +1526,9 @@ fn setup_opacity_section(
     y_offset
 }
 
+/// Undo button width
+const UNDO_BUTTON_WIDTH: CGFloat = 60.0;
+
 /// Set up the Buttons section at the bottom of the settings window
 fn setup_button_section(
     mtm: MainThreadMarker,
@@ -1375,7 +1537,43 @@ fn setup_button_section(
 ) {
     let button_y: CGFloat = MARGIN;
 
-    // Reset to Default button (left side)
+    // Undo button (leftmost)
+    let undo_button = unsafe {
+        let button = NSButton::buttonWithTitle_target_action(
+            ns_string!("Undo"),
+            Some(handler),
+            Some(objc2::sel!(undoChange:)),
+            mtm,
+        );
+        button.setFrame(CGRect {
+            origin: CGPoint {
+                x: MARGIN,
+                y: button_y,
+            },
+            size: CGSize {
+                width: UNDO_BUTTON_WIDTH,
+                height: BUTTON_HEIGHT,
+            },
+        });
+        button.setButtonType(NSButtonType::MomentaryPushIn);
+        button.setEnabled(false); // Disabled until changes are made
+        button
+    };
+    content_view.addSubview(&undo_button);
+    settings::UNDO_BUTTON.store(
+        Retained::as_ptr(&undo_button) as *mut c_void,
+        Ordering::Release,
+    );
+    // SAFETY: Transferring ownership to Objective-C runtime and global AtomicPtr.
+    // Preventing drop here is correct because:
+    // - The view is retained by NSWindow's content view hierarchy (addSubview)
+    // - The pointer is stored in settings::UNDO_BUTTON for enabling/disabling
+    // - The button action is handled by the SettingsActionHandler
+    // Cleanup: cleanup_settings_window_references() sets the AtomicPtr to null,
+    // and NSWindow releases the view when the window closes.
+    std::mem::forget(undo_button);
+
+    // Reset to Default button (after Undo)
     let reset_button = unsafe {
         let button = NSButton::buttonWithTitle_target_action(
             ns_string!("Reset to Default"),
@@ -1385,7 +1583,7 @@ fn setup_button_section(
         );
         button.setFrame(CGRect {
             origin: CGPoint {
-                x: MARGIN,
+                x: MARGIN + UNDO_BUTTON_WIDTH + BUTTON_SPACING,
                 y: button_y,
             },
             size: CGSize {
@@ -1910,7 +2108,14 @@ fn add_allowed_key_from_field() {
                 return;
             }
 
+            // Track the index where the key will be added for undo
+            let add_index = keys.len();
+
             keys.push(trimmed.to_string());
+
+            // Push undo entry before updating state
+            settings::push_undo(SettingsChange::AllowedKeyAdded { index: add_index });
+            update_undo_button_enabled();
 
             // Update pending state (not global config) - changes committed on Save
             settings::set_pending_allowed_keys(Some(keys));
@@ -1941,6 +2146,15 @@ fn add_allowed_key_from_field() {
 /// Clear all allowed keys from the list
 fn clear_all_allowed_keys() {
     use crate::ui::views::{refresh_allowed_keys_list, update_remove_button_enabled};
+
+    // Capture current keys before clearing for undo
+    let old_keys = settings::get_pending_allowed_keys().unwrap_or_default();
+
+    // Only push undo if there are keys to clear
+    if !old_keys.is_empty() {
+        settings::push_undo(SettingsChange::AllowedKeysCleared { old_keys });
+        update_undo_button_enabled();
+    }
 
     // Update pending state (not global config) - changes committed on Save
     settings::set_pending_allowed_keys(Some(Vec::new()));
@@ -1973,6 +2187,16 @@ fn remove_selected_allowed_key() {
         return;
     }
 
+    // Capture the key being removed for undo
+    let removed_key = keys[idx].clone();
+
+    // Push undo entry before removing
+    settings::push_undo(SettingsChange::AllowedKeyRemoved {
+        key: removed_key,
+        index: idx,
+    });
+    update_undo_button_enabled();
+
     // Remove the selected key
     keys.remove(idx);
 
@@ -1992,14 +2216,53 @@ fn remove_selected_allowed_key() {
 
 /// Add keys from a preset to the allowed keys list
 fn add_preset(preset_keys: &[&str]) {
-    use crate::input::add_preset_keys;
+    use crate::input::AllowedKey;
     use crate::ui::views::refresh_allowed_keys_list;
 
     // Get current pending keys (not global config)
     let mut keys = settings::get_pending_allowed_keys().unwrap_or_default();
+    let starting_len = keys.len();
 
-    // Add preset keys (duplicates are automatically filtered)
-    let added_count = add_preset_keys(preset_keys, &mut keys);
+    // Track which keys are added and at what indices for undo
+    let mut keys_added = Vec::new();
+    let mut indices = Vec::new();
+
+    for &key in preset_keys {
+        // Parse the new key first
+        let Ok(new_key) = AllowedKey::parse(key) else {
+            continue; // Skip invalid keys
+        };
+
+        // Check for duplicates by comparing parsed keys (handles aliases like Esc/Escape)
+        let already_exists = keys.iter().any(|k| {
+            if let Ok(existing_key) = AllowedKey::parse(k) {
+                existing_key.keycode == new_key.keycode
+                    && existing_key.requires_cmd == new_key.requires_cmd
+                    && existing_key.requires_option == new_key.requires_option
+                    && existing_key.requires_shift == new_key.requires_shift
+                    && existing_key.requires_ctrl == new_key.requires_ctrl
+            } else {
+                false
+            }
+        });
+
+        if !already_exists {
+            indices.push(keys.len());
+            keys_added.push(key.to_string());
+            keys.push(key.to_string());
+        }
+    }
+
+    let added_count = keys.len() - starting_len;
+
+    // Only push undo if keys were actually added
+    if added_count > 0 {
+        settings::push_undo(SettingsChange::AllowedKeysPresetAdded {
+            keys_added,
+            indices,
+        });
+        update_undo_button_enabled();
+    }
 
     // Update pending state (not global config) - changes committed on Save
     settings::set_pending_allowed_keys(Some(keys));
@@ -2072,6 +2335,181 @@ fn update_add_button_enabled(enabled: bool) {
             button.setEnabled(enabled);
         });
     }
+}
+
+/// Update the enabled state of the Undo button based on undo stack
+fn update_undo_button_enabled() {
+    let enabled = settings::has_undo();
+    unsafe {
+        with_ptr_void::<NSButton, _>(&settings::UNDO_BUTTON, |button| {
+            button.setEnabled(enabled);
+        });
+    }
+}
+
+/// Undo the last change made in the settings window
+fn undo_last_change() {
+    use crate::ui::views::{refresh_allowed_keys_list, update_remove_button_enabled};
+
+    let Some(change) = settings::pop_undo() else {
+        return;
+    };
+
+    match change {
+        SettingsChange::ExitKey { old } => {
+            unsafe {
+                with_ptr_void::<NSTextField, _>(&settings::EXIT_KEY_FIELD, |field| {
+                    field.setStringValue(&NSString::from_str(&old));
+                });
+            }
+            validate_exit_key_realtime(&old);
+        }
+        SettingsChange::TimerEnabled { old } => {
+            unsafe {
+                with_ptr_void::<NSButton, _>(&settings::TIMER_CHECKBOX, |checkbox| {
+                    if old {
+                        checkbox.setState(NSControlStateValueOn);
+                    } else {
+                        checkbox.setState(NSControlStateValueOff);
+                    }
+                });
+            }
+            update_timer_field_enabled(old);
+        }
+        SettingsChange::TimerValue { old } => {
+            unsafe {
+                with_ptr_void::<NSTextField, _>(&settings::TIMER_VALUE_FIELD, |field| {
+                    field.setStringValue(&NSString::from_str(&old));
+                });
+            }
+            validate_timer_realtime(&old);
+        }
+        SettingsChange::TimerUnit { old } => unsafe {
+            with_ptr_void::<NSPopUpButton, _>(&settings::TIMER_UNIT_DROPDOWN, |dropdown| {
+                dropdown.selectItemAtIndex(old);
+            });
+        },
+        SettingsChange::Opacity { old } => {
+            unsafe {
+                with_ptr_void::<NSSlider, _>(&settings::OPACITY_SLIDER, |slider| {
+                    slider.setDoubleValue(old);
+                });
+            }
+            update_opacity_label(old);
+        }
+        SettingsChange::AllowedKeyAdded { index } => {
+            // Remove the key that was added
+            if let Some(mut keys) = settings::get_pending_allowed_keys() {
+                if index < keys.len() {
+                    keys.remove(index);
+                    settings::set_pending_allowed_keys(Some(keys));
+                    settings::clear_selected_allowed_key_index();
+                    refresh_allowed_keys_list();
+                    update_remove_button_enabled();
+                }
+            }
+        }
+        SettingsChange::AllowedKeyRemoved { key, index } => {
+            // Re-add the key that was removed at its original position
+            if let Some(mut keys) = settings::get_pending_allowed_keys() {
+                let insert_idx = index.min(keys.len());
+                keys.insert(insert_idx, key);
+                settings::set_pending_allowed_keys(Some(keys));
+                refresh_allowed_keys_list();
+                update_remove_button_enabled();
+            }
+        }
+        SettingsChange::AllowedKeysCleared { old_keys } => {
+            // Restore all the cleared keys
+            settings::set_pending_allowed_keys(Some(old_keys));
+            refresh_allowed_keys_list();
+            update_remove_button_enabled();
+        }
+        SettingsChange::AllowedKeysPresetAdded {
+            keys_added: _,
+            indices,
+        } => {
+            // Remove the keys that were added by the preset (in reverse order to preserve indices)
+            if let Some(mut keys) = settings::get_pending_allowed_keys() {
+                for &index in indices.iter().rev() {
+                    if index < keys.len() {
+                        keys.remove(index);
+                    }
+                }
+                settings::set_pending_allowed_keys(Some(keys));
+                settings::clear_selected_allowed_key_index();
+                refresh_allowed_keys_list();
+                update_remove_button_enabled();
+            }
+        }
+        SettingsChange::ResetToDefaults {
+            old_exit_key,
+            old_timer_enabled,
+            old_timer_value,
+            old_timer_unit,
+            old_opacity,
+            old_allowed_keys,
+        } => {
+            // Restore exit key
+            unsafe {
+                with_ptr_void::<NSTextField, _>(&settings::EXIT_KEY_FIELD, |field| {
+                    field.setStringValue(&NSString::from_str(&old_exit_key));
+                });
+            }
+            validate_exit_key_realtime(&old_exit_key);
+
+            // Restore timer checkbox
+            unsafe {
+                with_ptr_void::<NSButton, _>(&settings::TIMER_CHECKBOX, |checkbox| {
+                    if old_timer_enabled {
+                        checkbox.setState(NSControlStateValueOn);
+                    } else {
+                        checkbox.setState(NSControlStateValueOff);
+                    }
+                });
+            }
+            update_timer_field_enabled(old_timer_enabled);
+
+            // Restore timer value
+            unsafe {
+                with_ptr_void::<NSTextField, _>(&settings::TIMER_VALUE_FIELD, |field| {
+                    field.setStringValue(&NSString::from_str(&old_timer_value));
+                });
+            }
+
+            // Restore timer unit
+            unsafe {
+                with_ptr_void::<NSPopUpButton, _>(&settings::TIMER_UNIT_DROPDOWN, |dropdown| {
+                    dropdown.selectItemAtIndex(old_timer_unit);
+                });
+            }
+
+            // Restore opacity
+            unsafe {
+                with_ptr_void::<NSSlider, _>(&settings::OPACITY_SLIDER, |slider| {
+                    slider.setDoubleValue(old_opacity);
+                });
+            }
+            update_opacity_label(old_opacity);
+
+            // Restore allowed keys
+            settings::set_pending_allowed_keys(Some(old_allowed_keys));
+            settings::clear_selected_allowed_key_index();
+            refresh_allowed_keys_list();
+            update_remove_button_enabled();
+
+            // Clear add key field and validation
+            unsafe {
+                with_ptr_void::<NSTextField, _>(&settings::ADD_KEY_FIELD, |field| {
+                    field.setStringValue(ns_string!(""));
+                });
+            }
+            set_validation_label(&settings::ADD_KEY_VALIDATION, true, "");
+        }
+    }
+
+    // Update undo button state after the undo
+    update_undo_button_enabled();
 }
 
 /// Show action feedback message that auto-disappears after 3 seconds
