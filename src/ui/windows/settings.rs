@@ -356,9 +356,8 @@ fn reset_settings_to_defaults() {
     crate::ui::views::refresh_allowed_keys_list();
     crate::ui::views::update_remove_button_enabled();
 
-    // Re-validate add key field (list is now empty, so clear validation)
-    // Since we already cleared the add key field above, this will show empty validation
-    revalidate_add_key_field();
+    // Clear validation label (field is empty, revalidation happens on next keystroke)
+    set_validation_label(&settings::ADD_KEY_VALIDATION, true, "");
 
     println!("  Settings reset to defaults (not saved)");
 }
@@ -382,6 +381,7 @@ fn cleanup_settings_window_references() {
     settings::ALLOWED_KEYS_SCROLL.store(std::ptr::null_mut(), Ordering::Release);
     settings::ADD_KEY_FIELD.store(std::ptr::null_mut(), Ordering::Release);
     settings::ADD_KEY_VALIDATION.store(std::ptr::null_mut(), Ordering::Release);
+    settings::ACTION_FEEDBACK_LABEL.store(std::ptr::null_mut(), Ordering::Release);
     settings::REMOVE_KEY_BUTTON.store(std::ptr::null_mut(), Ordering::Release);
     settings::ADD_KEY_BUTTON.store(std::ptr::null_mut(), Ordering::Release);
     // Note: ADD_KEY_FIELD_DELEGATE is NOT cleared here - it's reused across window opens
@@ -680,7 +680,7 @@ fn validate_timer_realtime(value: &str) {
 
 /// Window dimensions
 const WINDOW_WIDTH: CGFloat = 400.0;
-const WINDOW_HEIGHT: CGFloat = 600.0; // Increased to fit allowed keys section with presets
+const WINDOW_HEIGHT: CGFloat = 620.0; // Increased to fit allowed keys section with presets and action feedback
 
 /// Layout constants
 const MARGIN: CGFloat = 20.0;
@@ -1840,7 +1840,34 @@ fn setup_allowed_keys_section(
     );
     std::mem::forget(validation_label);
 
-    y_offset -= 30.0;
+    y_offset -= 22.0;
+
+    // Action feedback label (separate from validation, auto-disappears)
+    let action_feedback_label = create_label(
+        mtm,
+        "",
+        CGRect {
+            origin: CGPoint {
+                x: MARGIN,
+                y: y_offset - 20.0,
+            },
+            size: CGSize {
+                width: WINDOW_WIDTH - (MARGIN * 2.0),
+                height: 20.0,
+            },
+        },
+        11.0,
+        &NSColor::systemGreenColor(),
+        false,
+    );
+    content_view.addSubview(&action_feedback_label);
+    settings::ACTION_FEEDBACK_LABEL.store(
+        Retained::as_ptr(&action_feedback_label) as *mut c_void,
+        Ordering::Release,
+    );
+    std::mem::forget(action_feedback_label);
+
+    y_offset -= 28.0;
 
     y_offset
 }
@@ -1923,8 +1950,8 @@ fn clear_all_allowed_keys() {
     refresh_allowed_keys_list();
     update_remove_button_enabled();
 
-    // Re-validate add key field (all inputs are now valid since list is empty)
-    revalidate_add_key_field();
+    // Show feedback (auto-disappears after 3 seconds)
+    show_action_feedback("✓ Cleared (click Save to persist)");
 }
 
 /// Remove the currently selected allowed key from the list
@@ -1959,8 +1986,8 @@ fn remove_selected_allowed_key() {
     refresh_allowed_keys_list();
     update_remove_button_enabled();
 
-    // Re-validate add key field (removed key may now be valid to add)
-    revalidate_add_key_field();
+    // Show feedback (auto-disappears after 3 seconds)
+    show_action_feedback("✓ Removed (click Save to persist)");
 }
 
 /// Add keys from a preset to the allowed keys list
@@ -1972,7 +1999,7 @@ fn add_preset(preset_keys: &[&str]) {
     let mut keys = settings::get_pending_allowed_keys().unwrap_or_default();
 
     // Add preset keys (duplicates are automatically filtered)
-    let _added_count = add_preset_keys(preset_keys, &mut keys);
+    let added_count = add_preset_keys(preset_keys, &mut keys);
 
     // Update pending state (not global config) - changes committed on Save
     settings::set_pending_allowed_keys(Some(keys));
@@ -1980,8 +2007,17 @@ fn add_preset(preset_keys: &[&str]) {
     // Refresh the list view display
     refresh_allowed_keys_list();
 
-    // Re-validate add key field (input may now be a duplicate)
-    revalidate_add_key_field();
+    // Show feedback (auto-disappears after 3 seconds)
+    if added_count > 0 {
+        let message = format!(
+            "✓ Added {} key{} (click Save to persist)",
+            added_count,
+            if added_count == 1 { "" } else { "s" }
+        );
+        show_action_feedback(&message);
+    } else {
+        show_action_feedback("All keys already in list");
+    }
 }
 
 /// Validate the add key field in real-time
@@ -2038,16 +2074,47 @@ fn update_add_button_enabled(enabled: bool) {
     }
 }
 
-/// Re-validate the add key field after the allowed keys list changes.
-/// This ensures validation updates correctly when keys are removed, added via preset, or cleared.
-fn revalidate_add_key_field() {
-    let value = unsafe {
-        with_ptr::<NSTextField, _, _>(&settings::ADD_KEY_FIELD, |field| {
-            field.stringValue().to_string()
-        })
-    };
-    if let Some(value) = value {
-        validate_add_key_realtime(&value);
+/// Show action feedback message that auto-disappears after 3 seconds
+fn show_action_feedback(message: &str) {
+    use objc2_app_kit::NSTextField;
+    use std::sync::atomic::AtomicU64;
+    use std::thread;
+    use std::time::Duration;
+
+    // Counter to track the latest feedback message (for cancellation)
+    static FEEDBACK_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+    // Increment counter to invalidate any pending clear operations
+    let current_count = FEEDBACK_COUNTER.fetch_add(1, Ordering::SeqCst) + 1;
+
+    // Set the feedback label text
+    unsafe {
+        with_ptr_void::<NSTextField, _>(&settings::ACTION_FEEDBACK_LABEL, |label| {
+            let ns_message = NSString::from_str(message);
+            label.setStringValue(&ns_message);
+            label.setTextColor(Some(&NSColor::systemGreenColor()));
+        });
+    }
+
+    // Spawn a thread to clear the feedback after 3 seconds
+    thread::spawn(move || {
+        thread::sleep(Duration::from_secs(3));
+
+        // Only clear if no newer feedback has been shown
+        if FEEDBACK_COUNTER.load(Ordering::SeqCst) == current_count {
+            clear_action_feedback();
+        }
+    });
+}
+
+/// Clear the action feedback label
+fn clear_action_feedback() {
+    use objc2_app_kit::NSTextField;
+
+    unsafe {
+        with_ptr_void::<NSTextField, _>(&settings::ACTION_FEEDBACK_LABEL, |label| {
+            label.setStringValue(ns_string!(""));
+        });
     }
 }
 

@@ -184,6 +184,9 @@ pub mod settings {
     /// Add key validation label
     pub static ADD_KEY_VALIDATION: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 
+    /// Action feedback label (auto-disappears after timeout)
+    pub static ACTION_FEEDBACK_LABEL: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+
     /// Add key field delegate for real-time validation
     pub static ADD_KEY_FIELD_DELEGATE: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 
