@@ -156,6 +156,12 @@ pub fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
     // - The handler is target for the Settings menu item (setTarget())
     // Cleanup: Never explicitly released; lives for app duration.
     std::mem::forget(settings_handler);
+    // SAFETY: Transferring ownership to Objective-C runtime and global AtomicPtr.
+    // Preventing drop here is correct because:
+    // - The menu item is retained by NSMenu (addItem)
+    // - The pointer is stored in menu_bar::SETTINGS_ITEM for enabling/disabling
+    // Cleanup: Never explicitly released; lives for app duration.
+    std::mem::forget(settings_item);
 
     menu.addItem(&NSMenuItem::separatorItem(mtm));
 

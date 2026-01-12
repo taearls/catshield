@@ -295,13 +295,13 @@ Testing (can be done in parallel):
 
 | Priority | Issue | Title | Dependencies | Effort |
 |----------|-------|-------|--------------|--------|
-| 🔴 Critical | #87 | Settings menu item stays disabled after closing Settings window | None | ~15 min |
+| ~~🔴 Critical~~ | ~~#87~~ | ~~Settings menu item stays disabled after closing Settings window~~ | ~~None~~ | ~~✅ Complete~~ |
 | 🟢 Medium | #86 | Show real-time validation error when entering duplicate allowed key | None | ~1-2 hours |
 | 🔵 Low | #85 | Add Undo button to Settings window for reverting individual changes | None | ~1-2 days |
 
 **Implementation Order (priority-based, all independent):**
 ```text
-1. #87: Fix Settings menu item (Critical bug fix)
+1. #87: Fix Settings menu item ✅ COMPLETE
 2. #86: Duplicate key validation (Medium priority)
 3. #85: Undo button (Low priority)
 ```
@@ -310,6 +310,7 @@ Testing (can be done in parallel):
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #87 | fix: Settings menu item stays disabled after closing Settings window | 2026-01-12 |
 | #83 | feat: Add ability to select and remove individual allowed keys in Settings | 2026-01-11 |
 | #80 | fix: Settings Cancel button does not discard allowed_keys changes | 2026-01-11 |
 | #65 | feat: Add preset groups for key allowlist (Media Keys, System Shortcuts) | 2026-01-11 |
@@ -338,11 +339,11 @@ Testing (can be done in parallel):
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 3 | #85, #86, #87 |
-| Closed | 40 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80, #83 |
+| Open | 2 | #85, #86 |
+| Closed | 41 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80, #83, #87 |
 
 ### By Priority
-- 🔴 Critical: 1 (#87 - Settings menu bug)
+- 🔴 Critical: 0
 - 🟡 High: 0
 - 🟢 Medium: 1 (#86 - Duplicate key validation)
 - 🔵 Low: 1 (#85 - Undo button)
@@ -429,6 +430,11 @@ Potential future enhancements (not yet tracked as issues):
 - Custom overlay themes
 
 ## Changelog
+
+### 2026-01-12
+- Completed Issue #87: Fix Settings menu item staying disabled after closing Settings window
+  - Added missing `std::mem::forget(settings_item)` in `src/ui/menu_bar/setup.rs`
+  - This matches the pattern used for `about_item` and prevents the menu item from being invalidated
 
 ### 2026-01-11 (Roadmap Update)
 - Added Phase 7: Settings Window Polish with 3 new issues
