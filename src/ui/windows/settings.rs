@@ -382,6 +382,7 @@ fn cleanup_settings_window_references() {
     settings::ADD_KEY_FIELD.store(std::ptr::null_mut(), Ordering::Release);
     settings::ADD_KEY_VALIDATION.store(std::ptr::null_mut(), Ordering::Release);
     settings::REMOVE_KEY_BUTTON.store(std::ptr::null_mut(), Ordering::Release);
+    settings::ADD_KEY_BUTTON.store(std::ptr::null_mut(), Ordering::Release);
     // Note: ADD_KEY_FIELD_DELEGATE is NOT cleared here - it's reused across window opens
     // (same pattern as EXIT_KEY_FIELD_DELEGATE and TIMER_FIELD_DELEGATE)
 
@@ -1729,7 +1730,7 @@ fn setup_allowed_keys_section(
     );
     std::mem::forget(add_field);
 
-    // Add button
+    // Add button (disabled until input is valid)
     let add_button = unsafe {
         let button = NSButton::buttonWithTitle_target_action(
             ns_string!("Add"),
@@ -1748,9 +1749,14 @@ fn setup_allowed_keys_section(
             },
         });
         button.setButtonType(NSButtonType::MomentaryPushIn);
+        button.setEnabled(false); // Disabled until input is valid
         button
     };
     content_view.addSubview(&add_button);
+    settings::ADD_KEY_BUTTON.store(
+        Retained::as_ptr(&add_button) as *mut c_void,
+        Ordering::Release,
+    );
     std::mem::forget(add_button);
 
     // Remove button (disabled until a row is selected)
@@ -1884,12 +1890,13 @@ fn add_allowed_key_from_field() {
             // Refresh the list view display
             refresh_allowed_keys_list();
 
-            // Clear the input field
+            // Clear the input field and disable Add button
             unsafe {
                 with_ptr_void::<NSTextField, _>(&settings::ADD_KEY_FIELD, |field| {
                     field.setStringValue(ns_string!(""));
                 });
             }
+            update_add_button_enabled(false);
 
             set_validation_label(
                 &settings::ADD_KEY_VALIDATION,
@@ -2002,16 +2009,28 @@ fn validate_add_key_realtime(value: &str) {
     let trimmed = value.trim();
     if trimmed.is_empty() {
         set_validation_label(&settings::ADD_KEY_VALIDATION, true, "");
+        update_add_button_enabled(false);
         return;
     }
 
     match AllowedKey::parse(trimmed) {
         Ok(_) => {
             set_validation_label(&settings::ADD_KEY_VALIDATION, true, "✓ Valid");
+            update_add_button_enabled(true);
         }
         Err(e) => {
             set_validation_label(&settings::ADD_KEY_VALIDATION, false, &e);
+            update_add_button_enabled(false);
         }
+    }
+}
+
+/// Update the enabled state of the Add button
+fn update_add_button_enabled(enabled: bool) {
+    unsafe {
+        with_ptr_void::<NSButton, _>(&settings::ADD_KEY_BUTTON, |button| {
+            button.setEnabled(enabled);
+        });
     }
 }
 

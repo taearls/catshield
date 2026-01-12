@@ -190,6 +190,9 @@ pub mod settings {
     /// Remove key button (enabled when a key is selected)
     pub static REMOVE_KEY_BUTTON: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 
+    /// Add key button (enabled when input is valid)
+    pub static ADD_KEY_BUTTON: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+
     // Thread-local state for pending allowed keys changes.
     // This allows Cancel to discard changes without affecting the global config.
     thread_local! {
