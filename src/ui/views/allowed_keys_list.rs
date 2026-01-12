@@ -212,7 +212,7 @@ fn create_text_attributes(
     // Create dictionary with raw pointers using msg_send
     // This is the objc2 pattern for creating dictionaries with mixed types
     unsafe {
-        let keys: &[&NSString] = &[&*NSFontAttributeName, &*NSForegroundColorAttributeName];
+        let keys: &[&NSString] = &[NSFontAttributeName, NSForegroundColorAttributeName];
         let objects: &[&AnyObject] = &[
             std::mem::transmute::<&NSFont, &AnyObject>(&*font),
             std::mem::transmute::<&NSColor, &AnyObject>(&*color),
