@@ -190,10 +190,11 @@ pub mod settings {
     // Thread-local state for pending allowed keys changes.
     // This allows Cancel to discard changes without affecting the global config.
     thread_local! {
-        /// Pending allowed keys changes (not yet saved to config).
-        /// `None` means no pending changes (use config value).
-        /// `Some(vec)` means there are pending changes to be saved/discarded.
-        pub static PENDING_ALLOWED_KEYS: RefCell<Option<Vec<String>>> = const { RefCell::new(None) };
+        /// Pending allowed keys draft state (not yet saved to config).
+        /// `None` means no draft is active (settings window closed).
+        /// `Some(vec)` means a draft is active (initialized on window open, modified during editing).
+        /// Access only through the helper functions below; this is intentionally private.
+        static PENDING_ALLOWED_KEYS: RefCell<Option<Vec<String>>> = const { RefCell::new(None) };
     }
 
     /// Initialize pending allowed keys from current config.
