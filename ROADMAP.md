@@ -289,6 +289,23 @@ Testing (can be done in parallel):
   - Added 19 comprehensive tests (6 config + 13 allowed_keys module)
   - Enables media controls, Spotlight, Mission Control, and custom shortcuts while shield is active
 
+### Phase 7: Settings Window Polish
+
+**Summary**: Bug fixes and UX improvements for the Settings window.
+
+| Priority | Issue | Title | Dependencies | Effort |
+|----------|-------|-------|--------------|--------|
+| 🔴 Critical | #87 | Settings menu item stays disabled after closing Settings window | None | ~15 min |
+| 🟢 Medium | #86 | Show real-time validation error when entering duplicate allowed key | None | ~1-2 hours |
+| 🔵 Low | #85 | Add Undo button to Settings window for reverting individual changes | None | ~1-2 days |
+
+**Implementation Order:**
+```text
+#87: Fix Settings menu item (Critical bug fix)
+    └── #86: Duplicate key validation (Independent)
+            └── #85: Undo button (Independent, lower priority)
+```
+
 ### Recently Completed
 
 | Issue | Title | Completed |
@@ -321,14 +338,14 @@ Testing (can be done in parallel):
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 0 | - |
-| Closed | 40 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80, #83 |
+| Open | 3 | #85, #86, #87 |
+| Closed | 41 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80, #83 |
 
 ### By Priority
-- 🔴 Critical: 0
+- 🔴 Critical: 1 (#87 - Settings menu bug)
 - 🟡 High: 0
-- 🟢 Medium: 0
-- 🔵 Low: 0
+- 🟢 Medium: 1 (#86 - Duplicate key validation)
+- 🔵 Low: 1 (#85 - Undo button)
 
 ## Recommended Implementation Order
 
@@ -364,6 +381,13 @@ Testing (can be done in parallel):
 10. ~~**#64** - Add configurable key allowlist (new feature, medium priority)~~ ✅
 11. ~~**#65** - Add preset groups for key allowlist (depends on #64, low priority)~~ ✅
 
+### Current Sprint: Phase 7 - Settings Window Polish
+
+**Priority Order:**
+1. **#87** - Fix Settings menu item disabled bug (🔴 Critical - blocks Settings access)
+2. **#86** - Real-time duplicate key validation (🟢 Medium - UX improvement)
+3. **#85** - Add Undo button to Settings (🔵 Low - nice-to-have feature)
+
 ## Critical Path
 
 ```
@@ -389,6 +413,9 @@ Maintenance:    #55 (Settings Refactor) ✅ ─┬── All Complete
 
 Phase 6 (COMPLETE):
 Input Control:  #64 (Key Allowlist) ✅ ─── #65 (Preset Groups) ✅
+
+Phase 7 (CURRENT):
+Settings Polish: #87 (Menu Bug) 🔴 ─── #86 (Duplicate Validation) 🟢 ─── #85 (Undo Button) 🔵
 ```
 
 ## Future Considerations
@@ -402,6 +429,16 @@ Potential future enhancements (not yet tracked as issues):
 - Custom overlay themes
 
 ## Changelog
+
+### 2026-01-11 (Roadmap Update)
+- Added Phase 7: Settings Window Polish with 3 new issues
+  - #87: Settings menu item stays disabled after closing Settings window (🔴 Critical)
+  - #86: Show real-time validation error when entering duplicate allowed key (🟢 Medium)
+  - #85: Add Undo button to Settings window for reverting individual changes (🔵 Low)
+- Closed Issue #83: Add ability to select and remove individual allowed keys in Settings
+- Updated issue counts: 3 open, 41 closed
+- Updated priority counts: 1 Critical, 0 High, 1 Medium, 1 Low
+- Updated critical path diagram for Phase 7
 
 ### 2026-01-11
 - Completed Issue #83: Add ability to select and remove individual allowed keys in Settings
