@@ -60,7 +60,11 @@ impl fmt::Display for Modifiers {
         if self.shift {
             parts.push("Shift");
         }
-        write!(f, "{}", parts.join("+"))
+        if parts.is_empty() {
+            write!(f, "None")
+        } else {
+            write!(f, "{}", parts.join("+"))
+        }
     }
 }
 
@@ -157,9 +161,15 @@ impl Rect {
     }
 
     /// Returns the area of the rectangle.
+    ///
+    /// Returns 0.0 for empty or invalid rectangles (zero or negative dimensions).
     #[must_use]
     pub fn area(&self) -> f64 {
-        self.width * self.height
+        if self.is_empty() {
+            0.0
+        } else {
+            self.width * self.height
+        }
     }
 }
 
@@ -201,6 +211,12 @@ mod tests {
     }
 
     #[test]
+    fn test_modifiers_display_none() {
+        let mods = Modifiers::none();
+        assert_eq!(format!("{mods}"), "None");
+    }
+
+    #[test]
     fn test_key_event_new() {
         let event = KeyEvent::new(42, Modifiers::none(), true);
         assert_eq!(event.keycode, 42);
@@ -237,6 +253,19 @@ mod tests {
     fn test_rect_area() {
         let rect = Rect::new(0.0, 0.0, 10.0, 5.0);
         assert_eq!(rect.area(), 50.0);
+    }
+
+    #[test]
+    fn test_rect_area_empty_returns_zero() {
+        let zero_width = Rect::new(0.0, 0.0, 0.0, 10.0);
+        let zero_height = Rect::new(0.0, 0.0, 10.0, 0.0);
+        let negative_width = Rect::new(0.0, 0.0, -5.0, 10.0);
+        let negative_height = Rect::new(0.0, 0.0, 10.0, -5.0);
+
+        assert_eq!(zero_width.area(), 0.0);
+        assert_eq!(zero_height.area(), 0.0);
+        assert_eq!(negative_width.area(), 0.0);
+        assert_eq!(negative_height.area(), 0.0);
     }
 
     #[test]
