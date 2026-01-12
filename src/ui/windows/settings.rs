@@ -2102,7 +2102,10 @@ fn show_action_feedback(message: &str) {
 
         // Only clear if no newer feedback has been shown
         if FEEDBACK_COUNTER.load(Ordering::SeqCst) == current_count {
-            clear_action_feedback();
+            // Dispatch to main thread for UI update (AppKit requirement)
+            dispatch2::run_on_main(|_mtm| {
+                clear_action_feedback();
+            });
         }
     });
 }
