@@ -19,6 +19,7 @@ objc2-foundation = { version = "0.3", features = ["NSNotification", "NSString", 
 objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSBezierPath", "NSButton", "NSColor", "NSControl", "NSEvent", "NSFont", "NSGraphicsContext", "NSMenu", "NSMenuItem", "NSPanel", "NSScreen", "NSSlider", "NSStatusBar", "NSStatusItem", "NSStringDrawing", "NSTableColumn", "NSTableView", "NSText", "NSTextField", "NSView", "NSWindow", "NSWorkspace"] }
 objc2-core-foundation = { version = "0.3", features = ["CFMachPort", "CFRunLoop", "CFString"] }
 objc2-core-graphics = { version = "0.3", features = ["CGEvent", "CGEventTypes", "CGRemoteOperation"] }
+dispatch2 = "0.3"
 
 [dev-dependencies]
 tempfile = "3.10"
