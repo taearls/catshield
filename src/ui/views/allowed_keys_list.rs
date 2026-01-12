@@ -209,13 +209,15 @@ fn create_text_attributes(
 
     let font = NSFont::systemFontOfSize(12.0);
 
-    // Create dictionary with raw pointers using msg_send
-    // This is the objc2 pattern for creating dictionaries with mixed types
+    // SAFETY: All Objective-C objects (NSFont, NSColor) share the same pointer
+    // representation and can safely be treated as AnyObject (equivalent to `id`
+    // in Objective-C). This upcast is necessary because NSDictionary::from_slices
+    // requires homogeneous &[&AnyObject] but we have heterogeneous concrete types.
     unsafe {
         let keys: &[&NSString] = &[NSFontAttributeName, NSForegroundColorAttributeName];
         let objects: &[&AnyObject] = &[
-            std::mem::transmute::<&NSFont, &AnyObject>(&*font),
-            std::mem::transmute::<&NSColor, &AnyObject>(&*color),
+            &*(&*font as *const NSFont as *const AnyObject),
+            &*(&*color as *const NSColor as *const AnyObject),
         ];
 
         NSDictionary::from_slices(keys, objects)
