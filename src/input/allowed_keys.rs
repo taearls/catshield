@@ -230,6 +230,7 @@ pub fn add_preset_keys(preset_keys: &[&str], current_keys: &mut Vec<String>) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
 
     #[test]
     fn test_allowed_key_parse_with_modifiers() {
@@ -268,6 +269,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_parse_and_set_allowed_keys_success() {
         // Clear any state from other tests for isolation
         clear_allowed_keys();
@@ -289,6 +291,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_parse_and_set_allowed_keys_with_errors() {
         // Clear any state from other tests for isolation
         clear_allowed_keys();
@@ -308,6 +311,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_clear_allowed_keys() {
         // Clear any state from other tests for isolation
         clear_allowed_keys();
@@ -322,6 +326,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_is_key_allowed_matches() {
         // Clear any state from other tests for isolation
         clear_allowed_keys();
@@ -339,6 +344,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_is_key_allowed_no_match() {
         // Clear any state from other tests for isolation
         clear_allowed_keys();
