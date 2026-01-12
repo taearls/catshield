@@ -339,7 +339,7 @@ Testing (can be done in parallel):
 | Status | Count | Issues |
 |--------|-------|--------|
 | Open | 3 | #85, #86, #87 |
-| Closed | 41 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80, #83 |
+| Closed | 40 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80, #83 |
 
 ### By Priority
 - 🔴 Critical: 1 (#87 - Settings menu bug)
@@ -436,7 +436,7 @@ Potential future enhancements (not yet tracked as issues):
   - #86: Show real-time validation error when entering duplicate allowed key (🟢 Medium)
   - #85: Add Undo button to Settings window for reverting individual changes (🔵 Low)
 - Closed Issue #83: Add ability to select and remove individual allowed keys in Settings
-- Updated issue counts: 3 open, 41 closed
+- Updated issue counts: 3 open, 40 closed
 - Updated priority counts: 1 Critical, 0 High, 1 Medium, 1 Low
 - Updated critical path diagram for Phase 7
 
