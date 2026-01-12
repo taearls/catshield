@@ -243,13 +243,13 @@ define_class!(
                 let current_value = slider.doubleValue();
 
                 // Check if we have a tracked original value and if this is a real change
-                // Only push undo once for a drag sequence (when tracked value exists and differs)
                 if let Some(original_value) = settings::take_tracked_opacity() {
                     // Value differs from original - push undo
-                    // We intentionally don't re-start tracking so only one undo is pushed per drag
                     if (original_value - current_value).abs() > 0.001 {
                         settings::push_undo(SettingsChange::Opacity { old: original_value });
                         update_undo_button_enabled();
+                        // Re-start tracking for the next drag sequence
+                        settings::start_tracking_opacity(current_value);
                     }
                 }
 
@@ -279,6 +279,8 @@ define_class!(
                     if original_index != current_index {
                         settings::push_undo(SettingsChange::TimerUnit { old: original_index });
                         update_undo_button_enabled();
+                        // Re-start tracking for the next change
+                        settings::start_tracking_timer_unit(current_index);
                     }
                 }
             }
