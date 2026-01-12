@@ -1996,11 +1996,24 @@ fn validate_add_key_realtime(value: &str) {
     }
 
     match AllowedKey::parse(trimmed) {
-        Ok(_) => {
-            // Check for duplicates in pending allowed keys (case-insensitive)
-            // Use eq_ignore_ascii_case for allocation-free comparison (key names are ASCII)
+        Ok(new_key) => {
+            // Check for duplicates by comparing parsed keys (handles aliases like Esc/Escape)
+            // This ensures "Esc" is detected as duplicate of "Escape" since both resolve to keycode 53
             let keys = settings::get_pending_allowed_keys().unwrap_or_default();
-            if keys.iter().any(|k| k.eq_ignore_ascii_case(trimmed)) {
+            let is_duplicate = keys.iter().any(|k| {
+                if let Ok(existing_key) = AllowedKey::parse(k) {
+                    // Compare by keycode and modifier flags, not string representation
+                    existing_key.keycode == new_key.keycode
+                        && existing_key.requires_cmd == new_key.requires_cmd
+                        && existing_key.requires_option == new_key.requires_option
+                        && existing_key.requires_shift == new_key.requires_shift
+                        && existing_key.requires_ctrl == new_key.requires_ctrl
+                } else {
+                    false
+                }
+            });
+
+            if is_duplicate {
                 set_validation_label(&settings::ADD_KEY_VALIDATION, false, "Key already in list");
                 update_add_button_enabled(false);
                 return;
