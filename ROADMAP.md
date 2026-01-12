@@ -293,6 +293,7 @@ Testing (can be done in parallel):
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #83 | feat: Add ability to select and remove individual allowed keys in Settings | 2026-01-11 |
 | #80 | fix: Settings Cancel button does not discard allowed_keys changes | 2026-01-11 |
 | #65 | feat: Add preset groups for key allowlist (Media Keys, System Shortcuts) | 2026-01-11 |
 | #64 | feat: Add configurable key allowlist to pass keys through shield | 2026-01-10 |
@@ -321,7 +322,7 @@ Testing (can be done in parallel):
 | Status | Count | Issues |
 |--------|-------|--------|
 | Open | 0 | - |
-| Closed | 39 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80 |
+| Closed | 40 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80, #83 |
 
 ### By Priority
 - 🔴 Critical: 0
@@ -403,6 +404,31 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-11
+- Completed Issue #83: Add ability to select and remove individual allowed keys in Settings
+  - Replaced NSTextView with custom AllowedKeysListView for selectable row display
+  - Created `src/ui/views/allowed_keys_list.rs` with custom NSView implementation:
+    - Draws keys as rows with selection highlighting
+    - Handles mouse clicks to select/deselect rows
+    - Supports Delete key to remove selected key (when view has focus)
+    - Uses flipped coordinate system for proper row calculation
+  - Added selection state management in `src/ui/state.rs`:
+    - `SELECTED_ALLOWED_KEY_INDEX` thread-local Cell for tracking selected row
+    - `get_selected_allowed_key_index()`, `set_selected_allowed_key_index()`, `clear_selected_allowed_key_index()` helpers
+  - Added "Remove" button to Settings window (between Add and Clear All):
+    - Button disabled by default, enabled when a row is selected
+    - Removes selected key from pending state
+    - Shows feedback message after removal
+  - Integrated with existing pending state management:
+    - Selection cleared on window close, Clear All, or Reset to Default
+    - Removal modifies pending state (not saved until user clicks Save)
+  - UI improvements:
+    - Selection uses system highlight color (`selectedContentBackgroundColor`)
+    - Text color adjusts for readability on selection
+    - Placeholder text shown when list is empty
+  - Added 5 new unit tests for selection state management
+  - All 221 tests pass, clippy clean, build successful
+  - Updated issue counts: 0 open, 40 closed
+
 - Completed Issue #80: Fix Settings Cancel button not discarding allowed_keys changes
   - Root cause: allowed_keys modifications were immediately applied to global config via `set_current_config()`
   - Added pending state management for allowed_keys in Settings window
