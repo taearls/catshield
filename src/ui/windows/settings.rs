@@ -1998,9 +1998,9 @@ fn validate_add_key_realtime(value: &str) {
     match AllowedKey::parse(trimmed) {
         Ok(_) => {
             // Check for duplicates in pending allowed keys (case-insensitive)
+            // Use eq_ignore_ascii_case for allocation-free comparison (key names are ASCII)
             let keys = settings::get_pending_allowed_keys().unwrap_or_default();
-            let trimmed_lower = trimmed.to_lowercase();
-            if keys.iter().any(|k| k.to_lowercase() == trimmed_lower) {
+            if keys.iter().any(|k| k.eq_ignore_ascii_case(trimmed)) {
                 set_validation_label(&settings::ADD_KEY_VALIDATION, false, "Key already in list");
                 update_add_button_enabled(false);
                 return;
