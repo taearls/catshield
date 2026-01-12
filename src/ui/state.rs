@@ -187,6 +187,9 @@ pub mod settings {
     /// Add key field delegate for real-time validation
     pub static ADD_KEY_FIELD_DELEGATE: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 
+    /// Remove key button (enabled when a key is selected)
+    pub static REMOVE_KEY_BUTTON: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+
     // Thread-local state for pending allowed keys changes.
     // This allows Cancel to discard changes without affecting the global config.
     thread_local! {
@@ -195,6 +198,11 @@ pub mod settings {
         /// `Some(vec)` means a draft is active (initialized on window open, modified during editing).
         /// Access only through the helper functions below; this is intentionally private.
         static PENDING_ALLOWED_KEYS: RefCell<Option<Vec<String>>> = const { RefCell::new(None) };
+
+        /// Currently selected allowed key index for deletion.
+        /// `None` means no selection.
+        /// `Some(index)` means the key at that index is selected.
+        static SELECTED_ALLOWED_KEY_INDEX: Cell<Option<isize>> = const { Cell::new(None) };
     }
 
     /// Initialize pending allowed keys from current config.
@@ -224,6 +232,22 @@ pub mod settings {
         PENDING_ALLOWED_KEYS.with(|pending| {
             *pending.borrow_mut() = None;
         });
+    }
+
+    /// Get the currently selected allowed key index.
+    pub fn get_selected_allowed_key_index() -> Option<isize> {
+        SELECTED_ALLOWED_KEY_INDEX.with(|idx| idx.get())
+    }
+
+    /// Set the selected allowed key index.
+    pub fn set_selected_allowed_key_index(index: Option<isize>) {
+        SELECTED_ALLOWED_KEY_INDEX.with(|idx| idx.set(index));
+    }
+
+    /// Clear the selected allowed key index.
+    /// Called when settings window is closed or after removing a key.
+    pub fn clear_selected_allowed_key_index() {
+        SELECTED_ALLOWED_KEY_INDEX.with(|idx| idx.set(None));
     }
 }
 
@@ -455,5 +479,56 @@ mod tests {
 
         // Final cleanup
         settings::clear_pending_allowed_keys();
+    }
+
+    // ========================================================================
+    // Selected Allowed Key Index Tests
+    // ========================================================================
+
+    #[test]
+    fn test_selected_allowed_key_index_default_none() {
+        // Start with no selection
+        settings::clear_selected_allowed_key_index();
+        assert_eq!(settings::get_selected_allowed_key_index(), None);
+    }
+
+    #[test]
+    fn test_selected_allowed_key_index_set_and_get() {
+        settings::set_selected_allowed_key_index(Some(2));
+        assert_eq!(settings::get_selected_allowed_key_index(), Some(2));
+        settings::clear_selected_allowed_key_index();
+    }
+
+    #[test]
+    fn test_selected_allowed_key_index_clear() {
+        settings::set_selected_allowed_key_index(Some(5));
+        settings::clear_selected_allowed_key_index();
+        assert_eq!(settings::get_selected_allowed_key_index(), None);
+    }
+
+    #[test]
+    fn test_selected_allowed_key_index_toggle() {
+        // Simulate toggle behavior: select -> deselect
+        settings::set_selected_allowed_key_index(Some(3));
+        assert_eq!(settings::get_selected_allowed_key_index(), Some(3));
+
+        // Deselect by setting to None
+        settings::set_selected_allowed_key_index(None);
+        assert_eq!(settings::get_selected_allowed_key_index(), None);
+
+        settings::clear_selected_allowed_key_index();
+    }
+
+    #[test]
+    fn test_selected_allowed_key_index_change_selection() {
+        // Select row 1
+        settings::set_selected_allowed_key_index(Some(1));
+        assert_eq!(settings::get_selected_allowed_key_index(), Some(1));
+
+        // Select row 3 (should replace row 1)
+        settings::set_selected_allowed_key_index(Some(3));
+        assert_eq!(settings::get_selected_allowed_key_index(), Some(3));
+
+        settings::clear_selected_allowed_key_index();
     }
 }

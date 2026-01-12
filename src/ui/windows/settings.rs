@@ -236,6 +236,12 @@ define_class!(
         unsafe fn add_screenshots_preset(&self, _sender: Option<&NSButton>) {
             add_preset(crate::input::presets::SCREENSHOTS);
         }
+
+        /// Action method called when "Remove" button is clicked
+        #[unsafe(method(removeSelectedKey:))]
+        unsafe fn remove_selected_key(&self, _sender: Option<&NSButton>) {
+            remove_selected_allowed_key();
+        }
     }
 );
 
@@ -337,12 +343,6 @@ fn reset_settings_to_defaults() {
 
     // Reset Allowed Keys (clear the list) - update pending state, not global config
     unsafe {
-        use objc2_app_kit::NSTextView;
-
-        with_ptr_void::<NSTextView, _>(&settings::ALLOWED_KEYS_VIEW, |text_view| {
-            text_view.setString(ns_string!("No allowed keys configured"));
-        });
-
         with_ptr_void::<NSTextField, _>(&settings::ADD_KEY_FIELD, |field| {
             field.setStringValue(ns_string!(""));
         });
@@ -350,6 +350,11 @@ fn reset_settings_to_defaults() {
 
     // Update pending state (not global config) - changes committed on Save
     settings::set_pending_allowed_keys(Some(Vec::new()));
+
+    // Clear selection and refresh the list view
+    settings::clear_selected_allowed_key_index();
+    crate::ui::views::refresh_allowed_keys_list();
+    crate::ui::views::update_remove_button_enabled();
 
     // Clear validation label
     set_validation_label(&settings::ADD_KEY_VALIDATION, true, "");
@@ -376,11 +381,15 @@ fn cleanup_settings_window_references() {
     settings::ALLOWED_KEYS_SCROLL.store(std::ptr::null_mut(), Ordering::Release);
     settings::ADD_KEY_FIELD.store(std::ptr::null_mut(), Ordering::Release);
     settings::ADD_KEY_VALIDATION.store(std::ptr::null_mut(), Ordering::Release);
+    settings::REMOVE_KEY_BUTTON.store(std::ptr::null_mut(), Ordering::Release);
     // Note: ADD_KEY_FIELD_DELEGATE is NOT cleared here - it's reused across window opens
     // (same pattern as EXIT_KEY_FIELD_DELEGATE and TIMER_FIELD_DELEGATE)
 
     // Clear pending allowed keys state (discard any unsaved changes)
     settings::clear_pending_allowed_keys();
+
+    // Clear selection state
+    settings::clear_selected_allowed_key_index();
 
     // Re-enable the settings menu item
     unsafe {
@@ -543,7 +552,7 @@ fn save_settings_from_window() {
 }
 
 /// Set a validation label with success or error state
-fn set_validation_label(ptr: &AtomicPtr<c_void>, is_valid: bool, message: &str) {
+pub fn set_validation_label(ptr: &AtomicPtr<c_void>, is_valid: bool, message: &str) {
     unsafe {
         with_ptr_void::<NSTextField, _>(ptr, |label| {
             label.setStringValue(&NSString::from_str(message));
@@ -1458,16 +1467,17 @@ fn setup_button_section(
 // Allowed Keys Section
 // ============================================================================
 
-/// Set up the allowed keys section with list view and add/clear buttons
+/// Set up the allowed keys section with list view and add/remove/clear buttons
 fn setup_allowed_keys_section(
     mtm: MainThreadMarker,
     content_view: &objc2_app_kit::NSView,
-    config: &crate::config::Config,
+    _config: &crate::config::Config,
     handler: &SettingsActionHandler,
     mut y_offset: CGFloat,
 ) -> CGFloat {
     use crate::input::presets;
-    use objc2_app_kit::{NSScrollView, NSTextView};
+    use crate::ui::views::AllowedKeysListView;
+    use objc2_app_kit::NSScrollView;
 
     // Section label
     let label = create_label(
@@ -1625,17 +1635,21 @@ fn setup_allowed_keys_section(
 
     y_offset -= preset_button_height + 8.0;
 
+    // Calculate list view dimensions
+    let list_height: CGFloat = 80.0;
+    let scroll_view_width = WINDOW_WIDTH - (MARGIN * 2.0);
+
     // Scroll view for list of keys
     let scroll_view = {
         let scroll = NSScrollView::new(mtm);
         scroll.setFrame(CGRect {
             origin: CGPoint {
                 x: MARGIN,
-                y: y_offset - 80.0,
+                y: y_offset - list_height,
             },
             size: CGSize {
-                width: WINDOW_WIDTH - (MARGIN * 2.0),
-                height: 80.0,
+                width: scroll_view_width,
+                height: list_height,
             },
         });
         scroll.setBorderType(objc2_app_kit::NSBorderType::BezelBorder);
@@ -1644,34 +1658,34 @@ fn setup_allowed_keys_section(
         scroll
     };
 
-    // Text view inside scroll view
-    let text_view = {
-        let text = NSTextView::new(mtm);
-        text.setEditable(false);
-        text.setSelectable(true);
-        text.setFont(Some(&NSFont::systemFontOfSize(12.0)));
-
-        // Display current allowed keys
-        if let Some(ref keys) = config.allowed_keys {
-            let keys_text = if keys.is_empty() {
-                "No allowed keys configured".to_string()
-            } else {
-                keys.join("\n")
-            };
-            text.setString(&NSString::from_str(&keys_text));
-        } else {
-            text.setString(ns_string!("No allowed keys configured"));
-        }
-
-        text
+    // Create the custom list view with initial size
+    // The view height will be adjusted based on content
+    let key_count = settings::get_pending_allowed_keys()
+        .map(|k| k.len())
+        .unwrap_or(0);
+    let list_view_height = if key_count == 0 {
+        22.0 // Minimum height for placeholder text
+    } else {
+        (key_count as CGFloat) * 22.0
     };
 
-    scroll_view.setDocumentView(Some(&text_view));
+    let list_view = AllowedKeysListView::new(
+        mtm,
+        CGRect {
+            origin: CGPoint { x: 0.0, y: 0.0 },
+            size: CGSize {
+                width: scroll_view_width - 2.0, // Account for border
+                height: list_view_height.max(list_height),
+            },
+        },
+    );
+
+    scroll_view.setDocumentView(Some(&list_view));
     content_view.addSubview(&scroll_view);
 
     // Store references
     settings::ALLOWED_KEYS_VIEW.store(
-        Retained::as_ptr(&text_view) as *mut c_void,
+        Retained::as_ptr(&list_view) as *mut c_void,
         Ordering::Release,
     );
     settings::ALLOWED_KEYS_SCROLL.store(
@@ -1679,10 +1693,10 @@ fn setup_allowed_keys_section(
         Ordering::Release,
     );
 
-    std::mem::forget(text_view);
+    std::mem::forget(list_view);
     std::mem::forget(scroll_view);
 
-    y_offset -= 85.0;
+    y_offset -= list_height + 5.0;
 
     // Add key input field
     let add_field = {
@@ -1693,7 +1707,7 @@ fn setup_allowed_keys_section(
                 y: y_offset - 24.0,
             },
             size: CGSize {
-                width: 200.0,
+                width: 150.0,
                 height: 24.0,
             },
         });
@@ -1725,11 +1739,11 @@ fn setup_allowed_keys_section(
         );
         button.setFrame(CGRect {
             origin: CGPoint {
-                x: MARGIN + 205.0,
+                x: MARGIN + 155.0,
                 y: y_offset - 24.0,
             },
             size: CGSize {
-                width: 60.0,
+                width: 50.0,
                 height: 24.0,
             },
         });
@@ -1738,6 +1752,35 @@ fn setup_allowed_keys_section(
     };
     content_view.addSubview(&add_button);
     std::mem::forget(add_button);
+
+    // Remove button (disabled until a row is selected)
+    let remove_button = unsafe {
+        let button = NSButton::buttonWithTitle_target_action(
+            ns_string!("Remove"),
+            Some(handler),
+            Some(objc2::sel!(removeSelectedKey:)),
+            mtm,
+        );
+        button.setFrame(CGRect {
+            origin: CGPoint {
+                x: MARGIN + 210.0,
+                y: y_offset - 24.0,
+            },
+            size: CGSize {
+                width: 70.0,
+                height: 24.0,
+            },
+        });
+        button.setButtonType(NSButtonType::MomentaryPushIn);
+        button.setEnabled(false); // Disabled until a row is selected
+        button
+    };
+    content_view.addSubview(&remove_button);
+    settings::REMOVE_KEY_BUTTON.store(
+        Retained::as_ptr(&remove_button) as *mut c_void,
+        Ordering::Release,
+    );
+    std::mem::forget(remove_button);
 
     // Clear All button
     let clear_button = unsafe {
@@ -1749,11 +1792,11 @@ fn setup_allowed_keys_section(
         );
         button.setFrame(CGRect {
             origin: CGPoint {
-                x: MARGIN + 270.0,
+                x: MARGIN + 285.0,
                 y: y_offset - 24.0,
             },
             size: CGSize {
-                width: 80.0,
+                width: 70.0,
                 height: 24.0,
             },
         });
@@ -1798,7 +1841,7 @@ fn setup_allowed_keys_section(
 /// Add a key from the input field to the allowed keys list
 fn add_allowed_key_from_field() {
     use crate::input::AllowedKey;
-    use objc2_app_kit::NSTextView;
+    use crate::ui::views::refresh_allowed_keys_list;
 
     let key_str = unsafe {
         with_ptr::<NSTextField, _, _>(&settings::ADD_KEY_FIELD, |field| {
@@ -1836,14 +1879,10 @@ fn add_allowed_key_from_field() {
             keys.push(trimmed.to_string());
 
             // Update pending state (not global config) - changes committed on Save
-            settings::set_pending_allowed_keys(Some(keys.clone()));
+            settings::set_pending_allowed_keys(Some(keys));
 
-            // Update the display
-            unsafe {
-                with_ptr_void::<NSTextView, _>(&settings::ALLOWED_KEYS_VIEW, |text_view| {
-                    text_view.setString(&NSString::from_str(&keys.join("\n")));
-                });
-            }
+            // Refresh the list view display
+            refresh_allowed_keys_list();
 
             // Clear the input field
             unsafe {
@@ -1866,17 +1905,15 @@ fn add_allowed_key_from_field() {
 
 /// Clear all allowed keys from the list
 fn clear_all_allowed_keys() {
-    use objc2_app_kit::NSTextView;
+    use crate::ui::views::{refresh_allowed_keys_list, update_remove_button_enabled};
 
     // Update pending state (not global config) - changes committed on Save
     settings::set_pending_allowed_keys(Some(Vec::new()));
 
-    // Update the display
-    unsafe {
-        with_ptr_void::<NSTextView, _>(&settings::ALLOWED_KEYS_VIEW, |text_view| {
-            text_view.setString(ns_string!("No allowed keys configured"));
-        });
-    }
+    // Clear selection and refresh the list view
+    settings::clear_selected_allowed_key_index();
+    refresh_allowed_keys_list();
+    update_remove_button_enabled();
 
     set_validation_label(
         &settings::ADD_KEY_VALIDATION,
@@ -1885,10 +1922,49 @@ fn clear_all_allowed_keys() {
     );
 }
 
+/// Remove the currently selected allowed key from the list
+fn remove_selected_allowed_key() {
+    use crate::ui::views::{refresh_allowed_keys_list, update_remove_button_enabled};
+
+    // Get selected index
+    let Some(selected_idx) = settings::get_selected_allowed_key_index() else {
+        return;
+    };
+
+    // Get current keys
+    let Some(mut keys) = settings::get_pending_allowed_keys() else {
+        return;
+    };
+
+    let idx = selected_idx as usize;
+    if idx >= keys.len() {
+        return;
+    }
+
+    // Remove the selected key
+    keys.remove(idx);
+
+    // Update pending state
+    settings::set_pending_allowed_keys(Some(keys));
+
+    // Clear selection since the item is gone
+    settings::clear_selected_allowed_key_index();
+
+    // Refresh the list view
+    refresh_allowed_keys_list();
+    update_remove_button_enabled();
+
+    set_validation_label(
+        &settings::ADD_KEY_VALIDATION,
+        true,
+        "✓ Removed (click Save to persist)",
+    );
+}
+
 /// Add keys from a preset to the allowed keys list
 fn add_preset(preset_keys: &[&str]) {
     use crate::input::add_preset_keys;
-    use objc2_app_kit::NSTextView;
+    use crate::ui::views::refresh_allowed_keys_list;
 
     // Get current pending keys (not global config)
     let mut keys = settings::get_pending_allowed_keys().unwrap_or_default();
@@ -1897,18 +1973,10 @@ fn add_preset(preset_keys: &[&str]) {
     let added_count = add_preset_keys(preset_keys, &mut keys);
 
     // Update pending state (not global config) - changes committed on Save
-    settings::set_pending_allowed_keys(Some(keys.clone()));
+    settings::set_pending_allowed_keys(Some(keys));
 
-    // Update the display
-    unsafe {
-        with_ptr_void::<NSTextView, _>(&settings::ALLOWED_KEYS_VIEW, |text_view| {
-            if keys.is_empty() {
-                text_view.setString(ns_string!("No allowed keys configured"));
-            } else {
-                text_view.setString(&NSString::from_str(&keys.join("\n")));
-            }
-        });
-    }
+    // Refresh the list view display
+    refresh_allowed_keys_list();
 
     // Show feedback
     if added_count > 0 {
