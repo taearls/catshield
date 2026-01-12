@@ -4,11 +4,8 @@
 //! - Platform abstraction traits for cross-platform support
 //! - Platform-agnostic types (KeyEvent, Modifiers, SleepAssertion, Rect)
 //! - Error types for platform operations
-//! - macOS-specific implementations:
-//!   - FFI bindings for IOKit, CoreGraphics, etc.
-//!   - Accessibility permission handling
-//!   - Power management (sleep prevention)
-//!   - Event tap for input blocking
+//! - Platform-specific implementations (in subdirectories):
+//!   - macOS: FFI bindings, accessibility, power management, event tap
 
 // Platform abstraction layer
 pub mod errors;
@@ -20,15 +17,45 @@ pub use errors::{InputBlockError, PermissionError, PowerError, TrayError, Window
 pub use traits::{InputBlocker, OverlayWindow, PermissionChecker, PowerManager, SystemTray};
 pub use types::{KeyEvent, Modifiers, Rect, SleepAssertion};
 
-// macOS-specific implementations (will be moved to platform/macos/ in issue #95)
-mod accessibility;
-mod bindings;
-mod event_tap;
-mod power;
+// Platform-specific implementations
+#[cfg(target_os = "macos")]
+pub mod macos;
 
-pub use accessibility::{
-    check_accessibility, check_accessibility_with_prompt, open_accessibility_settings,
+// Re-export platform-specific items for backward compatibility
+// High-level APIs (accessibility, power, event tap)
+#[cfg(target_os = "macos")]
+pub use macos::{
+    allow_sleep, check_accessibility, check_accessibility_with_prompt, disable_event_tap,
+    open_accessibility_settings, prevent_sleep, setup_event_tap, EVENT_TAP,
+    EVENT_TAP_RUN_LOOP_SOURCE,
 };
-pub use bindings::*;
-pub use event_tap::{disable_event_tap, setup_event_tap, EVENT_TAP, EVENT_TAP_RUN_LOOP_SOURCE};
-pub use power::{allow_sleep, prevent_sleep};
+
+// Low-level FFI bindings (grouped by framework)
+#[cfg(target_os = "macos")]
+pub use macos::{
+    // ApplicationServices - Accessibility APIs
+    kAXTrustedCheckOptionPrompt,
+    // CoreFoundation - Run loop and utility functions
+    kCFBooleanTrue,
+    // libc - Process management
+    kill,
+    AXIsProcessTrusted,
+    AXIsProcessTrustedWithOptions,
+    CFAbsoluteTimeGetCurrent,
+    CFDictionaryCreate,
+    CFMachPortCreateRunLoopSource,
+    CFRelease,
+    CFRunLoopAddSource,
+    CFRunLoopAddTimer,
+    CFRunLoopGetCurrent,
+    CFRunLoopRemoveSource,
+    CFRunLoopRunInMode,
+    CFRunLoopTimerCreate,
+    CFRunLoopTimerInvalidate,
+    // CoreGraphics - Event tap control
+    CGEventTapEnable,
+    // IOKit - Power management
+    IOPMAssertionCreateWithName,
+    IOPMAssertionRelease,
+    K_IOPM_ASSERTION_LEVEL_ON,
+};
