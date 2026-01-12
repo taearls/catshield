@@ -299,11 +299,11 @@ Testing (can be done in parallel):
 | 🟢 Medium | #86 | Show real-time validation error when entering duplicate allowed key | None | ~1-2 hours |
 | 🔵 Low | #85 | Add Undo button to Settings window for reverting individual changes | None | ~1-2 days |
 
-**Implementation Order:**
+**Implementation Order (priority-based, all independent):**
 ```text
-#87: Fix Settings menu item (Critical bug fix)
-    └── #86: Duplicate key validation (Independent)
-            └── #85: Undo button (Independent, lower priority)
+1. #87: Fix Settings menu item (Critical bug fix)
+2. #86: Duplicate key validation (Medium priority)
+3. #85: Undo button (Low priority)
 ```
 
 ### Recently Completed
