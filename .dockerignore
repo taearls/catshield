@@ -1,0 +1,40 @@
+# Docker ignore file for Cat Shield
+# Excludes files that shouldn't be copied into Docker build context
+
+# Build artifacts
+target/
+*.rlib
+*.rmeta
+
+# Git
+.git/
+.gitignore
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Docker files (prevent recursive copying)
+docker/
+
+# CI/CD
+.github/
+
+# Documentation (not needed for builds)
+*.md
+!docker/README.md
+
+# Config files (use defaults in container)
+.claude/
+*.toml.local
+
+# Test artifacts
+*.profraw
+*.profdata
+
+# Logs
+*.log
