@@ -313,7 +313,7 @@ Testing (can be done in parallel):
 | ✅ Done | #96 | Implement platform traits for macOS | ✅ #94, #95 | ~2 days |
 | ✅ Done | #97 | Create canonical Key enum and split keycodes by platform | ✅ #94 | ~1 day |
 | 🟢 Medium | #98 | Update shield_core.rs to use platform traits | #96 | ~1-2 days |
-| 🟢 Medium | #99 | Update Cargo.toml for conditional platform dependencies | ✅ #94 | ~0.5 day |
+| ✅ Done | #99 | Update Cargo.toml for conditional platform dependencies | ✅ #94 | ~0.5 day |
 
 **Implementation Order:**
 ```text
@@ -322,7 +322,7 @@ Testing (can be done in parallel):
     │       └── #96: Implement macOS Traits ✅
     │               └── #98: Update shield_core.rs
     └── #97: Canonical Key Enum ✅
-            └── #99: Conditional Dependencies
+            └── #99: Conditional Dependencies ✅
 ```
 
 #### Phase 8.2: Windows Support
@@ -369,8 +369,9 @@ Testing (can be done in parallel):
 
 | Priority | Issue | Title | Dependencies | Effort |
 |----------|-------|-------|--------------|--------|
-| 🟢 Medium | #112 | Set up cross-platform GitHub Actions CI | #96, #100, #106 | ~1 day |
+| 🟢 Medium | #112 | Set up cross-platform GitHub Actions CI | #99 | ~1 day |
 | 🟢 Medium | #113 | Add platform-specific integration tests | #112 | ~2 days |
+| 🟢 Medium | #120 | Add Docker containers for cross-platform local development | None | ~0.5 day |
 
 ### Phase 9: Feature Enhancements
 
@@ -382,6 +383,7 @@ Testing (can be done in parallel):
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #99 | feat: Update Cargo.toml for conditional platform dependencies | 2026-01-13 |
 | #97 | feat: Create canonical Key enum and split keycodes by platform | 2026-01-13 |
 | #96 | feat: Implement platform traits for macOS | 2026-01-12 |
 | #95 | feat: Reorganize macOS platform code into subdirectory | 2026-01-12 |
@@ -418,13 +420,13 @@ Testing (can be done in parallel):
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 17 | #98, #99, #100, #101, #102, #103, #104, #105, #106, #107, #108, #109, #110, #111, #112, #113, #114 |
-| Closed | 48 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80, #83, #85, #86, #87, #91, #94, #95, #96, #97 |
+| Open | 17 | #98, #100, #101, #102, #103, #104, #105, #106, #107, #108, #109, #110, #111, #112, #113, #114, #120 |
+| Closed | 49 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80, #83, #85, #86, #87, #91, #94, #95, #96, #97, #99 |
 
 ### By Priority
 - 🔴 Critical: 0
 - 🟡 High: 4 (#100, #101, #106, #107)
-- 🟢 Medium: 12 (#98, #99, #102, #103, #104, #105, #108, #109, #110, #111, #112, #113)
+- 🟢 Medium: 12 (#98, #102, #103, #104, #105, #108, #109, #110, #111, #112, #113, #120)
 - 🔵 Low: 1 (#114)
 
 ## Recommended Implementation Order
@@ -468,9 +470,9 @@ Testing (can be done in parallel):
 2. ~~**#95** - Reorganize macOS platform code into subdirectory (depends on #94 ✅)~~ ✅
 3. ~~**#96** - Implement platform traits for macOS (depends on #94 ✅, #95 ✅)~~ ✅
 4. ~~**#97** - Create canonical Key enum and split keycodes by platform (depends on #94 ✅)~~ ✅
+5. ~~**#99** - Update Cargo.toml for conditional platform dependencies (depends on #94 ✅)~~ ✅
 
 **Next Up (Platform Abstraction Foundation):**
-5. **#99** - Update Cargo.toml for conditional platform dependencies (depends on #94 ✅)
 6. **#98** - Update shield_core.rs to use platform traits (depends on #96 ✅)
 
 **Parallel Work (can start after foundation):**
@@ -478,8 +480,9 @@ Testing (can be done in parallel):
 - Linux team: #106, #107, #108, #109, #110, #111
 
 **Final Integration:**
-- **#112** - Set up cross-platform GitHub Actions CI
+- **#112** - Set up cross-platform GitHub Actions CI (depends on #99 ✅)
 - **#113** - Add platform-specific integration tests
+- **#120** - Add Docker containers for cross-platform local development
 
 **Future Feature:**
 - **#114** - Add optional animated cat companion to shield overlay (low priority, independent)
