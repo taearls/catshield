@@ -9,8 +9,8 @@
 #   docker compose run linux-clippy
 #   docker compose run windows-check
 #
-# Note: Requires issue #99 (conditional platform dependencies) for full functionality.
-# Until then, compilation may fail on non-macOS targets.
+# Note: Issue #99 (conditional platform dependencies) is implemented, but the `ui` module
+# still needs cfg guards. Linux/Windows compilation will fail until #103/#110 are done.
 
 services:
   # =============================================================================

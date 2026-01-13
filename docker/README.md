@@ -68,11 +68,17 @@ For full integration testing, use:
 - Virtual machines (VirtualBox, UTM, Parallels)
 - Real hardware
 
-### Dependency Note
+### Platform Compilation Status
 
-Full cross-platform compilation requires issue #99 (conditional platform dependencies) to be implemented. Until then:
-- macOS-specific dependencies (objc2, etc.) may cause compilation failures
-- Only cross-platform code modules can be fully validated
+Issue #99 (conditional platform dependencies) has been implemented. Current status:
+
+- ✅ **Cargo.toml**: macOS dependencies are conditionally compiled
+- ⚠️ **Source code**: The `ui` module still imports macOS-specific code unconditionally
+
+**Expected behavior**:
+- Linux/Windows `cargo check` will fail until the `ui` module is gated with `#[cfg(target_os = "macos")]`
+- This is tracked in issues #103 (Windows overlay) and #110 (Linux overlay)
+- Cross-platform modules (config, timer, keycodes) can be validated
 
 ## Caching
 
