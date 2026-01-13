@@ -30,6 +30,10 @@ pub use macos::{
     EVENT_TAP_RUN_LOOP_SOURCE,
 };
 
+// Platform trait implementations
+#[cfg(target_os = "macos")]
+pub use macos::{MacOSInputBlocker, MacOSPermissionChecker, MacOSPlatform, MacOSPowerManager};
+
 // Low-level FFI bindings (grouped by framework)
 #[cfg(target_os = "macos")]
 pub use macos::{

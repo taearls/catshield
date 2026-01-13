@@ -310,7 +310,7 @@ Testing (can be done in parallel):
 |----------|-------|-------|--------------|--------|
 | ✅ Done | #94 | Create platform abstraction traits | None | ~2 days |
 | ✅ Done | #95 | Reorganize macOS platform code into subdirectory | ✅ #94 | ~1 day |
-| 🟡 High | #96 | Implement platform traits for macOS | ✅ #94, #95 | ~2 days |
+| ✅ Done | #96 | Implement platform traits for macOS | ✅ #94, #95 | ~2 days |
 | 🟡 High | #97 | Create canonical Key enum and split keycodes by platform | ✅ #94 | ~1 day |
 | 🟢 Medium | #98 | Update shield_core.rs to use platform traits | #96 | ~1-2 days |
 | 🟢 Medium | #99 | Update Cargo.toml for conditional platform dependencies | ✅ #94 | ~0.5 day |
@@ -319,7 +319,7 @@ Testing (can be done in parallel):
 ```text
 #94: Platform Abstraction Traits (foundation) ✅
     ├── #95: Reorganize macOS Code ✅
-    │       └── #96: Implement macOS Traits
+    │       └── #96: Implement macOS Traits ✅
     │               └── #98: Update shield_core.rs
     └── #97: Canonical Key Enum
             └── #99: Conditional Dependencies
@@ -382,6 +382,7 @@ Testing (can be done in parallel):
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #96 | feat: Implement platform traits for macOS | 2026-01-12 |
 | #95 | feat: Reorganize macOS platform code into subdirectory | 2026-01-12 |
 | #94 | feat: Create platform abstraction traits | 2026-01-12 |
 | #85 | feat: Add Undo button to Settings window for reverting individual changes | 2026-01-12 |
@@ -416,12 +417,12 @@ Testing (can be done in parallel):
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 19 | #96, #97, #98, #99, #100, #101, #102, #103, #104, #105, #106, #107, #108, #109, #110, #111, #112, #113, #114 |
-| Closed | 46 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80, #83, #85, #86, #87, #91, #94, #95 |
+| Open | 18 | #97, #98, #99, #100, #101, #102, #103, #104, #105, #106, #107, #108, #109, #110, #111, #112, #113, #114 |
+| Closed | 47 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80, #83, #85, #86, #87, #91, #94, #95, #96 |
 
 ### By Priority
 - 🔴 Critical: 0
-- 🟡 High: 6 (#96, #97, #100, #101, #106, #107)
+- 🟡 High: 5 (#97, #100, #101, #106, #107)
 - 🟢 Medium: 12 (#98, #99, #102, #103, #104, #105, #108, #109, #110, #111, #112, #113)
 - 🔵 Low: 1 (#114)
 
@@ -464,12 +465,12 @@ Testing (can be done in parallel):
 **Completed:**
 1. ~~**#94** - Create platform abstraction traits (critical foundation)~~ ✅
 2. ~~**#95** - Reorganize macOS platform code into subdirectory (depends on #94 ✅)~~ ✅
+3. ~~**#96** - Implement platform traits for macOS (depends on #94 ✅, #95 ✅)~~ ✅
 
 **Next Up (Platform Abstraction Foundation):**
-3. **#97** - Create canonical Key enum and split keycodes by platform (depends on #94 ✅)
-4. **#96** - Implement platform traits for macOS (depends on #94 ✅, #95 ✅)
+4. **#97** - Create canonical Key enum and split keycodes by platform (depends on #94 ✅)
 5. **#99** - Update Cargo.toml for conditional platform dependencies (depends on #94 ✅)
-6. **#98** - Update shield_core.rs to use platform traits (depends on #96)
+6. **#98** - Update shield_core.rs to use platform traits (depends on #96 ✅)
 
 **Parallel Work (can start after foundation):**
 - Windows team: #100, #101, #102, #103, #104, #105
@@ -512,7 +513,7 @@ Phase 7 (COMPLETE):
 Settings Polish: #87 (Menu Bug) ✅ ─── #91 (Threading Fix) ✅ ─── #86 (Duplicate Validation) ✅ ─── #85 (Undo Button) ✅
 
 Phase 8 (CURRENT):
-Foundation:     #94 (Platform Traits) ✅ ─┬── #95 (Reorganize macOS) ✅ ── #96 (macOS Traits) ── #98 (Update shield_core)
+Foundation:     #94 (Platform Traits) ✅ ─┬── #95 (Reorganize macOS) ✅ ── #96 (macOS Traits) ✅ ── #98 (Update shield_core)
                                           │
                                           └── #97 (Key Enum) ── #99 (Conditional Deps)
 
@@ -547,6 +548,27 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-12
+- Completed Issue #96: Implement platform traits for macOS
+  - Created `src/platform/macos/impls.rs` with trait implementations:
+    - `MacOSInputBlocker`: Implements `InputBlocker` trait wrapping `event_tap.rs`
+      - Uses `setup_event_tap()` and `disable_event_tap()` for input blocking
+      - Tracks active state internally and via `EVENT_TAP` atomic pointer
+      - Implements `Send + Sync` for thread-safe access
+    - `MacOSPowerManager`: Implements `PowerManager` trait wrapping `power.rs`
+      - Uses `prevent_sleep()` and `allow_sleep()` for IOKit power assertions
+      - Converts between `u32` assertion IDs and `SleepAssertion` type
+      - Validates assertion IDs don't exceed `u32::MAX`
+    - `MacOSPermissionChecker`: Implements `PermissionChecker` trait wrapping `accessibility.rs`
+      - Uses `check_accessibility()`, `check_accessibility_with_prompt()`, `open_accessibility_settings()`
+      - Provides clean error handling via `PermissionError`
+    - `MacOSPlatform`: Combined struct providing access to all implementations
+  - Updated `src/platform/macos/mod.rs` to export new implementations
+  - Updated `src/platform/mod.rs` to re-export macOS trait implementations
+  - Added 12 unit tests for trait implementations
+  - All 272 tests pass, clippy clean, build successful
+  - Updated issue counts: 18 open, 47 closed
+  - Updated priority counts: 0 Critical, 5 High, 12 Medium, 1 Low
+
 - Completed Issue #95: Reorganize macOS platform code into subdirectory
   - Created `src/platform/macos/` directory for macOS-specific implementations
   - Moved `event_tap.rs` → `macos/event_tap.rs` (input blocking via CGEventTap)
