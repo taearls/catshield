@@ -32,8 +32,7 @@ ENV PATH="${CARGO_HOME}/bin:${PATH}"
 RUN rustup target add x86_64-pc-windows-gnu
 
 # Configure cargo to use mingw-w64 linker for Windows target
-RUN mkdir -p /usr/local/cargo && \
-    echo '[target.x86_64-pc-windows-gnu]' >> /usr/local/cargo/config.toml && \
+RUN echo '[target.x86_64-pc-windows-gnu]' >> /usr/local/cargo/config.toml && \
     echo 'linker = "x86_64-w64-mingw32-gcc"' >> /usr/local/cargo/config.toml
 
 # Default command: check compilation for Windows

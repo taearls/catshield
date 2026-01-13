@@ -25,11 +25,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Set working directory
 WORKDIR /app
 
-# Set environment variables for better Rust experience
-ENV CARGO_HOME=/usr/local/cargo
-ENV RUSTUP_HOME=/usr/local/rustup
-ENV PATH="${CARGO_HOME}/bin:${PATH}"
-
 # Install additional Rust components
 RUN rustup component add clippy rustfmt
 

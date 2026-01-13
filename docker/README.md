@@ -40,7 +40,7 @@ docker compose -f docker/docker-compose.yml up linux-test linux-clippy linux-fmt
 | Service | Command | Description |
 |---------|---------|-------------|
 | `windows-check` | `cargo check` | Validate compilation |
-| `windows-build` | `cargo build` | Cross-compile release binary |
+| `windows-build` | `cargo build --release --target x86_64-pc-windows-gnu` | Cross-compile release binary |
 
 ## Prerequisites
 
