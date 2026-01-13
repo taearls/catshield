@@ -311,7 +311,7 @@ Testing (can be done in parallel):
 | ✅ Done | #94 | Create platform abstraction traits | None | ~2 days |
 | ✅ Done | #95 | Reorganize macOS platform code into subdirectory | ✅ #94 | ~1 day |
 | ✅ Done | #96 | Implement platform traits for macOS | ✅ #94, #95 | ~2 days |
-| 🟡 High | #97 | Create canonical Key enum and split keycodes by platform | ✅ #94 | ~1 day |
+| ✅ Done | #97 | Create canonical Key enum and split keycodes by platform | ✅ #94 | ~1 day |
 | 🟢 Medium | #98 | Update shield_core.rs to use platform traits | #96 | ~1-2 days |
 | 🟢 Medium | #99 | Update Cargo.toml for conditional platform dependencies | ✅ #94 | ~0.5 day |
 
@@ -321,7 +321,7 @@ Testing (can be done in parallel):
     ├── #95: Reorganize macOS Code ✅
     │       └── #96: Implement macOS Traits ✅
     │               └── #98: Update shield_core.rs
-    └── #97: Canonical Key Enum
+    └── #97: Canonical Key Enum ✅
             └── #99: Conditional Dependencies
 ```
 
@@ -382,6 +382,7 @@ Testing (can be done in parallel):
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #97 | feat: Create canonical Key enum and split keycodes by platform | 2026-01-13 |
 | #96 | feat: Implement platform traits for macOS | 2026-01-12 |
 | #95 | feat: Reorganize macOS platform code into subdirectory | 2026-01-12 |
 | #94 | feat: Create platform abstraction traits | 2026-01-12 |
@@ -417,12 +418,12 @@ Testing (can be done in parallel):
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 18 | #97, #98, #99, #100, #101, #102, #103, #104, #105, #106, #107, #108, #109, #110, #111, #112, #113, #114 |
-| Closed | 47 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80, #83, #85, #86, #87, #91, #94, #95, #96 |
+| Open | 17 | #98, #99, #100, #101, #102, #103, #104, #105, #106, #107, #108, #109, #110, #111, #112, #113, #114 |
+| Closed | 48 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80, #83, #85, #86, #87, #91, #94, #95, #96, #97 |
 
 ### By Priority
 - 🔴 Critical: 0
-- 🟡 High: 5 (#97, #100, #101, #106, #107)
+- 🟡 High: 4 (#100, #101, #106, #107)
 - 🟢 Medium: 12 (#98, #99, #102, #103, #104, #105, #108, #109, #110, #111, #112, #113)
 - 🔵 Low: 1 (#114)
 
@@ -466,9 +467,9 @@ Testing (can be done in parallel):
 1. ~~**#94** - Create platform abstraction traits (critical foundation)~~ ✅
 2. ~~**#95** - Reorganize macOS platform code into subdirectory (depends on #94 ✅)~~ ✅
 3. ~~**#96** - Implement platform traits for macOS (depends on #94 ✅, #95 ✅)~~ ✅
+4. ~~**#97** - Create canonical Key enum and split keycodes by platform (depends on #94 ✅)~~ ✅
 
 **Next Up (Platform Abstraction Foundation):**
-4. **#97** - Create canonical Key enum and split keycodes by platform (depends on #94 ✅)
 5. **#99** - Update Cargo.toml for conditional platform dependencies (depends on #94 ✅)
 6. **#98** - Update shield_core.rs to use platform traits (depends on #96 ✅)
 
@@ -515,7 +516,7 @@ Settings Polish: #87 (Menu Bug) ✅ ─── #91 (Threading Fix) ✅ ─── 
 Phase 8 (CURRENT):
 Foundation:     #94 (Platform Traits) ✅ ─┬── #95 (Reorganize macOS) ✅ ── #96 (macOS Traits) ✅ ── #98 (Update shield_core)
                                           │
-                                          └── #97 (Key Enum) ── #99 (Conditional Deps)
+                                          └── #97 (Key Enum) ✅ ── #99 (Conditional Deps)
 
 Windows:        #100 (Keyboard Hook) ─┬── #105 (Entry Point)
                 #101 (Power Mgmt) ────┤
@@ -546,6 +547,28 @@ Potential future enhancements (not yet tracked as issues):
 - Custom overlay themes
 
 ## Changelog
+
+### 2026-01-13
+- Completed Issue #97: Create canonical Key enum and split keycodes by platform
+  - Created `src/input/keycodes/` directory structure for platform-specific keycode mappings
+  - Created `src/input/keycodes/mod.rs` with:
+    - `Key` enum: Platform-agnostic representation of all supported keys (letters A-Z, numbers 0-9, F1-F12, special keys, navigation keys, punctuation)
+    - `key_from_name()`: Parse key names to `Key` enum (case-insensitive, supports aliases like "esc"/"escape")
+    - `key_to_name()`: Convert `Key` to display name
+    - Helper methods: `is_letter()`, `is_number()`, `is_function_key()`, `is_navigation()`, `all()`
+    - Legacy compatibility functions: `keycode_from_name()`, `keycode_to_name()` for backward compatibility
+  - Created `src/input/keycodes/macos.rs` with:
+    - `key_to_keycode()`: Convert `Key` to macOS virtual keycode (CGKeyCode)
+    - `keycode_to_key()`: Convert macOS virtual keycode to `Key`
+    - Full bidirectional mapping for all 69 supported keys
+  - Created `src/input/keycodes/windows.rs` (stub) for future Windows support
+  - Created `src/input/keycodes/linux.rs` (stub) for future Linux support
+  - Removed old `src/input/keycodes.rs` (functionality moved to new module)
+  - Updated `src/input/mod.rs` to re-export new keycodes module
+  - Added 27 new unit tests for Key enum and macOS mappings
+  - All 299 tests pass, clippy clean, build successful
+  - Updated issue counts: 17 open, 48 closed
+  - Updated priority counts: 0 Critical, 4 High, 12 Medium, 1 Low
 
 ### 2026-01-12
 - Completed Issue #96: Implement platform traits for macOS
