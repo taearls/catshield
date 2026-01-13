@@ -15,6 +15,9 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # ============================================================================
+  # Lint & Format (macOS only - formatting is platform-independent)
+  # ============================================================================
   lint-and-format:
     name: Lint & Format
     runs-on: macos-latest
@@ -22,7 +25,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
@@ -32,28 +35,90 @@ jobs:
       - name: Run Clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
 
+  # ============================================================================
+  # Test Matrix - Run tests on all supported platforms
+  # ============================================================================
   test:
-    name: Test
-    runs-on: macos-latest
-    timeout-minutes: 15
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # macOS - Full test suite (primary platform)
+          - os: macos-latest
+            full-tests: true
+          # Linux - Cross-platform validation
+          # Note: Will fail until UI module is conditionally compiled (#110)
+          - os: ubuntu-latest
+            full-tests: false
+            continue-on-error: true
+          # Windows - Cross-platform validation
+          # Note: Will fail until UI module is conditionally compiled (#103)
+          - os: windows-latest
+            full-tests: false
+            continue-on-error: true
+    continue-on-error: ${{ matrix.continue-on-error || false }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Run tests
+        with:
+          # Use different cache keys per OS
+          shared-key: "ci-${{ matrix.os }}"
+
+      # macOS: Full test suite
+      - name: Run tests (macOS)
+        if: matrix.full-tests
         run: cargo test --verbose --all-features --locked
 
+      # Linux/Windows: Compilation check (until platform support is added)
+      - name: Check compilation (cross-platform)
+        if: "!matrix.full-tests"
+        run: cargo check --verbose
+
+  # ============================================================================
+  # Build Matrix - Build release binaries on all platforms
+  # ============================================================================
   build:
-    name: Build
-    runs-on: macos-latest
-    timeout-minutes: 15
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    needs: [lint-and-format, test]
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # macOS - Primary platform, full release build
+          - os: macos-latest
+            full-build: true
+          # Linux - Cross-platform validation
+          - os: ubuntu-latest
+            full-build: false
+            continue-on-error: true
+          # Windows - Cross-platform validation
+          - os: windows-latest
+            full-build: false
+            continue-on-error: true
+    continue-on-error: ${{ matrix.continue-on-error || false }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Build release
+        with:
+          shared-key: "ci-${{ matrix.os }}"
+
+      # macOS: Full release build
+      - name: Build release (macOS)
+        if: matrix.full-build
         run: cargo build --release --locked
+
+      # Linux/Windows: Compilation check only (until platform support is added)
+      - name: Check build (cross-platform)
+        if: "!matrix.full-build"
+        run: cargo check --release
