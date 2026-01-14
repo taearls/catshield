@@ -256,7 +256,7 @@ pub const fn key_to_keycode(key: Key) -> Option<u32> {
 /// assert_eq!(keycode_to_key(0x61), Some(Key::A)); // XK_a (lowercase)
 /// assert_eq!(keycode_to_key(0x41), Some(Key::A)); // XK_A (uppercase)
 /// assert_eq!(keycode_to_key(0xff1b), Some(Key::Escape)); // XK_Escape
-/// assert_eq!(keycode_to_key(0xffff), None); // Unknown keysym
+/// assert_eq!(keycode_to_key(0x0000), None); // Unknown keysym
 /// ```
 #[must_use]
 pub const fn keycode_to_key(keycode: u32) -> Option<Key> {
