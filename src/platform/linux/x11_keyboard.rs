@@ -205,15 +205,23 @@ impl X11InputBlocker {
         ProcessResult::Blocked
     }
 
-    /// Get a reference to the X11 connection if available.
-    fn get_connection() -> Option<&'static RustConnection> {
+    /// Execute a function with access to the X11 connection if available.
+    ///
+    /// This uses a callback pattern to ensure the connection reference doesn't
+    /// escape, making the unsafe scope clearer. The caller must still ensure
+    /// `disable()` is not called concurrently (see thread safety notes).
+    fn with_connection<F, R>(f: F) -> Option<R>
+    where
+        F: FnOnce(&RustConnection) -> R,
+    {
         let ptr = X11_CONNECTION.load(Ordering::Acquire);
         if ptr.is_null() {
             None
         } else {
             // SAFETY: We only store valid pointers in X11_CONNECTION from setup(),
             // and the pointer remains valid until disable() is called.
-            Some(unsafe { &*ptr })
+            // Caller must ensure disable() is not called concurrently.
+            Some(f(unsafe { &*ptr }))
         }
     }
 }
@@ -375,8 +383,9 @@ unsafe impl Sync for X11InputBlocker {}
 /// internal buffering races. The caller is responsible for ensuring proper
 /// thread affinity or serializing access.
 pub fn allow_keyboard_event() {
-    if let Some(conn) = X11InputBlocker::get_connection() {
-        // ReplayKeyboard replays the current event as if the grab wasn't active
+    X11InputBlocker::with_connection(|conn| {
+        // ReplayKeyboard replays the current event as if the grab wasn't active,
+        // allowing it to be delivered to the original target application.
         if let Err(e) = conn.allow_events(
             x11rb::protocol::xproto::Allow::REPLAY_KEYBOARD,
             x11rb::CURRENT_TIME,
@@ -384,13 +393,15 @@ pub fn allow_keyboard_event() {
             log::warn!("Failed to replay keyboard event: {}", e);
         }
         let _ = conn.flush();
-    }
+    });
 }
 
-/// Discard the next keyboard event (block it).
+/// Block the keyboard event from reaching other applications.
 ///
-/// In synchronous keyboard grab mode, we call `allow_events` with SyncKeyboard
-/// to freeze keyboard input while we decide what to do next.
+/// In synchronous keyboard grab mode, we call `allow_events` with `SyncKeyboard`
+/// to consume the event and re-freeze the keyboard. The event is delivered to us
+/// (the grabbing client) but NOT replayed to other applications, effectively
+/// blocking it from reaching its original target.
 ///
 /// # Thread Safety
 ///
@@ -400,8 +411,10 @@ pub fn allow_keyboard_event() {
 /// internal buffering races. The caller is responsible for ensuring proper
 /// thread affinity or serializing access.
 pub fn block_keyboard_event() {
-    if let Some(conn) = X11InputBlocker::get_connection() {
-        // SyncKeyboard continues processing but discards the current event
+    X11InputBlocker::with_connection(|conn| {
+        // SyncKeyboard: delivers the event to us (which we ignore), then re-freezes
+        // the keyboard. Unlike ReplayKeyboard, this does NOT forward the event to
+        // other applications, effectively blocking it.
         if let Err(e) = conn.allow_events(
             x11rb::protocol::xproto::Allow::SYNC_KEYBOARD,
             x11rb::CURRENT_TIME,
@@ -409,7 +422,7 @@ pub fn block_keyboard_event() {
             log::warn!("Failed to block keyboard event: {}", e);
         }
         let _ = conn.flush();
-    }
+    });
 }
 
 #[cfg(test)]
