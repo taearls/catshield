@@ -73,37 +73,28 @@ pub fn ensure_permissions<P: PermissionChecker>(permission_checker: &P, exit_key
         return;
     }
 
-    println!();
-    println!("  🐱 CAT SHIELD 🛡️");
-    println!("  ════════════════════════════════════════");
-    println!();
-    eprintln!("  ⚠️  ACCESSIBILITY PERMISSION REQUIRED");
-    eprintln!();
-    eprintln!("  To block keyboard/mouse input and use the exit");
-    eprintln!(
-        "  shortcut ({}), this app needs Accessibility permissions.",
+    log::info!("🐱 CAT SHIELD 🛡️");
+    log::info!("════════════════════════════════════════");
+    log::warn!("ACCESSIBILITY PERMISSION REQUIRED");
+    log::warn!(
+        "To block keyboard/mouse input and use the exit shortcut ({}), this app needs Accessibility permissions.",
         exit_key.display_name
     );
-    eprintln!();
 
     // Try to prompt user with native dialog
-    println!("  Requesting accessibility permissions...");
+    log::info!("Requesting accessibility permissions...");
     if permission_checker.check_permissions_with_prompt() {
-        println!("  ✓ Permissions granted!");
-        println!();
+        log::info!("✓ Permissions granted!");
         return;
     }
 
-    eprintln!();
-    eprintln!("  Opening System Settings → Accessibility...");
+    log::info!("Opening System Settings → Accessibility...");
 
     if permission_checker.open_permissions_settings().is_ok() {
-        eprintln!("  ✓ System Settings opened");
+        log::info!("✓ System Settings opened");
     }
-    eprintln!();
-    eprintln!("  Please add Cat Shield to the Accessibility list.");
-    eprintln!("  Waiting for permissions...");
-    eprintln!();
+    log::info!("Please add Cat Shield to the Accessibility list.");
+    log::info!("Waiting for permissions...");
 
     // Poll for permissions - platform-specific sleep mechanism
     poll_for_permissions(permission_checker);
@@ -129,8 +120,7 @@ fn poll_for_permissions<P: PermissionChecker>(permission_checker: &P) {
             CFRunLoopRunInMode((mode as *const CFString).cast(), POLL_INTERVAL_SECS, false);
         }
         if permission_checker.check_permissions() {
-            println!("  ✓ Permissions granted! Starting Cat Shield...");
-            println!();
+            log::info!("✓ Permissions granted! Starting Cat Shield...");
             return;
         }
     }
@@ -146,8 +136,7 @@ fn poll_for_permissions<P: PermissionChecker>(permission_checker: &P) {
     loop {
         thread::sleep(Duration::from_millis(POLL_INTERVAL_MS));
         if permission_checker.check_permissions() {
-            println!("  ✓ Permissions granted! Starting Cat Shield...");
-            println!();
+            log::info!("✓ Permissions granted! Starting Cat Shield...");
             return;
         }
     }
@@ -304,11 +293,9 @@ pub fn setup_close_button(
 
 /// Print the shield activation banner.
 pub fn print_activation_banner() {
-    println!();
-    println!("  🐱 CAT SHIELD 🛡️");
-    println!("  ════════════════════════════════════════");
-    println!("  Protecting your work from curious cats!");
-    println!();
+    log::info!("🐱 CAT SHIELD 🛡️");
+    log::info!("════════════════════════════════════════");
+    log::info!("Protecting your work from curious cats!");
 }
 
 /// Print the shield active status with exit instructions.
@@ -317,17 +304,14 @@ pub fn print_activation_banner() {
 /// * `exit_key` - The configured exit key for display
 /// * `timer_info` - Optional timer remaining info string
 pub fn print_shield_active(exit_key: &ExitKey, timer_info: Option<&str>) {
-    println!();
-    println!("  ═══════════════════════════════════════");
-    println!("  🛡️  CAT SHIELD IS NOW ACTIVE!");
-    println!("  ═══════════════════════════════════════");
-    println!();
-    println!("  Exit: Hold X button (top-right) for 3 seconds");
-    println!("        Or press {}", exit_key.display_name);
+    log::info!("═══════════════════════════════════════");
+    log::info!("🛡️  CAT SHIELD IS NOW ACTIVE!");
+    log::info!("═══════════════════════════════════════");
+    log::info!("Exit: Hold X button (top-right) for 3 seconds");
+    log::info!("      Or press {}", exit_key.display_name);
     if let Some(info) = timer_info {
-        println!("        Or wait for timer ({})", info);
+        log::info!("      Or wait for timer ({})", info);
     }
-    println!();
 }
 
 /// Set up the auto-exit timer and create the timer display view.
@@ -357,10 +341,7 @@ pub fn setup_timer_display(
 ) {
     // Initialize the auto-exit timer
     init_auto_exit_timer(duration_secs);
-    println!(
-        "  ✓ Auto-exit timer set: {}",
-        format_duration(duration_secs)
-    );
+    log::info!("✓ Auto-exit timer set: {}", format_duration(duration_secs));
 
     // Create timer display view
     let timer_display_frame = CGRect {
@@ -387,7 +368,7 @@ pub fn setup_timer_display(
         content_view.addSubview(&timer_view);
     }
 
-    println!("  ✓ Timer display active");
+    log::info!("✓ Timer display active");
 
     // SAFETY: Transfer ownership to prevent deallocation while shield is active.
     // The timer view is retained by the window's content view and the raw pointer

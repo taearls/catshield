@@ -30,8 +30,11 @@
 // This application is currently macOS-only
 #[cfg(not(target_os = "macos"))]
 fn main() {
-    eprintln!("Cat Shield is currently only supported on macOS.");
-    eprintln!("Windows and Linux support is planned for future releases.");
+    // Initialize logger with default verbosity (warn level)
+    cat_shield::logging::init(0);
+
+    log::error!("Cat Shield is currently only supported on macOS.");
+    log::error!("Windows and Linux support is planned for future releases.");
     std::process::exit(1);
 }
 
@@ -113,23 +116,21 @@ fn main() {
     // Parse command line arguments
     let args = Args::parse();
 
+    // Initialize logging with verbosity level from CLI args
+    cat_shield::logging::init(args.verbose);
+
     // Check for existing instance (single-instance enforcement)
     match acquire_instance_lock() {
         LockResult::Acquired => {
             // Successfully acquired lock, continue startup
         }
         LockResult::AlreadyRunning(pid) => {
-            eprintln!();
-            eprintln!("  🐱 Cat Shield is already running (PID: {})", pid);
-            eprintln!("  Look for the 🐱 icon in your menu bar.");
-            eprintln!();
+            log::warn!("Cat Shield is already running (PID: {})", pid);
+            log::warn!("Look for the 🐱 icon in your menu bar.");
             process::exit(0);
         }
         LockResult::Error(e) => {
-            eprintln!(
-                "  ⚠️  Warning: Could not check for existing instance: {}",
-                e
-            );
+            log::warn!("Could not check for existing instance: {}", e);
             // Continue anyway - lock check is best-effort
         }
     }
@@ -144,8 +145,8 @@ fn main() {
         match ExitKey::parse(key_str) {
             Ok(key) => key,
             Err(e) => {
-                eprintln!("  ⚠️  Invalid exit_key in config file: {}", e);
-                eprintln!("      Using default: {}", DEFAULT_EXIT_KEY);
+                log::warn!("Invalid exit_key in config file: {}", e);
+                log::warn!("Using default: {}", DEFAULT_EXIT_KEY);
                 ExitKey::default()
             }
         }
@@ -166,9 +167,8 @@ fn main() {
     // Always set up menu bar mode - shield deactivation returns here
     shield::MODE_MENU_BAR.store(true, Ordering::Release);
 
-    println!();
-    println!("  🐱 CAT SHIELD 🛡️");
-    println!("  ════════════════════════════════════════");
+    log::info!("🐱 CAT SHIELD 🛡️");
+    log::info!("════════════════════════════════════════");
 
     // Set up menu bar icon (always, so we can return here after shield deactivation)
     let _status_item = setup_menu_bar(mtm);
@@ -187,7 +187,7 @@ fn main() {
         let screen = match screen {
             Some(s) => s,
             None => {
-                eprintln!("  ✗ Failed to get main screen");
+                log::error!("Failed to get main screen");
                 process::exit(1);
             }
         };
@@ -202,7 +202,7 @@ fn main() {
         // Show the window
         window.makeKeyAndOrderFront(None);
 
-        println!("  ✓ Overlay window active");
+        log::info!("✓ Overlay window active");
 
         // Create close button and label using shared logic
         let (close_button, close_button_label) = setup_close_button(mtm, screen_frame);
@@ -229,8 +229,8 @@ fn main() {
         // Start the animation timer
         start_close_button_timer();
 
-        println!("  ✓ Close button active (hold 3s to exit)");
-        println!("  ✓ Exit key: {}", exit_key.display_name);
+        log::info!("✓ Close button active (hold 3s to exit)");
+        log::info!("✓ Exit key: {}", exit_key.display_name);
 
         // Set up auto-exit timer if specified (uses shared helper)
         if let Some(duration_secs) = args.timer {
@@ -239,10 +239,7 @@ fn main() {
             } else {
                 // Timer without display - just initialize the timer
                 cat_shield::timer::init_auto_exit_timer(duration_secs);
-                println!(
-                    "  ✓ Auto-exit timer set: {}",
-                    format_duration(duration_secs)
-                );
+                log::info!("✓ Auto-exit timer set: {}", format_duration(duration_secs));
             }
         }
 
@@ -255,22 +252,18 @@ fn main() {
         // Set up event tap - this is the core security feature
         // Without input blocking, the shield is just a visual overlay
         if !setup_event_tap() {
-            eprintln!("  ✗ Failed to create event tap");
-            eprintln!();
-            eprintln!("  ════════════════════════════════════════");
-            eprintln!("  ⚠️  SHIELD ACTIVATION FAILED");
-            eprintln!("  ════════════════════════════════════════");
-            eprintln!();
-            eprintln!("  Input blocking could not be enabled.");
-            eprintln!("  The shield cannot protect without this feature.");
-            eprintln!();
-            eprintln!("  Please check:");
-            eprintln!("  - Accessibility permissions are granted");
-            eprintln!("  - No other apps are blocking event taps");
-            eprintln!();
+            log::error!("Failed to create event tap");
+            log::error!("════════════════════════════════════════");
+            log::error!("SHIELD ACTIVATION FAILED");
+            log::error!("════════════════════════════════════════");
+            log::error!("Input blocking could not be enabled.");
+            log::error!("The shield cannot protect without this feature.");
+            log::error!("Please check:");
+            log::error!("  - Accessibility permissions are granted");
+            log::error!("  - No other apps are blocking event taps");
             std::process::exit(1);
         }
-        println!("  ✓ Input blocking active");
+        log::info!("✓ Input blocking active");
 
         // Mark shield as active
         shield::IS_ACTIVE.store(true, Ordering::Release);
@@ -294,12 +287,10 @@ fn main() {
         std::mem::forget(close_button_label);
     } else {
         // Menu bar only mode (no CLI args)
-        println!("  Menu bar mode active");
-        println!();
-        println!("  Click the 🐱 icon in your menu bar to access Cat Shield.");
-        println!("  Use 'Start Protection' to activate the shield.");
-        println!("  Or run with --timer or --exit-key to start immediately.");
-        println!();
+        log::info!("Menu bar mode active");
+        log::info!("Click the 🐱 icon in your menu bar to access Cat Shield.");
+        log::info!("Use 'Start Protection' to activate the shield.");
+        log::info!("Or run with --timer or --exit-key to start immediately.");
     }
 
     // Finish launching the application (required for menu bar apps)
@@ -320,7 +311,5 @@ fn main() {
     // Release single-instance lock before exiting
     release_instance_lock();
 
-    println!();
-    println!("  👋 Cat Shield closed. Goodbye!");
-    println!();
+    log::info!("👋 Cat Shield closed. Goodbye!");
 }

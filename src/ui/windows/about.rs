@@ -93,7 +93,7 @@ fn cleanup_about_window_references() {
         });
     }
 
-    println!("  About window closed");
+    log::debug!("About window closed");
 }
 
 /// Close the about window (called by Close button)
@@ -411,5 +411,5 @@ pub fn show_about_window(mtm: MainThreadMarker) {
     // released by NSWindow when closed, but the panel itself persists.
     std::mem::forget(panel);
 
-    println!("  About window opened");
+    log::debug!("About window opened");
 }

@@ -19,7 +19,7 @@ pub fn get_current_config() -> Config {
             // Recover from poisoned mutex - the Config struct has no complex
             // invariants that could be violated by a panic, so we can safely
             // recover the inner value.
-            eprintln!("  ⚠️  Warning: Config mutex was poisoned, recovering...");
+            log::warn!("Config mutex was poisoned, recovering...");
             poisoned.into_inner()
         })
         .clone()
@@ -34,7 +34,7 @@ pub fn set_current_config(config: Config) {
     let mutex = CURRENT_CONFIG.get_or_init(|| Mutex::new(Config::load()));
     let mut guard = mutex.lock().unwrap_or_else(|poisoned| {
         // Recover from poisoned mutex - safe for Config struct
-        eprintln!("  ⚠️  Warning: Config mutex was poisoned, recovering...");
+        log::warn!("Config mutex was poisoned, recovering...");
         poisoned.into_inner()
     });
     *guard = config;

@@ -85,15 +85,12 @@ pub unsafe extern "C" fn timer_callback(_timer: *mut c_void, _info: *mut c_void)
 
         // Show warning when approaching exit
         if remaining <= WARNING_SECONDS && !WARNING_SHOWN.swap(true, Ordering::AcqRel) {
-            println!();
-            println!("  ⚠️  Auto-exit in {} seconds!", remaining);
-            println!();
+            log::warn!("Auto-exit in {} seconds!", remaining);
         }
 
         // Check if timer has expired
         if remaining == 0 {
-            println!();
-            println!("  ⏰ Timer expired - auto-exiting...");
+            log::info!("⏰ Timer expired - auto-exiting...");
             // In menu bar mode, deactivate shield and return to menu bar
             // In immediate mode, terminate the app
             if menu_bar_mode {
@@ -193,8 +190,7 @@ pub fn deactivate_shield() {
         return;
     }
 
-    println!();
-    println!("  🛡️  Deactivating Cat Shield...");
+    log::info!("🛡️  Deactivating Cat Shield...");
 
     // Stop the animation timer first
     stop_close_button_timer();
@@ -225,7 +221,7 @@ pub fn deactivate_shield() {
             window.close();
             // window is dropped here, calling release() on the NSWindow
         }
-        println!("  ✓ Shield window closed");
+        log::info!("✓ Shield window closed");
     }
 
     // Release the close button view properly
@@ -354,10 +350,8 @@ pub fn deactivate_shield() {
         });
     }
 
-    println!();
-    println!("  ✓ Cat Shield deactivated");
-    println!("  Click the 🐱 icon to activate protection again.");
-    println!();
+    log::info!("✓ Cat Shield deactivated");
+    log::info!("Click the 🐱 icon to activate protection again.");
 }
 
 /// Activate the shield protection
@@ -393,7 +387,7 @@ pub fn activate_shield(mtm: MainThreadMarker) {
     let screen = match screen {
         Some(s) => s,
         None => {
-            eprintln!("  ✗ Failed to get main screen");
+            log::error!("Failed to get main screen");
             shield::IS_ACTIVE.store(false, Ordering::Release);
             // Re-enable menu item
             unsafe {
@@ -415,7 +409,7 @@ pub fn activate_shield(mtm: MainThreadMarker) {
     // Show the window
     window.makeKeyAndOrderFront(None);
 
-    println!("  ✓ Overlay window active");
+    log::info!("✓ Overlay window active");
 
     // Create close button and label using shared logic
     let (close_button, close_button_label) = setup_close_button(mtm, screen_frame);
@@ -440,8 +434,8 @@ pub fn activate_shield(mtm: MainThreadMarker) {
     // Start the animation timer
     start_close_button_timer();
 
-    println!("  ✓ Close button active (hold 3s to exit)");
-    println!("  ✓ Exit key: {}", exit_key.display_name);
+    log::info!("✓ Close button active (hold 3s to exit)");
+    log::info!("✓ Exit key: {}", exit_key.display_name);
 
     // Check for default timer in config and set up auto-exit if configured (uses shared helper)
     let config = Config::load();
@@ -452,7 +446,7 @@ pub fn activate_shield(mtm: MainThreadMarker) {
                 Some(duration_secs)
             }
             Err(e) => {
-                eprintln!("  ⚠️  Invalid default_timer in config: {}", e);
+                log::warn!("Invalid default_timer in config: {}", e);
                 None
             }
         }
@@ -467,13 +461,13 @@ pub fn activate_shield(mtm: MainThreadMarker) {
         match parse_and_set_allowed_keys(allowed_keys_strs) {
             Ok(()) => {
                 if !allowed_keys_strs.is_empty() {
-                    println!("  ✓ Allowed keys: {}", allowed_keys_strs.join(", "));
+                    log::info!("✓ Allowed keys: {}", allowed_keys_strs.join(", "));
                 }
             }
             Err(errors) => {
-                eprintln!("  ⚠️  Invalid allowed_keys in config:");
+                log::warn!("Invalid allowed_keys in config:");
                 for error in errors {
-                    eprintln!("      {}", error);
+                    log::warn!("  {}", error);
                 }
             }
         }
@@ -488,24 +482,20 @@ pub fn activate_shield(mtm: MainThreadMarker) {
     // Set up event tap - this is the core security feature
     // Without input blocking, the shield is just a visual overlay
     if !setup_event_tap() {
-        eprintln!("  ✗ Failed to create event tap");
-        eprintln!();
-        eprintln!("  ════════════════════════════════════════");
-        eprintln!("  ⚠️  SHIELD ACTIVATION FAILED");
-        eprintln!("  ════════════════════════════════════════");
-        eprintln!();
-        eprintln!("  Input blocking could not be enabled.");
-        eprintln!("  The shield cannot protect without this feature.");
-        eprintln!();
-        eprintln!("  Please check:");
-        eprintln!("  - Accessibility permissions are granted");
-        eprintln!("  - No other apps are blocking event taps");
-        eprintln!();
+        log::error!("Failed to create event tap");
+        log::error!("════════════════════════════════════════");
+        log::error!("SHIELD ACTIVATION FAILED");
+        log::error!("════════════════════════════════════════");
+        log::error!("Input blocking could not be enabled.");
+        log::error!("The shield cannot protect without this feature.");
+        log::error!("Please check:");
+        log::error!("  - Accessibility permissions are granted");
+        log::error!("  - No other apps are blocking event taps");
         // Deactivate and return to menu bar mode
         deactivate_shield();
         return;
     }
-    println!("  ✓ Input blocking active");
+    log::info!("✓ Input blocking active");
 
     // Print shield active status (shared)
     let timer_info = timer_duration_secs

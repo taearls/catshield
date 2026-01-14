@@ -47,12 +47,12 @@ impl Config {
             Ok(contents) => match toml::from_str(&contents) {
                 Ok(config) => config,
                 Err(e) => {
-                    eprintln!("  ⚠️  Warning: Failed to parse config file: {}", e);
+                    log::warn!("Failed to parse config file: {}", e);
                     Self::default()
                 }
             },
             Err(e) => {
-                eprintln!("  ⚠️  Warning: Failed to read config file: {}", e);
+                log::warn!("Failed to read config file: {}", e);
                 Self::default()
             }
         }

@@ -127,8 +127,8 @@ pub fn acquire_instance_lock() -> LockResult {
         // If we're here, we removed a stale lock and will retry
         // Log only on later attempts to avoid noise
         if attempt > 0 {
-            eprintln!(
-                "  ⚠️  Retrying lock acquisition (attempt {}/{})",
+            log::warn!(
+                "Retrying lock acquisition (attempt {}/{})",
                 attempt + 1,
                 LOCK_RETRY_LIMIT
             );

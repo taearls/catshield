@@ -44,7 +44,7 @@ unsafe extern "C-unwind" fn event_tap_callback(
     if event_type == CGEventType::TapDisabledByTimeout
         || event_type == CGEventType::TapDisabledByUserInput
     {
-        eprintln!("  ⚠️  Event tap was disabled, re-enabling...");
+        log::warn!("Event tap was disabled, re-enabling...");
         // Re-enable the tap using the stored pointer
         let tap = EVENT_TAP.load(Ordering::Acquire);
         if !tap.is_null() {
@@ -65,7 +65,7 @@ unsafe extern "C-unwind" fn event_tap_callback(
 
         // Check for configured exit key combination (only on KeyDown)
         if event_type == CGEventType::KeyDown && check_exit_key(keycode, flags) {
-            println!("\n  🔓 Exit key combination detected!");
+            log::info!("🔓 Exit key combination detected!");
 
             // In menu bar mode, deactivate shield and return to menu bar
             // In immediate mode, terminate the app
@@ -199,6 +199,6 @@ pub fn disable_event_tap() {
             // Release the CFMachPort
             CFRelease(tap_ptr);
         }
-        println!("  ✓ Input blocking disabled");
+        log::info!("✓ Input blocking disabled");
     }
 }

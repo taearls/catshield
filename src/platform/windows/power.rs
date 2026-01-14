@@ -75,7 +75,7 @@ impl PowerManager for WindowsPowerManager {
             set.insert(id);
         }
 
-        println!("  ✓ Sleep prevention enabled (Windows)");
+        log::info!("✓ Sleep prevention enabled (Windows)");
 
         Ok(SleepAssertion::new(id))
     }
@@ -132,7 +132,7 @@ impl PowerManager for WindowsPowerManager {
                 ));
             }
 
-            println!("  ✓ Sleep prevention disabled (Windows)");
+            log::info!("✓ Sleep prevention disabled (Windows)");
         }
 
         Ok(())
