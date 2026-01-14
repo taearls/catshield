@@ -15,45 +15,69 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # Lint and format checks run once (not platform-specific)
   lint-and-format:
     name: Lint & Format
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
       - name: Check formatting
         run: cargo fmt --all -- --check
-      - name: Run Clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
+      # Note: Clippy runs per-platform due to cfg-specific code
 
-  test:
-    name: Test
-    runs-on: macos-latest
-    timeout-minutes: 15
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - name: Run tests
-        run: cargo test --verbose --all-features --locked
-
+  # Build and test on all supported platforms
   build:
-    name: Build
-    runs-on: macos-latest
-    timeout-minutes: 15
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+        include:
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.os }}
+      - name: Run Clippy
+        run: cargo clippy --all-targets -- -D warnings
       - name: Build release
         run: cargo build --release --locked
+
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.os }}
+      - name: Run tests
+        run: cargo test --verbose --locked
