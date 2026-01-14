@@ -23,8 +23,8 @@ use std::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
 
 use windows::Win32::Foundation::{HINSTANCE, LPARAM, LRESULT, WPARAM};
 use windows::Win32::UI::WindowsAndMessaging::{
-    CallNextHookEx, SetWindowsHookExW, UnhookWindowsHookEx, HHOOK, KBDLLHOOKSTRUCT,
-    WH_KEYBOARD_LL, WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP,
+    CallNextHookEx, SetWindowsHookExW, UnhookWindowsHookEx, HHOOK, KBDLLHOOKSTRUCT, WH_KEYBOARD_LL,
+    WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP,
 };
 
 /// Virtual key code for the Windows/Super key
@@ -76,8 +76,7 @@ pub fn set_exit_key_config(
 ///
 /// This is a simplified implementation. A production version would use
 /// a thread-safe collection to store multiple allowed key combinations.
-static ALLOWED_KEYS: std::sync::RwLock<Vec<AllowedKeyConfig>> =
-    std::sync::RwLock::new(Vec::new());
+static ALLOWED_KEYS: std::sync::RwLock<Vec<AllowedKeyConfig>> = std::sync::RwLock::new(Vec::new());
 
 /// Configuration for an allowed key combination
 #[derive(Clone, Debug)]

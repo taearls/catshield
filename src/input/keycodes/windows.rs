@@ -84,11 +84,11 @@ pub const fn key_to_keycode(key: Key) -> Option<u32> {
         Key::F12 => Some(0x7B),
 
         // Special keys
-        Key::Escape => Some(0x1B),  // VK_ESCAPE
-        Key::Tab => Some(0x09),     // VK_TAB
-        Key::Space => Some(0x20),   // VK_SPACE
-        Key::Return => Some(0x0D),  // VK_RETURN
-        Key::Delete => Some(0x08),  // VK_BACK (Backspace)
+        Key::Escape => Some(0x1B), // VK_ESCAPE
+        Key::Tab => Some(0x09),    // VK_TAB
+        Key::Space => Some(0x20),  // VK_SPACE
+        Key::Return => Some(0x0D), // VK_RETURN
+        Key::Delete => Some(0x08), // VK_BACK (Backspace)
 
         // Navigation keys
         Key::Left => Some(0x25),     // VK_LEFT
@@ -102,17 +102,17 @@ pub const fn key_to_keycode(key: Key) -> Option<u32> {
 
         // Punctuation and symbols
         // Note: These use OEM key codes which may vary by keyboard layout
-        Key::Minus => Some(0xBD),       // VK_OEM_MINUS
-        Key::Equal => Some(0xBB),       // VK_OEM_PLUS (equals sign)
-        Key::LeftBracket => Some(0xDB), // VK_OEM_4
-        Key::RightBracket => Some(0xDD),// VK_OEM_6
-        Key::Backslash => Some(0xDC),   // VK_OEM_5
-        Key::Semicolon => Some(0xBA),   // VK_OEM_1
-        Key::Quote => Some(0xDE),       // VK_OEM_7
-        Key::Grave => Some(0xC0),       // VK_OEM_3 (backtick/tilde)
-        Key::Comma => Some(0xBC),       // VK_OEM_COMMA
-        Key::Period => Some(0xBE),      // VK_OEM_PERIOD
-        Key::Slash => Some(0xBF),       // VK_OEM_2
+        Key::Minus => Some(0xBD),        // VK_OEM_MINUS
+        Key::Equal => Some(0xBB),        // VK_OEM_PLUS (equals sign)
+        Key::LeftBracket => Some(0xDB),  // VK_OEM_4
+        Key::RightBracket => Some(0xDD), // VK_OEM_6
+        Key::Backslash => Some(0xDC),    // VK_OEM_5
+        Key::Semicolon => Some(0xBA),    // VK_OEM_1
+        Key::Quote => Some(0xDE),        // VK_OEM_7
+        Key::Grave => Some(0xC0),        // VK_OEM_3 (backtick/tilde)
+        Key::Comma => Some(0xBC),        // VK_OEM_COMMA
+        Key::Period => Some(0xBE),       // VK_OEM_PERIOD
+        Key::Slash => Some(0xBF),        // VK_OEM_2
     }
 }
 
