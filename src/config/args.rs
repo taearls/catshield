@@ -44,6 +44,10 @@ pub struct Args {
     /// CLI argument overrides config file setting.
     #[arg(short = 'e', long = "exit-key", value_parser = parse_exit_key)]
     pub exit_key: Option<ExitKey>,
+
+    /// Enable verbose logging output (use multiple times for more detail: -v, -vv, -vvv)
+    #[arg(short, long, action = clap::ArgAction::Count)]
+    pub verbose: u8,
 }
 
 /// Parse exit key string into ExitKey struct (for clap value_parser)
@@ -67,6 +71,7 @@ mod tests {
             timer: None,
             hide_timer: false,
             exit_key: None,
+            verbose: 0,
         };
         assert!(!has_immediate_start_args(&args));
     }
@@ -77,6 +82,7 @@ mod tests {
             timer: Some(60),
             hide_timer: false,
             exit_key: None,
+            verbose: 0,
         };
         assert!(has_immediate_start_args(&args));
     }
@@ -87,6 +93,7 @@ mod tests {
             timer: None,
             hide_timer: false,
             exit_key: Some(ExitKey::default()),
+            verbose: 0,
         };
         assert!(has_immediate_start_args(&args));
     }
@@ -97,6 +104,7 @@ mod tests {
             timer: Some(120),
             hide_timer: true,
             exit_key: Some(ExitKey::default()),
+            verbose: 0,
         };
         assert!(has_immediate_start_args(&args));
     }
@@ -108,6 +116,7 @@ mod tests {
             timer: None,
             hide_timer: true,
             exit_key: None,
+            verbose: 0,
         };
         assert!(!has_immediate_start_args(&args));
     }

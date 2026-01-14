@@ -85,13 +85,13 @@ fn open_url(url_str: &str) -> bool {
     // Create NSURL from the string
     let ns_url_str = objc2_foundation::NSString::from_str(url_str);
     let Some(url) = NSURL::URLWithString(&ns_url_str) else {
-        eprintln!("HelpActionHandler: invalid URL: {url_str}");
+        log::error!("HelpActionHandler: invalid URL: {url_str}");
         return false;
     };
     let workspace = NSWorkspace::sharedWorkspace();
     let ok = workspace.openURL(&url);
     if !ok {
-        eprintln!("HelpActionHandler: failed to open URL: {url_str}");
+        log::error!("HelpActionHandler: failed to open URL: {url_str}");
     }
     ok
 }

@@ -281,7 +281,7 @@ pub fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
     // Attach menu to status item
     status_item.setMenu(Some(&menu));
 
-    println!("  ✓ Menu bar icon active (🐱) with comprehensive dropdown menu");
+    log::info!("✓ Menu bar icon active (🐱) with comprehensive dropdown menu");
 
     status_item
 }

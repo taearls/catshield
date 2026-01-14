@@ -102,7 +102,7 @@ pub fn set_allowed_keys(keys: Vec<AllowedKey>) {
         }
         Err(poisoned) => {
             // Recover from poisoned mutex
-            eprintln!("  ⚠️  Warning: ALLOWED_KEYS mutex was poisoned, recovering...");
+            log::warn!("ALLOWED_KEYS mutex was poisoned, recovering...");
             let mut guard = poisoned.into_inner();
             *guard = keys;
         }
@@ -135,7 +135,7 @@ pub fn get_allowed_keys() -> Vec<AllowedKey> {
     match ALLOWED_KEYS.read() {
         Ok(guard) => guard.clone(),
         Err(poisoned) => {
-            eprintln!("  ⚠️  Warning: ALLOWED_KEYS mutex was poisoned during read");
+            log::warn!("ALLOWED_KEYS mutex was poisoned during read");
             poisoned.into_inner().clone()
         }
     }
@@ -146,7 +146,7 @@ pub fn is_key_allowed(keycode: i64, flags: CGEventFlags) -> bool {
     match ALLOWED_KEYS.read() {
         Ok(guard) => guard.iter().any(|key| key.matches(keycode, flags)),
         Err(poisoned) => {
-            eprintln!("  ⚠️  Warning: ALLOWED_KEYS mutex was poisoned during check");
+            log::warn!("ALLOWED_KEYS mutex was poisoned during check");
             poisoned
                 .into_inner()
                 .iter()
@@ -162,7 +162,7 @@ pub fn clear_allowed_keys() {
             guard.clear();
         }
         Err(poisoned) => {
-            eprintln!("  ⚠️  Warning: ALLOWED_KEYS mutex was poisoned during clear");
+            log::warn!("ALLOWED_KEYS mutex was poisoned during clear");
             poisoned.into_inner().clear();
         }
     }

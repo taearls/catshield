@@ -503,7 +503,7 @@ fn reset_settings_to_defaults() {
     // Clear validation label (field is empty, revalidation happens on next keystroke)
     set_validation_label(&settings::ADD_KEY_VALIDATION, true, "");
 
-    println!("  Settings reset to defaults (not saved)");
+    log::debug!("Settings reset to defaults (not saved)");
 }
 
 /// Clean up settings window UI element references
@@ -551,7 +551,7 @@ fn cleanup_settings_window_references() {
         });
     }
 
-    println!("  Settings window closed");
+    log::debug!("Settings window closed");
 }
 
 /// Close the settings window (called by Cancel/Save buttons)
@@ -678,28 +678,28 @@ fn save_settings_from_window() {
     }
 
     if has_errors {
-        println!("  ⚠️  Settings have validation errors, please fix them");
+        log::warn!("Settings have validation errors, please fix them");
         return;
     }
 
     // Save config to file
     match config.save() {
         Ok(()) => {
-            println!("  ✓ Settings saved to config file");
+            log::info!("✓ Settings saved to config file");
             set_current_config(config.clone());
 
             // Update the global exit key if changed
             if let Some(ref key_str) = config.exit_key {
                 if let Ok(key) = ExitKey::parse(key_str) {
                     set_exit_key(&key);
-                    println!("  ✓ Exit key updated to: {}", key.display_name);
+                    log::info!("✓ Exit key updated to: {}", key.display_name);
                 }
             }
 
             close_settings_window();
         }
         Err(e) => {
-            eprintln!("  ✗ Failed to save settings: {}", e);
+            log::error!("Failed to save settings: {}", e);
         }
     }
 }
@@ -2614,7 +2614,7 @@ fn finalize_and_show_window(mtm: MainThreadMarker, panel: Retained<NSPanel>) {
     // released by NSWindow when closed, but the panel itself persists.
     std::mem::forget(panel);
 
-    println!("  Settings window opened");
+    log::debug!("Settings window opened");
 }
 
 // ============================================================================

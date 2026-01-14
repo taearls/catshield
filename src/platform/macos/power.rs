@@ -26,10 +26,10 @@ pub fn prevent_sleep() -> Option<u32> {
     };
 
     if result == 0 {
-        println!("  ✓ Sleep prevention enabled");
+        log::info!("✓ Sleep prevention enabled");
         Some(assertion_id)
     } else {
-        eprintln!("  ✗ Failed to create power assertion: {}", result);
+        log::error!("Failed to create power assertion: {}", result);
         None
     }
 }
@@ -38,6 +38,6 @@ pub fn prevent_sleep() -> Option<u32> {
 pub fn allow_sleep(assertion_id: u32) {
     let result = unsafe { IOPMAssertionRelease(assertion_id) };
     if result == 0 {
-        println!("  ✓ Sleep prevention disabled");
+        log::info!("✓ Sleep prevention disabled");
     }
 }

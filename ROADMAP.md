@@ -383,6 +383,7 @@ Testing (can be done in parallel):
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #128 | feat: Migrate from println!/eprintln! to log crate | 2026-01-14 |
 | #101 | feat: Add Windows power management (PowerManager) | 2026-01-14 |
 | #100 | feat: Add Windows keyboard hook implementation (InputBlocker) | 2026-01-14 |
 | #104 | feat: Add Windows keycode mappings | 2026-01-14 |
@@ -427,7 +428,7 @@ Testing (can be done in parallel):
 | Status | Count | Issues |
 |--------|-------|--------|
 | Open | 11 | #102, #103, #105, #106, #107, #108, #109, #110, #111, #113, #114 |
-| Closed | 55 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80, #83, #85, #86, #87, #91, #94, #95, #96, #97, #98, #99, #100, #101, #104, #112, #120 |
+| Closed | 56 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80, #83, #85, #86, #87, #91, #94, #95, #96, #97, #98, #99, #100, #101, #104, #112, #120, #128 |
 
 ### By Priority
 - 🔴 Critical: 0
@@ -558,6 +559,24 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-14
+- Completed Issue #128: Migrate from println!/eprintln! to log crate
+  - Added `log` v0.4 and `env_logger` v0.11 dependencies to Cargo.toml
+  - Created `src/logging.rs` module with `init()` function for logger initialization
+  - Log level controlled via CLI `-v` flags: `-v` (info), `-vv` (debug), `-vvv` (trace)
+  - Default log level is `warn` (shows warnings and errors)
+  - `RUST_LOG` environment variable can override CLI verbosity level
+  - Added `verbose: u8` field to CLI Args struct (supports `-v`, `-vv`, `-vvv`)
+  - Migrated all `println!` and `eprintln!` calls across 15 source files:
+    - User-facing informational messages → `log::info!`
+    - Warnings and recoverable errors → `log::warn!`
+    - Fatal errors and failures → `log::error!`
+    - Debug/development messages → `log::debug!`
+  - Logger initialized early in `main()` before any other logging
+  - Non-macOS platform stub also initializes logger with default verbosity
+  - Clean, structured output format (no timestamps or module targets for CLI)
+  - All 305 tests pass, clippy clean, build successful
+  - Updated issue counts: 11 open, 56 closed
+
 - Completed Issue #101: Add Windows power management (PowerManager)
   - Created `src/platform/windows/power.rs` with `WindowsPowerManager` implementation
   - Implements the `PowerManager` trait for Windows using `SetThreadExecutionState` API
