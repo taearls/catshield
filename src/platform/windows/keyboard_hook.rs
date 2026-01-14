@@ -267,7 +267,7 @@ impl InputBlocker for WindowsInputBlocker {
         match hook {
             Ok(h) => {
                 // Store the hook handle for later cleanup
-                KEYBOARD_HOOK.store(h.0 as *mut c_void, Ordering::Release);
+                KEYBOARD_HOOK.store(h.0, Ordering::Release);
                 BLOCKING_ENABLED.store(true, Ordering::Release);
                 self.active = true;
                 Ok(())
@@ -294,7 +294,7 @@ impl InputBlocker for WindowsInputBlocker {
             // SAFETY: We only call UnhookWindowsHookEx with a valid hook handle
             // that we obtained from SetWindowsHookExW
             unsafe {
-                let hook = HHOOK(hook_ptr as *mut c_void);
+                let hook = HHOOK(hook_ptr);
                 let _ = UnhookWindowsHookEx(hook);
             }
         }
