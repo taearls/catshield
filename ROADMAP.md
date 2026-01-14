@@ -329,20 +329,20 @@ Testing (can be done in parallel):
 
 | Priority | Issue | Title | Dependencies | Effort |
 |----------|-------|-------|--------------|--------|
-| 🟡 High | #100 | Add Windows keyboard hook implementation (InputBlocker) | #94, #96 | ~2-3 days |
+| ✅ Done | #100 | Add Windows keyboard hook implementation (InputBlocker) | #94, #96 | ~2-3 days |
 | 🟡 High | #101 | Add Windows power management (PowerManager) | #94 | ~1 day |
 | 🟢 Medium | #102 | Add Windows system tray implementation | #94, #96 | ~2 days |
 | 🟢 Medium | #103 | Add Windows overlay window implementation | #94, #96 | ~2 days |
-| 🟢 Medium | #104 | Add Windows keycode mappings | #97 | ~1 day |
+| ✅ Done | #104 | Add Windows keycode mappings | #97 | ~1 day |
 | 🟢 Medium | #105 | Create Windows entry point and event loop integration | #100, #102, #103 | ~1-2 days |
 
 **Implementation Order:**
 ```text
-#100: Windows Keyboard Hook ─┬─ #105: Windows Entry Point
-#101: Windows Power Mgmt ────┤
-#102: Windows System Tray ───┤
-#103: Windows Overlay ───────┘
-#104: Windows Keycodes (parallel with #97)
+#100: Windows Keyboard Hook ✅ ─┬─ #105: Windows Entry Point
+#101: Windows Power Mgmt ───────┤
+#102: Windows System Tray ──────┤
+#103: Windows Overlay ──────────┘
+#104: Windows Keycodes ✅ (parallel with #97)
 ```
 
 #### Phase 8.3: Linux Support
@@ -383,6 +383,8 @@ Testing (can be done in parallel):
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #100 | feat: Add Windows keyboard hook implementation (InputBlocker) | 2026-01-14 |
+| #104 | feat: Add Windows keycode mappings | 2026-01-14 |
 | #112 | feat: Set up cross-platform GitHub Actions CI | 2026-01-14 |
 | #98 | feat: Update shield_core.rs to use platform traits | 2026-01-14 |
 | #120 | feat: Add Docker containers for cross-platform local development | 2026-01-14 |
@@ -423,13 +425,13 @@ Testing (can be done in parallel):
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 14 | #100, #101, #102, #103, #104, #105, #106, #107, #108, #109, #110, #111, #113, #114 |
-| Closed | 52 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80, #83, #85, #86, #87, #91, #94, #95, #96, #97, #98, #99, #112, #120 |
+| Open | 12 | #101, #102, #103, #105, #106, #107, #108, #109, #110, #111, #113, #114 |
+| Closed | 54 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80, #83, #85, #86, #87, #91, #94, #95, #96, #97, #98, #99, #100, #104, #112, #120 |
 
 ### By Priority
 - 🔴 Critical: 0
-- 🟡 High: 4 (#100, #101, #106, #107)
-- 🟢 Medium: 9 (#102, #103, #104, #105, #108, #109, #110, #111, #113)
+- 🟡 High: 3 (#101, #106, #107)
+- 🟢 Medium: 8 (#102, #103, #105, #108, #109, #110, #111, #113)
 - 🔵 Low: 1 (#114)
 
 ## Recommended Implementation Order
@@ -524,11 +526,11 @@ Foundation:     #94 (Platform Traits) ✅ ─┬── #95 (Reorganize macOS) �
                                           │
                                           └── #97 (Key Enum) ✅ ── #99 (Conditional Deps)
 
-Windows:        #100 (Keyboard Hook) ─┬── #105 (Entry Point)
-                #101 (Power Mgmt) ────┤
-                #102 (System Tray) ───┤
-                #103 (Overlay) ───────┘
-                #104 (Keycodes) ──────── (parallel with #97)
+Windows:        #100 (Keyboard Hook) ✅ ─┬── #105 (Entry Point)
+                #101 (Power Mgmt) ───────┤
+                #102 (System Tray) ──────┤
+                #103 (Overlay) ──────────┘
+                #104 (Keycodes) ✅ ──────── (parallel with #97)
 
 Linux:          #107 (Wayland Research) ─┬── #110 (Overlay)
                 #106 (X11 Keyboard) ─────┤
@@ -555,6 +557,42 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-14
+- Completed Issue #100: Add Windows keyboard hook implementation (InputBlocker)
+  - Created `src/platform/windows/` directory with Windows-specific implementations
+  - Implemented `WindowsInputBlocker` struct implementing the `InputBlocker` trait
+  - Uses `SetWindowsHookExW` with `WH_KEYBOARD_LL` for low-level keyboard hook
+  - Hook callback intercepts and blocks keyboard events system-wide
+  - Support for exit key detection with configurable key combinations
+  - Support for allowed keys list to pass specific keys through the shield
+  - Uses `GetAsyncKeyState` to check modifier key state (Ctrl, Alt, Shift, Win)
+  - Thread-safe implementation using atomic operations for shared state
+  - Added `set_exit_key_config()` function to configure exit key combination
+  - Added `set_allowed_keys()` and `clear_allowed_keys()` for key allowlist
+  - Added `AllowedKeyConfig` struct for configuring allowed key combinations
+  - Proper cleanup via `UnhookWindowsHookEx` when input blocking is disabled
+  - Added unit tests for configuration and state management
+  - Added `windows` crate v0.58 dependency with required features:
+    - `Win32_Foundation`, `Win32_UI_WindowsAndMessaging`
+    - `Win32_System_Threading`, `Win32_System_LibraryLoader`
+  - Updated `src/platform/mod.rs` to conditionally include Windows module
+
+- Completed Issue #104: Add Windows keycode mappings
+  - Fully implemented `src/input/keycodes/windows.rs` (was previously a stub)
+  - Added `key_to_keycode()` function: converts `Key` enum to Windows virtual key codes
+  - Added `keycode_to_key()` function: converts Windows virtual key codes to `Key` enum
+  - Complete mappings for all 57 supported keys:
+    - Letters A-Z (VK_A through VK_Z: 0x41-0x5A)
+    - Numbers 0-9 (VK_0 through VK_9: 0x30-0x39)
+    - Function keys F1-F12 (VK_F1 through VK_F12: 0x70-0x7B)
+    - Special keys: Escape, Tab, Space, Return, Delete (Backspace)
+    - Navigation keys: Arrow keys, Home, End, PageUp, PageDown
+    - Punctuation: Minus, Equal, Brackets, Backslash, Semicolon, Quote, etc.
+  - Uses OEM key codes for punctuation (may vary by keyboard layout)
+  - Added 15 comprehensive unit tests for key mappings
+  - Tests verify roundtrip conversion and complete coverage
+  - Updated issue counts: 12 open, 54 closed
+  - Updated priority counts: 0 Critical, 3 High, 8 Medium, 1 Low
+
 - Completed Issue #112: Set up cross-platform GitHub Actions CI
   - Updated `.github/workflows/ci.yml` to use matrix strategy for all three platforms
   - Build job now runs on `macos-latest`, `windows-latest`, and `ubuntu-latest`
