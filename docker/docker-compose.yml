@@ -1,0 +1,96 @@
+# Docker Compose for Cat Shield Cross-Platform Development
+#
+# Usage:
+#   # Run all Linux validations
+#   docker compose up
+#
+#   # Run specific service
+#   docker compose run linux-test
+#   docker compose run linux-clippy
+#   docker compose run windows-check
+#
+# Note: Issue #99 (conditional platform dependencies) is implemented, but the `ui` module
+# still needs cfg guards. Linux/Windows compilation will fail until #103/#110 are done.
+
+services:
+  # =============================================================================
+  # Linux Services
+  # =============================================================================
+
+  linux-test:
+    build:
+      context: ./linux
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/app
+      - cargo-cache:/usr/local/cargo/registry
+      - target-cache-linux:/app/target
+    command: cargo test --verbose
+    working_dir: /app
+
+  linux-clippy:
+    build:
+      context: ./linux
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/app
+      - cargo-cache:/usr/local/cargo/registry
+      - target-cache-linux:/app/target
+    command: cargo clippy --all-targets --all-features -- -D warnings
+    working_dir: /app
+
+  linux-fmt:
+    build:
+      context: ./linux
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/app
+      - cargo-cache:/usr/local/cargo/registry
+    command: cargo fmt --all -- --check
+    working_dir: /app
+
+  linux-build:
+    build:
+      context: ./linux
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/app
+      - cargo-cache:/usr/local/cargo/registry
+      - target-cache-linux:/app/target
+    command: cargo build --release
+    working_dir: /app
+
+  # =============================================================================
+  # Windows Cross-Compilation Services
+  # =============================================================================
+
+  windows-check:
+    build:
+      context: ./windows
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/app
+      - cargo-cache:/usr/local/cargo/registry
+      - target-cache-windows:/app/target
+    command: cargo check --target x86_64-pc-windows-gnu
+    working_dir: /app
+
+  windows-build:
+    build:
+      context: ./windows
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/app
+      - cargo-cache:/usr/local/cargo/registry
+      - target-cache-windows:/app/target
+    command: cargo build --release --target x86_64-pc-windows-gnu
+    working_dir: /app
+
+# Named volumes for caching
+volumes:
+  cargo-cache:
+    name: catshield-cargo-cache
+  target-cache-linux:
+    name: catshield-target-linux
+  target-cache-windows:
+    name: catshield-target-windows
