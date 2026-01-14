@@ -70,7 +70,12 @@ impl PowerManager for WindowsPowerManager {
         ACTIVE_ASSERTIONS.fetch_add(1, Ordering::Release);
 
         // Track this assertion ID as valid
-        if let Ok(mut guard) = VALID_ASSERTIONS.lock() {
+        {
+            let mut guard = VALID_ASSERTIONS.lock().map_err(|_| {
+                // Rollback on failure
+                ACTIVE_ASSERTIONS.fetch_sub(1, Ordering::Release);
+                PowerError::Platform("Failed to acquire assertion lock".to_string())
+            })?;
             let set = guard.get_or_insert_with(HashSet::new);
             set.insert(id);
         }

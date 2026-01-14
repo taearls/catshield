@@ -366,6 +366,7 @@ impl PowerManager for LinuxPowerManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
 
     #[test]
     fn test_linux_power_manager_new() {
@@ -384,6 +385,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_assertion_counter_increments() {
         let start = ASSERTION_COUNTER.load(Ordering::Relaxed);
         ASSERTION_COUNTER.fetch_add(1, Ordering::Relaxed);
@@ -392,6 +394,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_allow_sleep_rejects_invalid_assertion_id() {
         let manager = LinuxPowerManager::new();
         // Create an assertion with an ID that was never created by prevent_sleep
@@ -406,6 +409,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_valid_assertions_tracking() {
         if let Ok(mut guard) = VALID_ASSERTIONS.lock() {
             let set = guard.get_or_insert_with(HashSet::new);
@@ -448,6 +452,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_dbus_cookies_tracking() {
         if let Ok(mut guard) = DBUS_COOKIES.lock() {
             let map = guard.get_or_insert_with(std::collections::HashMap::new);
