@@ -369,7 +369,7 @@ Testing (can be done in parallel):
 
 | Priority | Issue | Title | Dependencies | Effort |
 |----------|-------|-------|--------------|--------|
-| 🟢 Medium | #112 | Set up cross-platform GitHub Actions CI | #99 | ~1 day |
+| ✅ Done | #112 | Set up cross-platform GitHub Actions CI | #99 | ~1 day |
 | 🟢 Medium | #113 | Add platform-specific integration tests | #112 | ~2 days |
 | ✅ Done | #120 | Add Docker containers for cross-platform local development | None | ~0.5 day |
 
@@ -383,6 +383,7 @@ Testing (can be done in parallel):
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #112 | feat: Set up cross-platform GitHub Actions CI | 2026-01-14 |
 | #98 | feat: Update shield_core.rs to use platform traits | 2026-01-14 |
 | #120 | feat: Add Docker containers for cross-platform local development | 2026-01-14 |
 | #99 | feat: Update Cargo.toml for conditional platform dependencies | 2026-01-13 |
@@ -422,13 +423,13 @@ Testing (can be done in parallel):
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 15 | #100, #101, #102, #103, #104, #105, #106, #107, #108, #109, #110, #111, #112, #113, #114 |
-| Closed | 51 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80, #83, #85, #86, #87, #91, #94, #95, #96, #97, #98, #99, #120 |
+| Open | 14 | #100, #101, #102, #103, #104, #105, #106, #107, #108, #109, #110, #111, #113, #114 |
+| Closed | 52 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80, #83, #85, #86, #87, #91, #94, #95, #96, #97, #98, #99, #112, #120 |
 
 ### By Priority
 - 🔴 Critical: 0
 - 🟡 High: 4 (#100, #101, #106, #107)
-- 🟢 Medium: 10 (#102, #103, #104, #105, #108, #109, #110, #111, #112, #113)
+- 🟢 Medium: 9 (#102, #103, #104, #105, #108, #109, #110, #111, #113)
 - 🔵 Low: 1 (#114)
 
 ## Recommended Implementation Order
@@ -482,7 +483,7 @@ Testing (can be done in parallel):
 - Linux team: #106, #107, #108, #109, #110, #111
 
 **Final Integration:**
-- **#112** - Set up cross-platform GitHub Actions CI (depends on #99 ✅)
+- ~~**#112** - Set up cross-platform GitHub Actions CI (depends on #99 ✅)~~ ✅
 - **#113** - Add platform-specific integration tests
 - ~~**#120** - Add Docker containers for cross-platform local development~~ ✅
 
@@ -535,7 +536,7 @@ Linux:          #107 (Wayland Research) ─┬── #110 (Overlay)
                 #109 (System Tray) ──────┘
                 #111 (Keycodes) ────────── (parallel with #97)
 
-CI:             #112 (Cross-Platform CI) ── #113 (Platform Tests)
+CI:             #112 (Cross-Platform CI) ✅ ── #113 (Platform Tests)
 
 Phase 9 (FUTURE):
 Enhancement:    #114 (Animated Cat Companion)
@@ -554,6 +555,20 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-14
+- Completed Issue #112: Set up cross-platform GitHub Actions CI
+  - Updated `.github/workflows/ci.yml` to use matrix strategy for all three platforms
+  - Build job now runs on `macos-latest`, `windows-latest`, and `ubuntu-latest`
+  - Test job now runs on all three platforms in parallel
+  - Lint & Format job runs once on Ubuntu (not platform-specific)
+  - Clippy runs per-platform (in build job) due to cfg-specific code
+  - Uses `Swatinem/rust-cache@v2` with platform-specific cache keys for faster builds
+  - Uses `dtolnay/rust-toolchain@stable` for reliable Rust toolchain installation
+  - `fail-fast: false` ensures all platforms run even if one fails
+  - Timeout increased to 20 minutes for cross-platform builds
+  - Uses `actions/checkout@v4` (latest stable)
+  - Updated issue counts: 14 open, 52 closed
+  - Updated priority counts: 0 Critical, 4 High, 9 Medium, 1 Low
+
 - Completed Issue #98: Update shield_core.rs to use platform traits
   - Refactored `ensure_accessibility()` to use the `PermissionChecker` trait
   - Created new `ensure_permissions<P: PermissionChecker>()` generic function
