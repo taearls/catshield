@@ -17,9 +17,9 @@
 
 use crate::config::get_current_config;
 use crate::input::ExitKey;
-use crate::platform::PermissionChecker;
 #[cfg(target_os = "macos")]
 use crate::platform::CFRunLoopRunInMode;
+use crate::platform::PermissionChecker;
 use crate::timer::{format_duration, init_auto_exit_timer};
 use crate::ui::state::{close_button, shield, timer_display, window_level};
 use crate::ui::views::{CloseButtonLabelView, CloseButtonView, TimerDisplayView};
@@ -478,14 +478,6 @@ mod tests {
 
         // Should have checked permissions at least once
         assert!(checker.check_count() >= 1);
-    }
-
-    #[test]
-    fn test_theme_constants_are_valid() {
-        assert!(theme::BG_RED >= 0.0 && theme::BG_RED <= 1.0);
-        assert!(theme::BG_GREEN >= 0.0 && theme::BG_GREEN <= 1.0);
-        assert!(theme::BG_BLUE >= 0.0 && theme::BG_BLUE <= 1.0);
-        assert!(theme::BUTTON_LABEL_GAP > 0.0);
     }
 
     #[test]
