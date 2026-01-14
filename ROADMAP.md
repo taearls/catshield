@@ -360,8 +360,8 @@ Testing (can be done in parallel):
 
 **Implementation Order:**
 ```text
-#107: Research Wayland ✅ ─┬─ #110: Linux Overlay ─┬─ #131: Keyboard Shortcuts Inhibit
-#106: X11 Keyboard Grab ───┤                       └─ #132: XWayland Detection
+#107: Research Wayland ✅ ─┬─ #110: Linux Overlay ─── #131: Keyboard Shortcuts Inhibit ─── #132: XWayland Detection
+#106: X11 Keyboard Grab ───┤
 #108: Linux Power Mgmt ────┤
 #109: Linux System Tray ───┘
 #111: Linux Keycodes (parallel with #97)
@@ -537,8 +537,8 @@ Windows:        #100 (Keyboard Hook) ✅ ─┬── #105 (Entry Point)
                 #103 (Overlay) ──────────┘
                 #104 (Keycodes) ✅ ──────── (parallel with #97)
 
-Linux:          #107 (Wayland Research) ✅ ─┬── #110 (Overlay) ─┬── #131 (Shortcuts Inhibit)
-                #106 (X11 Keyboard) ────────┤                    └── #132 (XWayland Detection)
+Linux:          #107 (Wayland Research) ✅ ─┬── #110 (Overlay) ─── #131 (Shortcuts Inhibit) ─── #132 (XWayland Detection)
+                #106 (X11 Keyboard) ────────┤
                 #108 (Power via DBus) ──────┤
                 #109 (System Tray) ─────────┘
                 #111 (Keycodes) ─────────────── (parallel with #97)
