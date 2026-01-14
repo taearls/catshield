@@ -102,6 +102,34 @@ This project aims to create a simple macOS utility written in Rust that:
   - IOKit (power management)
   - CoreFoundation (run loop)
 
+## Platform Support
+
+| Platform | Status | Input Blocking | Notes |
+|----------|--------|----------------|-------|
+| **macOS** | ✅ Full Support | Complete | Uses CGEventTap with Accessibility permissions |
+| **Windows** | 🚧 In Progress | Partial | Keyboard hook implemented, UI pending |
+| **Linux (X11)** | 📋 Planned | - | Issue #106 |
+| **Linux (Wayland)** | ⚠️ Limited | Partial | See [Wayland Limitations](#wayland-limitations) |
+
+### Wayland Limitations
+
+Wayland's security model fundamentally restricts keyboard interception by arbitrary applications. This is **by design** for security reasons - preventing keyloggers and unauthorized input capture.
+
+**What works on Wayland (wlroots compositors only):**
+- Fullscreen overlay display via `wlr-layer-shell`
+- Exit key detection when overlay is focused
+- Allowed keys passthrough
+- Visual cat protection
+
+**What doesn't work on Wayland:**
+- **Pointer input cannot be blocked** - Users (or cats) can click away from the overlay
+- **GNOME/Mutter not supported** - No layer-shell or keyboard-shortcuts-inhibit protocol
+- **Cannot truly prevent input to other windows** - Only captures keyboard when focused
+
+**Recommendation**: For full input blocking on Linux, use X11 or the XWayland compatibility layer.
+
+For detailed technical analysis, see [docs/WAYLAND_INPUT_RESEARCH.md](docs/WAYLAND_INPUT_RESEARCH.md).
+
 ## GitHub Actions Integration
 
 This repository uses the official [Anthropic Claude Code GitHub Action](https://github.com/anthropics/claude-code-action) to provide AI-powered assistance on issues and pull requests.
