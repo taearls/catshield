@@ -52,9 +52,7 @@ impl PowerManager for WindowsPowerManager {
     fn prevent_sleep(&self) -> Result<SleepAssertion, PowerError> {
         // SAFETY: SetThreadExecutionState is safe to call with valid execution state flags.
         // It returns the previous execution state on success, or 0 on failure.
-        let result = unsafe {
-            SetThreadExecutionState(ES_CONTINUOUS | ES_DISPLAY_REQUIRED)
-        };
+        let result = unsafe { SetThreadExecutionState(ES_CONTINUOUS | ES_DISPLAY_REQUIRED) };
 
         if result == EXECUTION_STATE(0) {
             return Err(PowerError::AssertionFailed(
