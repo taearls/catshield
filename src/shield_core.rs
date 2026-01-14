@@ -9,24 +9,35 @@
 //!
 //! By extracting this shared logic, we avoid duplication and ensure
 //! consistent behavior between the two modes.
+//!
+//! # Platform Abstraction
+//!
+//! The permission checking functions use the `PermissionChecker` trait,
+//! allowing different implementations for macOS, Windows, and Linux.
 
 use crate::config::get_current_config;
 use crate::input::ExitKey;
-use crate::platform::{
-    check_accessibility, check_accessibility_with_prompt, open_accessibility_settings,
-    CFRunLoopRunInMode,
-};
+#[cfg(target_os = "macos")]
+use crate::platform::CFRunLoopRunInMode;
+use crate::platform::PermissionChecker;
 use crate::timer::{format_duration, init_auto_exit_timer};
 use crate::ui::state::{close_button, shield, timer_display, window_level};
 use crate::ui::views::{CloseButtonLabelView, CloseButtonView, TimerDisplayView};
+#[cfg(target_os = "macos")]
 use objc2::rc::Retained;
+#[cfg(target_os = "macos")]
 use objc2::MainThreadOnly;
+#[cfg(target_os = "macos")]
 use objc2_app_kit::{
     NSBackingStoreType, NSColor, NSWindow, NSWindowCollectionBehavior, NSWindowStyleMask,
 };
-use objc2_core_foundation::{kCFRunLoopDefaultMode, CFString, CGPoint, CGRect, CGSize};
+#[cfg(target_os = "macos")]
+use objc2_core_foundation::{CGPoint, CGRect, CGSize};
+#[cfg(target_os = "macos")]
 use objc2_foundation::{ns_string, MainThreadMarker};
+#[cfg(target_os = "macos")]
 use std::ffi::c_void;
+#[cfg(target_os = "macos")]
 use std::sync::atomic::Ordering;
 
 /// UI theme constants for the shield overlay
@@ -40,21 +51,25 @@ pub mod theme {
     pub const BUTTON_LABEL_GAP: f64 = 5.0;
 }
 
-/// Ensure accessibility permissions are granted, prompting the user if necessary.
+/// Ensure platform permissions are granted, prompting the user if necessary.
 ///
-/// This function blocks until accessibility permissions are granted:
-/// 1. Checks if accessibility is already granted (returns immediately if so)
+/// This function blocks until required permissions are granted:
+/// 1. Checks if permissions are already granted (returns immediately if so)
 /// 2. If not, prompts the user with the system dialog
-/// 3. If still not granted, opens System Settings and polls until granted
+/// 3. If still not granted, opens system settings and polls until granted
 ///
 /// # Arguments
+/// * `permission_checker` - Platform-specific permission checker implementation
 /// * `exit_key` - The configured exit key for display in messages
+///
+/// # Type Parameters
+/// * `P` - A type implementing the `PermissionChecker` trait
 ///
 /// # Note
 /// This function will loop indefinitely until permissions are granted.
-/// It does not return until the user grants accessibility access.
-pub fn ensure_accessibility(exit_key: &ExitKey) {
-    if check_accessibility() {
+/// It does not return until the user grants the required access.
+pub fn ensure_permissions<P: PermissionChecker>(permission_checker: &P, exit_key: &ExitKey) {
+    if permission_checker.check_permissions() {
         return;
     }
 
@@ -73,7 +88,7 @@ pub fn ensure_accessibility(exit_key: &ExitKey) {
 
     // Try to prompt user with native dialog
     println!("  Requesting accessibility permissions...");
-    if check_accessibility_with_prompt() {
+    if permission_checker.check_permissions_with_prompt() {
         println!("  ✓ Permissions granted!");
         println!();
         return;
@@ -82,7 +97,7 @@ pub fn ensure_accessibility(exit_key: &ExitKey) {
     eprintln!();
     eprintln!("  Opening System Settings → Accessibility...");
 
-    if open_accessibility_settings() {
+    if permission_checker.open_permissions_settings().is_ok() {
         eprintln!("  ✓ System Settings opened");
     }
     eprintln!();
@@ -90,7 +105,19 @@ pub fn ensure_accessibility(exit_key: &ExitKey) {
     eprintln!("  Waiting for permissions...");
     eprintln!();
 
-    // Poll for permissions every 1 second using CFRunLoopRunInMode
+    // Poll for permissions - platform-specific sleep mechanism
+    poll_for_permissions(permission_checker);
+}
+
+/// Poll for permissions until granted.
+///
+/// This function implements platform-specific polling:
+/// - **macOS**: Uses CFRunLoopRunInMode to allow UI updates during polling
+/// - **Other platforms**: Uses standard thread sleep
+#[cfg(target_os = "macos")]
+fn poll_for_permissions<P: PermissionChecker>(permission_checker: &P) {
+    use objc2_core_foundation::{kCFRunLoopDefaultMode, CFString};
+
     const POLL_INTERVAL_SECS: f64 = 1.0;
     loop {
         // SAFETY: CFRunLoopRunInMode is safe to call because:
@@ -101,12 +128,41 @@ pub fn ensure_accessibility(exit_key: &ExitKey) {
             let mode = kCFRunLoopDefaultMode.expect("kCFRunLoopDefaultMode should exist");
             CFRunLoopRunInMode((mode as *const CFString).cast(), POLL_INTERVAL_SECS, false);
         }
-        if check_accessibility() {
+        if permission_checker.check_permissions() {
             println!("  ✓ Permissions granted! Starting Cat Shield...");
             println!();
             return;
         }
     }
+}
+
+/// Poll for permissions until granted (non-macOS platforms).
+#[cfg(not(target_os = "macos"))]
+fn poll_for_permissions<P: PermissionChecker>(permission_checker: &P) {
+    use std::thread;
+    use std::time::Duration;
+
+    const POLL_INTERVAL_MS: u64 = 1000;
+    loop {
+        thread::sleep(Duration::from_millis(POLL_INTERVAL_MS));
+        if permission_checker.check_permissions() {
+            println!("  ✓ Permissions granted! Starting Cat Shield...");
+            println!();
+            return;
+        }
+    }
+}
+
+/// Legacy wrapper for backward compatibility.
+///
+/// This function creates a macOS permission checker and calls `ensure_permissions`.
+/// New code should use `ensure_permissions` directly with the appropriate
+/// platform-specific permission checker.
+#[cfg(target_os = "macos")]
+pub fn ensure_accessibility(exit_key: &ExitKey) {
+    use crate::platform::MacOSPermissionChecker;
+    let checker = MacOSPermissionChecker::new();
+    ensure_permissions(&checker, exit_key);
 }
 
 /// Create and configure the shield overlay window.
@@ -123,6 +179,7 @@ pub fn ensure_accessibility(exit_key: &ExitKey) {
 ///
 /// # Returns
 /// A retained reference to the configured NSWindow
+#[cfg(target_os = "macos")]
 pub fn create_shield_window(mtm: MainThreadMarker, frame: CGRect) -> Retained<NSWindow> {
     // SAFETY: NSWindow initialization is safe because:
     // - mtm (MainThreadMarker) guarantees we're on the main thread
@@ -200,6 +257,7 @@ pub fn create_shield_window(mtm: MainThreadMarker, frame: CGRect) -> Retained<NS
 ///
 /// # Returns
 /// A tuple of (close_button_view, close_button_label_view)
+#[cfg(target_os = "macos")]
 pub fn setup_close_button(
     mtm: MainThreadMarker,
     screen_frame: CGRect,
@@ -290,6 +348,7 @@ pub fn print_shield_active(exit_key: &ExitKey, timer_info: Option<&str>) {
 /// # Note
 /// The timer view ownership is transferred via `std::mem::forget` and the raw pointer
 /// is stored in `shield::TIMER_VIEW`. It will be reclaimed in `deactivate_shield()`.
+#[cfg(target_os = "macos")]
 pub fn setup_timer_display(
     mtm: MainThreadMarker,
     window: &NSWindow,
@@ -343,3 +402,101 @@ const _: () = {
     assert!(theme::BG_BLUE >= 0.0 && theme::BG_BLUE <= 1.0);
     assert!(theme::BUTTON_LABEL_GAP > 0.0);
 };
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::platform::errors::PermissionError;
+
+    /// Mock permission checker that always has permissions granted
+    struct GrantedPermissionChecker;
+
+    impl PermissionChecker for GrantedPermissionChecker {
+        fn check_permissions(&self) -> bool {
+            true
+        }
+
+        fn check_permissions_with_prompt(&self) -> bool {
+            true
+        }
+
+        fn open_permissions_settings(&self) -> Result<(), PermissionError> {
+            Ok(())
+        }
+    }
+
+    /// Mock permission checker that tracks method calls
+    struct TrackingPermissionChecker {
+        check_count: std::cell::Cell<u32>,
+        permissions_granted: bool,
+    }
+
+    impl TrackingPermissionChecker {
+        fn new(granted: bool) -> Self {
+            Self {
+                check_count: std::cell::Cell::new(0),
+                permissions_granted: granted,
+            }
+        }
+
+        fn check_count(&self) -> u32 {
+            self.check_count.get()
+        }
+    }
+
+    impl PermissionChecker for TrackingPermissionChecker {
+        fn check_permissions(&self) -> bool {
+            self.check_count.set(self.check_count.get() + 1);
+            self.permissions_granted
+        }
+
+        fn check_permissions_with_prompt(&self) -> bool {
+            self.permissions_granted
+        }
+
+        fn open_permissions_settings(&self) -> Result<(), PermissionError> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn test_ensure_permissions_returns_immediately_when_granted() {
+        let exit_key = ExitKey::default();
+        let checker = GrantedPermissionChecker;
+
+        // Should return immediately without blocking
+        ensure_permissions(&checker, &exit_key);
+        // If we get here, permissions were checked and granted
+    }
+
+    #[test]
+    fn test_ensure_permissions_checks_permissions_first() {
+        let exit_key = ExitKey::default();
+        let checker = TrackingPermissionChecker::new(true);
+
+        ensure_permissions(&checker, &exit_key);
+
+        // Should have checked permissions at least once
+        assert!(checker.check_count() >= 1);
+    }
+
+    #[test]
+    fn test_print_activation_banner_does_not_panic() {
+        // Just verify it doesn't panic
+        print_activation_banner();
+    }
+
+    #[test]
+    fn test_print_shield_active_without_timer() {
+        let exit_key = ExitKey::default();
+        // Should not panic
+        print_shield_active(&exit_key, None);
+    }
+
+    #[test]
+    fn test_print_shield_active_with_timer() {
+        let exit_key = ExitKey::default();
+        // Should not panic
+        print_shield_active(&exit_key, Some("30m 0s"));
+    }
+}
