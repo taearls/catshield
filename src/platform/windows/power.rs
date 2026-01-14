@@ -107,16 +107,14 @@ mod tests {
 
     #[test]
     fn test_windows_power_manager_new() {
-        let manager = WindowsPowerManager::new();
+        let _manager = WindowsPowerManager::new();
         // Just verify it can be created
-        drop(manager);
     }
 
     #[test]
     fn test_windows_power_manager_default() {
-        let manager = WindowsPowerManager::default();
+        let _manager: WindowsPowerManager = Default::default();
         // Just verify default works
-        drop(manager);
     }
 
     #[test]
