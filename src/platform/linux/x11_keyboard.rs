@@ -21,7 +21,7 @@ use std::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
 use std::sync::RwLock;
 use x11rb::connection::Connection;
 use x11rb::protocol::xproto::{
-    ConnectionExt, GrabMode, GrabStatus, KeyPressEvent, Keycode, KeyButMask,
+    ConnectionExt, GrabMode, GrabStatus, KeyButMask, KeyPressEvent, Keycode,
 };
 use x11rb::rust_connection::RustConnection;
 
@@ -262,14 +262,17 @@ impl InputBlocker for X11InputBlocker {
         // keyboard_mode: Sync - we'll control which events are allowed
         let grab_result = conn
             .grab_keyboard(
-                false,                // owner_events
-                self.root_window,     // grab_window (root = entire screen)
-                x11rb::CURRENT_TIME,  // time
-                GrabMode::ASYNC,      // pointer_mode
-                GrabMode::SYNC,       // keyboard_mode - sync allows us to replay events
+                false,               // owner_events
+                self.root_window,    // grab_window (root = entire screen)
+                x11rb::CURRENT_TIME, // time
+                GrabMode::ASYNC,     // pointer_mode
+                GrabMode::SYNC,      // keyboard_mode - sync allows us to replay events
             )
             .map_err(|e| {
-                InputBlockError::CreationFailed(format!("Failed to send keyboard grab request: {}", e))
+                InputBlockError::CreationFailed(format!(
+                    "Failed to send keyboard grab request: {}",
+                    e
+                ))
             })?
             .reply()
             .map_err(|e| {
@@ -350,7 +353,10 @@ unsafe impl Sync for X11InputBlocker {}
 pub fn allow_keyboard_event() {
     if let Some(conn) = X11InputBlocker::get_connection() {
         // ReplayKeyboard replays the current event as if the grab wasn't active
-        if let Err(e) = conn.allow_events(x11rb::protocol::xproto::Allow::REPLAY_KEYBOARD, x11rb::CURRENT_TIME) {
+        if let Err(e) = conn.allow_events(
+            x11rb::protocol::xproto::Allow::REPLAY_KEYBOARD,
+            x11rb::CURRENT_TIME,
+        ) {
             log::warn!("Failed to replay keyboard event: {}", e);
         }
         let _ = conn.flush();
@@ -364,7 +370,10 @@ pub fn allow_keyboard_event() {
 pub fn block_keyboard_event() {
     if let Some(conn) = X11InputBlocker::get_connection() {
         // SyncKeyboard continues processing but discards the current event
-        if let Err(e) = conn.allow_events(x11rb::protocol::xproto::Allow::SYNC_KEYBOARD, x11rb::CURRENT_TIME) {
+        if let Err(e) = conn.allow_events(
+            x11rb::protocol::xproto::Allow::SYNC_KEYBOARD,
+            x11rb::CURRENT_TIME,
+        ) {
             log::warn!("Failed to block keyboard event: {}", e);
         }
         let _ = conn.flush();
