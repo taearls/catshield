@@ -33,8 +33,4 @@ pub use keycodes::{key_from_name, key_to_name, Key};
 
 // macOS-specific keycode functions (keycodes are platform-specific)
 #[cfg(target_os = "macos")]
-pub use keycodes::{keycode_from_name, keycode_to_name};
-
-// Re-export platform-specific keycode conversion functions
-#[cfg(target_os = "macos")]
-pub use keycodes::{key_to_keycode, keycode_to_key};
+pub use keycodes::{key_to_keycode, keycode_from_name, keycode_to_key, keycode_to_name};

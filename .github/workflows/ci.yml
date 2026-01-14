@@ -30,7 +30,6 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Check formatting
         run: cargo fmt --all -- --check
-      # Note: Clippy runs per-platform due to cfg-specific code
 
   # Build and test on all supported platforms
   build:
@@ -58,6 +57,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.os }}
+      # Clippy runs per-platform due to cfg-specific code
       - name: Run Clippy
         run: cargo clippy --all-targets -- -D warnings
       - name: Build release

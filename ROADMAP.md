@@ -565,7 +565,7 @@ Potential future enhancements (not yet tracked as issues):
   - Uses `dtolnay/rust-toolchain@stable` for reliable Rust toolchain installation
   - `fail-fast: false` ensures all platforms run even if one fails
   - Timeout increased to 20 minutes for cross-platform builds
-  - Updated from `actions/checkout@v6` to `actions/checkout@v4` (latest stable)
+  - Uses `actions/checkout@v4` (latest stable)
   - Updated issue counts: 14 open, 52 closed
   - Updated priority counts: 0 Critical, 4 High, 9 Medium, 1 Low
 
