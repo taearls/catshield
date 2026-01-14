@@ -259,6 +259,18 @@ impl PowerManager for LinuxPowerManager {
         // Track this assertion ID as valid
         {
             let mut guard = VALID_ASSERTIONS.lock().map_err(|_| {
+                // Release the D-Bus inhibition since we can't track it
+                let _ = match interface {
+                    InhibitInterface::FreedesktopScreenSaver => {
+                        Self::release_freedesktop_screensaver(&conn, cookie)
+                    }
+                    InhibitInterface::GnomeSessionManager => {
+                        Self::release_gnome_session_manager(&conn, cookie)
+                    }
+                    InhibitInterface::FreedesktopPowerManagement => {
+                        Self::release_freedesktop_power_management(&conn, cookie)
+                    }
+                };
                 PowerError::Platform("Failed to acquire assertion lock".to_string())
             })?;
             let set = guard.get_or_insert_with(HashSet::new);
@@ -274,6 +286,18 @@ impl PowerManager for LinuxPowerManager {
                         set.remove(&id);
                     }
                 }
+                // Release the D-Bus inhibition since we can't track it
+                let _ = match interface {
+                    InhibitInterface::FreedesktopScreenSaver => {
+                        Self::release_freedesktop_screensaver(&conn, cookie)
+                    }
+                    InhibitInterface::GnomeSessionManager => {
+                        Self::release_gnome_session_manager(&conn, cookie)
+                    }
+                    InhibitInterface::FreedesktopPowerManagement => {
+                        Self::release_freedesktop_power_management(&conn, cookie)
+                    }
+                };
                 PowerError::Platform("Failed to acquire cookie lock".to_string())
             })?;
             let map = guard.get_or_insert_with(std::collections::HashMap::new);
