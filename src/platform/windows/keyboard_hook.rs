@@ -95,31 +95,46 @@ pub struct AllowedKeyConfig {
 
 /// Set the allowed keys configuration.
 pub fn set_allowed_keys(keys: Vec<AllowedKeyConfig>) {
-    if let Ok(mut guard) = ALLOWED_KEYS.write() {
-        *guard = keys;
+    match ALLOWED_KEYS.write() {
+        Ok(mut guard) => *guard = keys,
+        Err(poisoned) => {
+            // Recover from poisoned lock - data may be inconsistent but usable
+            eprintln!("  ⚠️  Warning: ALLOWED_KEYS RwLock was poisoned, recovering...");
+            let mut guard = poisoned.into_inner();
+            *guard = keys;
+        }
     }
 }
 
 /// Clear all allowed keys.
 pub fn clear_allowed_keys() {
-    if let Ok(mut guard) = ALLOWED_KEYS.write() {
-        guard.clear();
+    match ALLOWED_KEYS.write() {
+        Ok(mut guard) => guard.clear(),
+        Err(poisoned) => {
+            // Recover from poisoned lock
+            eprintln!("  ⚠️  Warning: ALLOWED_KEYS RwLock was poisoned during clear, recovering...");
+            poisoned.into_inner().clear();
+        }
     }
 }
 
 /// Check if the current key event matches any allowed key.
 fn is_key_allowed(vk_code: u32, modifiers: &ModifierState) -> bool {
-    if let Ok(guard) = ALLOWED_KEYS.read() {
-        guard.iter().any(|key| {
-            key.vk_code == vk_code
-                && key.requires_win == modifiers.win_pressed
-                && key.requires_alt == modifiers.alt_pressed
-                && key.requires_shift == modifiers.shift_pressed
-                && key.requires_ctrl == modifiers.ctrl_pressed
-        })
-    } else {
-        false
-    }
+    let guard = match ALLOWED_KEYS.read() {
+        Ok(guard) => guard,
+        Err(poisoned) => {
+            // Recover from poisoned lock during read
+            eprintln!("  ⚠️  Warning: ALLOWED_KEYS RwLock was poisoned during check, recovering...");
+            poisoned.into_inner()
+        }
+    };
+    guard.iter().any(|key| {
+        key.vk_code == vk_code
+            && key.requires_win == modifiers.win_pressed
+            && key.requires_alt == modifiers.alt_pressed
+            && key.requires_shift == modifiers.shift_pressed
+            && key.requires_ctrl == modifiers.ctrl_pressed
+    })
 }
 
 /// Current modifier key state

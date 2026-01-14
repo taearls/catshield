@@ -6,6 +6,7 @@
 //! - Error types for platform operations
 //! - Platform-specific implementations (in subdirectories):
 //!   - macOS: FFI bindings, accessibility, power management, event tap
+//!   - Windows: keyboard hook, input blocking
 
 // Platform abstraction layer
 pub mod errors;
