@@ -9,7 +9,7 @@
 # Note: Full compilation requires issue #99 (conditional platform dependencies)
 # to be implemented first. Until then, only cross-platform code can be validated.
 
-FROM rust:1.83-slim-bookworm
+FROM rust:1.85-slim-bookworm
 
 # Install build dependencies
 # - pkg-config: Required for linking native libraries
