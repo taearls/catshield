@@ -330,7 +330,7 @@ Testing (can be done in parallel):
 | Priority | Issue | Title | Dependencies | Effort |
 |----------|-------|-------|--------------|--------|
 | ✅ Done | #100 | Add Windows keyboard hook implementation (InputBlocker) | #94, #96 | ~2-3 days |
-| 🟡 High | #101 | Add Windows power management (PowerManager) | #94 | ~1 day |
+| ✅ Done | #101 | Add Windows power management (PowerManager) | #94 | ~1 day |
 | 🟢 Medium | #102 | Add Windows system tray implementation | #94, #96 | ~2 days |
 | 🟢 Medium | #103 | Add Windows overlay window implementation | #94, #96 | ~2 days |
 | ✅ Done | #104 | Add Windows keycode mappings | #97 | ~1 day |
@@ -339,7 +339,7 @@ Testing (can be done in parallel):
 **Implementation Order:**
 ```text
 #100: Windows Keyboard Hook ✅ ─┬─ #105: Windows Entry Point
-#101: Windows Power Mgmt ───────┤
+#101: Windows Power Mgmt ✅ ────┤
 #102: Windows System Tray ──────┤
 #103: Windows Overlay ──────────┘
 #104: Windows Keycodes ✅ (parallel with #97)
@@ -383,6 +383,7 @@ Testing (can be done in parallel):
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #101 | feat: Add Windows power management (PowerManager) | 2026-01-14 |
 | #100 | feat: Add Windows keyboard hook implementation (InputBlocker) | 2026-01-14 |
 | #104 | feat: Add Windows keycode mappings | 2026-01-14 |
 | #112 | feat: Set up cross-platform GitHub Actions CI | 2026-01-14 |
@@ -425,12 +426,12 @@ Testing (can be done in parallel):
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 12 | #101, #102, #103, #105, #106, #107, #108, #109, #110, #111, #113, #114 |
-| Closed | 54 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80, #83, #85, #86, #87, #91, #94, #95, #96, #97, #98, #99, #100, #104, #112, #120 |
+| Open | 11 | #102, #103, #105, #106, #107, #108, #109, #110, #111, #113, #114 |
+| Closed | 55 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80, #83, #85, #86, #87, #91, #94, #95, #96, #97, #98, #99, #100, #101, #104, #112, #120 |
 
 ### By Priority
 - 🔴 Critical: 0
-- 🟡 High: 3 (#101, #106, #107)
+- 🟡 High: 2 (#106, #107)
 - 🟢 Medium: 8 (#102, #103, #105, #108, #109, #110, #111, #113)
 - 🔵 Low: 1 (#114)
 
@@ -527,7 +528,7 @@ Foundation:     #94 (Platform Traits) ✅ ─┬── #95 (Reorganize macOS) �
                                           └── #97 (Key Enum) ✅ ── #99 (Conditional Deps)
 
 Windows:        #100 (Keyboard Hook) ✅ ─┬── #105 (Entry Point)
-                #101 (Power Mgmt) ───────┤
+                #101 (Power Mgmt) ✅ ────┤
                 #102 (System Tray) ──────┤
                 #103 (Overlay) ──────────┘
                 #104 (Keycodes) ✅ ──────── (parallel with #97)
@@ -557,6 +558,20 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-14
+- Completed Issue #101: Add Windows power management (PowerManager)
+  - Created `src/platform/windows/power.rs` with `WindowsPowerManager` implementation
+  - Implements the `PowerManager` trait for Windows using `SetThreadExecutionState` API
+  - `prevent_sleep()` sets `ES_CONTINUOUS | ES_DISPLAY_REQUIRED` to keep display awake
+  - `allow_sleep()` clears execution state with `ES_CONTINUOUS` to resume normal sleep behavior
+  - Uses atomic counters for assertion tracking across multiple calls
+  - Thread-safe implementation with `Send + Sync` traits
+  - Proper cleanup: sleep prevention only released when all assertions are released
+  - Added unit tests for manager creation and trait verification
+  - Updated `src/platform/windows/mod.rs` to export `WindowsPowerManager`
+  - Updated `src/platform/mod.rs` to re-export from Windows module
+  - Updated issue counts: 11 open, 55 closed
+  - Updated priority counts: 0 Critical, 2 High, 8 Medium, 1 Low
+
 - Completed Issue #100: Add Windows keyboard hook implementation (InputBlocker)
   - Created `src/platform/windows/` directory with Windows-specific implementations
   - Implemented `WindowsInputBlocker` struct implementing the `InputBlocker` trait

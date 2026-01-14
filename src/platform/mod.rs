@@ -72,5 +72,5 @@ pub use macos::{
 #[cfg(target_os = "windows")]
 pub use windows::{
     clear_allowed_keys, set_allowed_keys, set_exit_key_config, AllowedKeyConfig,
-    WindowsInputBlocker,
+    WindowsInputBlocker, WindowsPowerManager,
 };
