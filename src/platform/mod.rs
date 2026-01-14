@@ -83,5 +83,5 @@ pub use windows::{
 #[cfg(target_os = "linux")]
 pub use linux::{
     allow_keyboard_event, block_keyboard_event, clear_allowed_keys, set_allowed_keys,
-    set_exit_key_config, AllowedKeyConfig, ProcessResult, X11InputBlocker,
+    set_exit_key_config, AllowedKeyConfig, LinuxPowerManager, ProcessResult, X11InputBlocker,
 };

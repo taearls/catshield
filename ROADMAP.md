@@ -351,7 +351,7 @@ Testing (can be done in parallel):
 |----------|-------|-------|--------------|--------|
 | ✅ Done | #106 | Add X11 keyboard grab implementation (InputBlocker) | #94, #96 | ~2-3 days |
 | ✅ Done | #107 | Research Wayland input blocking solutions | None | ~1-2 days |
-| 🟢 Medium | #108 | Add Linux power management via DBus | #94 | ~1-2 days |
+| ✅ Done | #108 | Add Linux power management via DBus | #94 | ~1-2 days |
 | 🟢 Medium | #109 | Add Linux system tray via libappindicator | #94, #96 | ~2 days |
 | 🟢 Medium | #110 | Add Linux overlay window (X11 + Wayland) | #94, #96, ✅ #107 | ~2-3 days |
 | ✅ Done | #111 | Add Linux keycode mappings | #97 | ~1 day |
@@ -362,7 +362,7 @@ Testing (can be done in parallel):
 ```text
 #107: Research Wayland ✅ ─┬─ #110: Linux Overlay ─── #131: Keyboard Shortcuts Inhibit ─── #132: XWayland Detection
 #106: X11 Keyboard Grab ✅ ┤
-#108: Linux Power Mgmt ────┤
+#108: Linux Power Mgmt ✅ ─┤
 #109: Linux System Tray ───┘
 #111: Linux Keycodes ✅ (parallel with #97)
 ```
@@ -432,13 +432,13 @@ Testing (can be done in parallel):
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 10 | #102, #103, #105, #108, #109, #110, #113, #114, #131, #132 |
-| Closed | 59 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80, #83, #85, #86, #87, #91, #94, #95, #96, #97, #98, #99, #100, #101, #104, #106, #107, #111, #112, #120, #128 |
+| Open | 9 | #102, #103, #105, #109, #110, #113, #114, #131, #132 |
+| Closed | 60 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80, #83, #85, #86, #87, #91, #94, #95, #96, #97, #98, #99, #100, #101, #104, #106, #107, #108, #111, #112, #120, #128 |
 
 ### By Priority
 - 🔴 Critical: 0
 - 🟡 High: 0
-- 🟢 Medium: 9 (#102, #103, #105, #108, #109, #110, #113, #131, #132)
+- 🟢 Medium: 8 (#102, #103, #105, #109, #110, #113, #131, #132)
 - 🔵 Low: 1 (#114)
 
 ## Recommended Implementation Order
@@ -489,7 +489,7 @@ Testing (can be done in parallel):
 
 **Parallel Work (can start after foundation):**
 - Windows team: #100, #101, #102, #103, #104, #105
-- Linux team: #106 ✅, #107 ✅, #108, #109, #110, #111 ✅
+- Linux team: #106 ✅, #107 ✅, #108 ✅, #109, #110, #111 ✅
 
 **Final Integration:**
 - ~~**#112** - Set up cross-platform GitHub Actions CI (depends on #99 ✅)~~ ✅
@@ -540,10 +540,10 @@ Windows:        #100 (Keyboard Hook) ✅ ─┬── #105 (Entry Point)
                 #104 (Keycodes) ✅ ──────── (parallel with #97)
 
 Linux:          #107 (Wayland Research) ✅ ─┬── #110 (Overlay) ─── #131 (Shortcuts Inhibit) ─── #132 (XWayland Detection)
-                #106 (X11 Keyboard) ────────┤
-                #108 (Power via DBus) ──────┤
+                #106 (X11 Keyboard) ✅ ─────┤
+                #108 (Power via DBus) ✅ ───┤
                 #109 (System Tray) ─────────┘
-                #111 (Keycodes) ─────────────── (parallel with #97)
+                #111 (Keycodes) ✅ ─────────── (parallel with #97)
 
 CI:             #112 (Cross-Platform CI) ✅ ── #113 (Platform Tests)
 
@@ -564,6 +564,23 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-14
+- Completed Issue #108: Add Linux power management via DBus
+  - Implemented `LinuxPowerManager` in `src/platform/linux/power.rs`
+  - Implements the `PowerManager` trait for Linux desktop environments
+  - Supports multiple D-Bus interfaces for different desktop environments:
+    - `org.freedesktop.ScreenSaver` - Standard FreeDesktop interface (most DEs)
+    - `org.gnome.SessionManager` - GNOME-specific interface with suspend + idle inhibit flags
+    - `org.freedesktop.PowerManagement.Inhibit` - Legacy interface for older systems
+  - Automatically tries interfaces in order of preference until one succeeds
+  - Uses `zbus` crate (v5.5) with blocking API for D-Bus communication
+  - Thread-safe implementation with atomic counters and mutex-protected state
+  - Proper cookie tracking ensures inhibitions can be released correctly
+  - Works on GNOME, KDE, XFCE, and other common desktop environments
+  - Added 7 unit tests covering constructor, trait compliance, and error handling
+  - All 305 tests pass, clippy clean, build successful
+  - Updated issue counts: 9 open, 60 closed
+  - Updated priority counts: 0 Critical, 0 High, 8 Medium, 1 Low
+
 - Completed Issue #111: Add Linux keycode mappings
   - Fully implemented `src/input/keycodes/linux.rs` (was previously a stub)
   - Added `key_to_keycode()` function: converts `Key` enum to X11 keysyms
