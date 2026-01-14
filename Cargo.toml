@@ -38,9 +38,9 @@ windows = { version = "0.58", features = [
     "Win32_System_Power",
 ] }
 
-# Linux-specific dependencies (to be implemented)
+# Linux-specific dependencies
 [target.'cfg(target_os = "linux")'.dependencies]
-# x11rb, dbus, etc. will be added when Linux support is implemented
+x11rb = { version = "0.13", features = ["allow-unsafe-code"] }
 
 [dev-dependencies]
 tempfile = "3.10"

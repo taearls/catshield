@@ -7,6 +7,7 @@
 //! - Platform-specific implementations (in subdirectories):
 //!   - macOS: FFI bindings, accessibility, power management, event tap
 //!   - Windows: keyboard hook, input blocking
+//!   - Linux: X11 keyboard grab, input blocking
 
 // Platform abstraction layer
 pub mod errors;
@@ -24,6 +25,9 @@ pub mod macos;
 
 #[cfg(target_os = "windows")]
 pub mod windows;
+
+#[cfg(target_os = "linux")]
+pub mod linux;
 
 // Re-export platform-specific items for backward compatibility
 // High-level APIs (accessibility, power, event tap)
@@ -73,4 +77,11 @@ pub use macos::{
 pub use windows::{
     clear_allowed_keys, set_allowed_keys, set_exit_key_config, AllowedKeyConfig,
     WindowsInputBlocker, WindowsPowerManager,
+};
+
+// Linux platform trait implementations and helpers
+#[cfg(target_os = "linux")]
+pub use linux::{
+    allow_keyboard_event, block_keyboard_event, clear_allowed_keys, set_allowed_keys,
+    set_exit_key_config, AllowedKeyConfig, ProcessResult, X11InputBlocker,
 };
