@@ -109,7 +109,7 @@ Ensure Docker Desktop is running.
 The first build downloads base images and Rust dependencies. Subsequent runs use cached layers and volumes.
 
 ### Compilation errors on Linux/Windows
-Check if issue #99 (conditional platform dependencies) has been implemented. Until then, platform-specific code may not compile.
+Issue #99 (conditional platform dependencies) is implemented for Cargo.toml. However, the `ui` module still requires cfg guards, so Linux/Windows compilation will fail until issues #103 and #110 are completed.
 
 ### Out of disk space
 Docker images and volumes can consume significant space. Clean up with:
