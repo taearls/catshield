@@ -112,7 +112,9 @@ pub fn clear_allowed_keys() {
         Ok(mut guard) => guard.clear(),
         Err(poisoned) => {
             // Recover from poisoned lock
-            eprintln!("  ⚠️  Warning: ALLOWED_KEYS RwLock was poisoned during clear, recovering...");
+            eprintln!(
+                "  ⚠️  Warning: ALLOWED_KEYS RwLock was poisoned during clear, recovering..."
+            );
             poisoned.into_inner().clear();
         }
     }
@@ -124,7 +126,9 @@ fn is_key_allowed(vk_code: u32, modifiers: &ModifierState) -> bool {
         Ok(guard) => guard,
         Err(poisoned) => {
             // Recover from poisoned lock during read
-            eprintln!("  ⚠️  Warning: ALLOWED_KEYS RwLock was poisoned during check, recovering...");
+            eprintln!(
+                "  ⚠️  Warning: ALLOWED_KEYS RwLock was poisoned during check, recovering..."
+            );
             poisoned.into_inner()
         }
     };
