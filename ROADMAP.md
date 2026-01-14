@@ -349,7 +349,7 @@ Testing (can be done in parallel):
 
 | Priority | Issue | Title | Dependencies | Effort |
 |----------|-------|-------|--------------|--------|
-| 🟡 High | #106 | Add X11 keyboard grab implementation (InputBlocker) | #94, #96 | ~2-3 days |
+| ✅ Done | #106 | Add X11 keyboard grab implementation (InputBlocker) | #94, #96 | ~2-3 days |
 | ✅ Done | #107 | Research Wayland input blocking solutions | None | ~1-2 days |
 | 🟢 Medium | #108 | Add Linux power management via DBus | #94 | ~1-2 days |
 | 🟢 Medium | #109 | Add Linux system tray via libappindicator | #94, #96 | ~2 days |
@@ -361,7 +361,7 @@ Testing (can be done in parallel):
 **Implementation Order:**
 ```text
 #107: Research Wayland ✅ ─┬─ #110: Linux Overlay ─── #131: Keyboard Shortcuts Inhibit ─── #132: XWayland Detection
-#106: X11 Keyboard Grab ───┤
+#106: X11 Keyboard Grab ✅ ┤
 #108: Linux Power Mgmt ────┤
 #109: Linux System Tray ───┘
 #111: Linux Keycodes (parallel with #97)
@@ -385,6 +385,7 @@ Testing (can be done in parallel):
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #106 | feat: Add X11 keyboard grab implementation (InputBlocker) | 2026-01-14 |
 | #107 | docs: Research Wayland input blocking solutions | 2026-01-14 |
 | #128 | feat: Migrate from println!/eprintln! to log crate | 2026-01-14 |
 | #101 | feat: Add Windows power management (PowerManager) | 2026-01-14 |
@@ -430,12 +431,12 @@ Testing (can be done in parallel):
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 12 | #102, #103, #105, #106, #108, #109, #110, #111, #113, #114, #131, #132 |
-| Closed | 57 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80, #83, #85, #86, #87, #91, #94, #95, #96, #97, #98, #99, #100, #101, #104, #107, #112, #120, #128 |
+| Open | 11 | #102, #103, #105, #108, #109, #110, #111, #113, #114, #131, #132 |
+| Closed | 58 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80, #83, #85, #86, #87, #91, #94, #95, #96, #97, #98, #99, #100, #101, #104, #106, #107, #112, #120, #128 |
 
 ### By Priority
 - 🔴 Critical: 0
-- 🟡 High: 1 (#106)
+- 🟡 High: 0
 - 🟢 Medium: 10 (#102, #103, #105, #108, #109, #110, #111, #113, #131, #132)
 - 🔵 Low: 1 (#114)
 
