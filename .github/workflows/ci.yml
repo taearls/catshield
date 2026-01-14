@@ -74,7 +74,7 @@ jobs:
       - name: Run Clippy
         run: docker run --rm -v "${{ github.workspace }}:/app" catshield-linux cargo clippy --all-targets -- -D warnings
       - name: Build release
-        run: docker run --rm -v "${{ github.workspace }}:/app" catshield-linux cargo build --release
+        run: docker run --rm -v "${{ github.workspace }}:/app" catshield-linux cargo build --release --locked
 
   # Test on macOS and Windows using native runners
   test-native:
@@ -108,4 +108,4 @@ jobs:
       - name: Build Docker image
         run: docker build -t catshield-linux -f docker/linux/Dockerfile .
       - name: Run tests
-        run: docker run --rm -v "${{ github.workspace }}:/app" catshield-linux cargo test --verbose
+        run: docker run --rm -v "${{ github.workspace }}:/app" catshield-linux cargo test --verbose --locked

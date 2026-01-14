@@ -238,7 +238,8 @@ impl InputBlocker for X11InputBlocker {
         }
 
         // Check if another instance already has the connection established
-        if !X11_CONNECTION.load(Ordering::Acquire).is_null() {
+        let existing = X11_CONNECTION.load(Ordering::Acquire);
+        if !existing.is_null() {
             // Another instance owns the connection - just mark ourselves as tracking it
             self.active = true;
             return Ok(());
@@ -283,13 +284,35 @@ impl InputBlocker for X11InputBlocker {
             )));
         }
 
-        // Store the connection globally
+        // Store the connection globally using compare_exchange to avoid race conditions.
+        // If another thread won the race, clean up our connection and use theirs.
         let conn_box = Box::new(conn);
         let conn_ptr = Box::into_raw(conn_box);
-        X11_CONNECTION.store(conn_ptr, Ordering::Release);
-        self.active = true;
 
-        log::info!("✓ X11 keyboard grab enabled");
+        match X11_CONNECTION.compare_exchange(
+            std::ptr::null_mut(),
+            conn_ptr,
+            Ordering::AcqRel,
+            Ordering::Acquire,
+        ) {
+            Ok(_) => {
+                // We won the race - our connection is now the global one
+                log::info!("✓ X11 keyboard grab enabled");
+            }
+            Err(_) => {
+                // Another thread won the race - clean up our connection
+                // SAFETY: We just created this Box and no one else has the pointer
+                let conn = unsafe { Box::from_raw(conn_ptr) };
+                if let Err(e) = conn.ungrab_keyboard(x11rb::CURRENT_TIME) {
+                    log::warn!("Failed to ungrab keyboard during race cleanup: {}", e);
+                }
+                let _ = conn.flush();
+                // conn is dropped here
+                log::debug!("Another instance won the connection race, using existing connection");
+            }
+        }
+
+        self.active = true;
         Ok(())
     }
 
@@ -343,6 +366,14 @@ unsafe impl Sync for X11InputBlocker {}
 ///
 /// In synchronous keyboard grab mode, we must call `allow_events` to let
 /// events through. This function replays the current event.
+///
+/// # Thread Safety
+///
+/// This function should be called from the same thread that created the X11
+/// connection (via `X11InputBlocker::setup()`). While x11rb's `RustConnection`
+/// is `Send + Sync`, concurrent X11 operations from multiple threads can cause
+/// internal buffering races. The caller is responsible for ensuring proper
+/// thread affinity or serializing access.
 pub fn allow_keyboard_event() {
     if let Some(conn) = X11InputBlocker::get_connection() {
         // ReplayKeyboard replays the current event as if the grab wasn't active
@@ -360,6 +391,14 @@ pub fn allow_keyboard_event() {
 ///
 /// In synchronous keyboard grab mode, we call `allow_events` with SyncKeyboard
 /// to freeze keyboard input while we decide what to do next.
+///
+/// # Thread Safety
+///
+/// This function should be called from the same thread that created the X11
+/// connection (via `X11InputBlocker::setup()`). While x11rb's `RustConnection`
+/// is `Send + Sync`, concurrent X11 operations from multiple threads can cause
+/// internal buffering races. The caller is responsible for ensuring proper
+/// thread affinity or serializing access.
 pub fn block_keyboard_event() {
     if let Some(conn) = X11InputBlocker::get_connection() {
         // SyncKeyboard continues processing but discards the current event
