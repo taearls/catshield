@@ -125,8 +125,8 @@ fn main() {
             // Successfully acquired lock, continue startup
         }
         LockResult::AlreadyRunning(pid) => {
-            log::info!("Cat Shield is already running (PID: {})", pid);
-            log::info!("Look for the 🐱 icon in your menu bar.");
+            log::warn!("Cat Shield is already running (PID: {})", pid);
+            log::warn!("Look for the 🐱 icon in your menu bar.");
             process::exit(0);
         }
         LockResult::Error(e) => {
