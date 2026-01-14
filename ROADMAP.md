@@ -355,11 +355,13 @@ Testing (can be done in parallel):
 | 🟢 Medium | #109 | Add Linux system tray via libappindicator | #94, #96 | ~2 days |
 | 🟢 Medium | #110 | Add Linux overlay window (X11 + Wayland) | #94, #96, ✅ #107 | ~2-3 days |
 | 🟢 Medium | #111 | Add Linux keycode mappings | #97 | ~1 day |
+| 🟢 Medium | #131 | Add keyboard-shortcuts-inhibit protocol for Wayland | #110 | ~1 day |
+| 🟢 Medium | #132 | Add XWayland fallback detection and recommendation | #110, #131 | ~0.5 day |
 
 **Implementation Order:**
 ```text
-#107: Research Wayland ✅ ─┬─ #110: Linux Overlay
-#106: X11 Keyboard Grab ───┤
+#107: Research Wayland ✅ ─┬─ #110: Linux Overlay ─┬─ #131: Keyboard Shortcuts Inhibit
+#106: X11 Keyboard Grab ───┤                       └─ #132: XWayland Detection
 #108: Linux Power Mgmt ────┤
 #109: Linux System Tray ───┘
 #111: Linux Keycodes (parallel with #97)
@@ -428,13 +430,13 @@ Testing (can be done in parallel):
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 10 | #102, #103, #105, #106, #108, #109, #110, #111, #113, #114 |
+| Open | 12 | #102, #103, #105, #106, #108, #109, #110, #111, #113, #114, #131, #132 |
 | Closed | 57 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80, #83, #85, #86, #87, #91, #94, #95, #96, #97, #98, #99, #100, #101, #104, #107, #112, #120, #128 |
 
 ### By Priority
 - 🔴 Critical: 0
 - 🟡 High: 1 (#106)
-- 🟢 Medium: 8 (#102, #103, #105, #108, #109, #110, #111, #113)
+- 🟢 Medium: 10 (#102, #103, #105, #108, #109, #110, #111, #113, #131, #132)
 - 🔵 Low: 1 (#114)
 
 ## Recommended Implementation Order
@@ -535,8 +537,8 @@ Windows:        #100 (Keyboard Hook) ✅ ─┬── #105 (Entry Point)
                 #103 (Overlay) ──────────┘
                 #104 (Keycodes) ✅ ──────── (parallel with #97)
 
-Linux:          #107 (Wayland Research) ✅ ─┬── #110 (Overlay)
-                #106 (X11 Keyboard) ────────┤
+Linux:          #107 (Wayland Research) ✅ ─┬── #110 (Overlay) ─┬── #131 (Shortcuts Inhibit)
+                #106 (X11 Keyboard) ────────┤                    └── #132 (XWayland Detection)
                 #108 (Power via DBus) ──────┤
                 #109 (System Tray) ─────────┘
                 #111 (Keycodes) ─────────────── (parallel with #97)
@@ -575,8 +577,11 @@ Potential future enhancements (not yet tracked as issues):
   - **Limitation**: Pointer input cannot be blocked; user/cat can click away
   - Documented recommended implementation approach and path forward
   - Updated README.md with Platform Support table and Wayland Limitations section
-  - Updated issue counts: 10 open, 57 closed
-  - Updated priority counts: 0 Critical, 1 High, 8 Medium, 1 Low
+  - Created follow-up issues from research recommendations:
+    - #131: Add keyboard-shortcuts-inhibit protocol for Wayland
+    - #132: Add XWayland fallback detection and recommendation
+  - Updated issue counts: 12 open, 57 closed
+  - Updated priority counts: 0 Critical, 1 High, 10 Medium, 1 Low
 
 - Completed Issue #128: Migrate from println!/eprintln! to log crate
   - Added `log` v0.4 and `env_logger` v0.11 dependencies to Cargo.toml
