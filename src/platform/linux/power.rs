@@ -257,13 +257,25 @@ impl PowerManager for LinuxPowerManager {
         let id = ASSERTION_COUNTER.fetch_add(1, Ordering::Relaxed);
 
         // Track this assertion ID as valid
-        if let Ok(mut guard) = VALID_ASSERTIONS.lock() {
+        {
+            let mut guard = VALID_ASSERTIONS.lock().map_err(|_| {
+                PowerError::Platform("Failed to acquire assertion lock".to_string())
+            })?;
             let set = guard.get_or_insert_with(HashSet::new);
             set.insert(id);
         }
 
         // Store the D-Bus cookie and interface for this assertion
-        if let Ok(mut guard) = DBUS_COOKIES.lock() {
+        {
+            let mut guard = DBUS_COOKIES.lock().map_err(|_| {
+                // Rollback VALID_ASSERTIONS on failure
+                if let Ok(mut va_guard) = VALID_ASSERTIONS.lock() {
+                    if let Some(set) = va_guard.as_mut() {
+                        set.remove(&id);
+                    }
+                }
+                PowerError::Platform("Failed to acquire cookie lock".to_string())
+            })?;
             let map = guard.get_or_insert_with(std::collections::HashMap::new);
             map.insert(id, DbusInhibitCookie { cookie, interface });
         }
@@ -350,13 +362,6 @@ impl PowerManager for LinuxPowerManager {
         Ok(())
     }
 }
-
-// SAFETY: LinuxPowerManager is Send + Sync because:
-// - It has no mutable state of its own
-// - All shared state uses Mutex for thread-safe access
-// - D-Bus connections are created per-operation (not stored)
-unsafe impl Send for LinuxPowerManager {}
-unsafe impl Sync for LinuxPowerManager {}
 
 #[cfg(test)]
 mod tests {
