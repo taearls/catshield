@@ -354,7 +354,7 @@ Testing (can be done in parallel):
 | 🟢 Medium | #108 | Add Linux power management via DBus | #94 | ~1-2 days |
 | 🟢 Medium | #109 | Add Linux system tray via libappindicator | #94, #96 | ~2 days |
 | 🟢 Medium | #110 | Add Linux overlay window (X11 + Wayland) | #94, #96, ✅ #107 | ~2-3 days |
-| 🟢 Medium | #111 | Add Linux keycode mappings | #97 | ~1 day |
+| ✅ Done | #111 | Add Linux keycode mappings | #97 | ~1 day |
 | 🟢 Medium | #131 | Add keyboard-shortcuts-inhibit protocol for Wayland | #110 | ~1 day |
 | 🟢 Medium | #132 | Add XWayland fallback detection and recommendation | #110, #131 | ~0.5 day |
 
@@ -364,7 +364,7 @@ Testing (can be done in parallel):
 #106: X11 Keyboard Grab ✅ ┤
 #108: Linux Power Mgmt ────┤
 #109: Linux System Tray ───┘
-#111: Linux Keycodes (parallel with #97)
+#111: Linux Keycodes ✅ (parallel with #97)
 ```
 
 #### Phase 8.4: Cross-Platform CI & Testing
@@ -385,6 +385,7 @@ Testing (can be done in parallel):
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #111 | feat: Add Linux keycode mappings | 2026-01-14 |
 | #106 | feat: Add X11 keyboard grab implementation (InputBlocker) | 2026-01-14 |
 | #107 | docs: Research Wayland input blocking solutions | 2026-01-14 |
 | #128 | feat: Migrate from println!/eprintln! to log crate | 2026-01-14 |
@@ -431,13 +432,13 @@ Testing (can be done in parallel):
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 11 | #102, #103, #105, #108, #109, #110, #111, #113, #114, #131, #132 |
-| Closed | 58 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80, #83, #85, #86, #87, #91, #94, #95, #96, #97, #98, #99, #100, #101, #104, #106, #107, #112, #120, #128 |
+| Open | 10 | #102, #103, #105, #108, #109, #110, #113, #114, #131, #132 |
+| Closed | 59 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80, #83, #85, #86, #87, #91, #94, #95, #96, #97, #98, #99, #100, #101, #104, #106, #107, #111, #112, #120, #128 |
 
 ### By Priority
 - 🔴 Critical: 0
 - 🟡 High: 0
-- 🟢 Medium: 10 (#102, #103, #105, #108, #109, #110, #111, #113, #131, #132)
+- 🟢 Medium: 9 (#102, #103, #105, #108, #109, #110, #113, #131, #132)
 - 🔵 Low: 1 (#114)
 
 ## Recommended Implementation Order
@@ -488,7 +489,7 @@ Testing (can be done in parallel):
 
 **Parallel Work (can start after foundation):**
 - Windows team: #100, #101, #102, #103, #104, #105
-- Linux team: #106, #107, #108, #109, #110, #111
+- Linux team: #106 ✅, #107 ✅, #108, #109, #110, #111 ✅
 
 **Final Integration:**
 - ~~**#112** - Set up cross-platform GitHub Actions CI (depends on #99 ✅)~~ ✅
@@ -563,6 +564,28 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-14
+- Completed Issue #111: Add Linux keycode mappings
+  - Fully implemented `src/input/keycodes/linux.rs` (was previously a stub)
+  - Added `key_to_keycode()` function: converts `Key` enum to X11 keysyms
+  - Added `keycode_to_key()` function: converts X11 keysyms to `Key` enum
+  - Complete mappings for all 57 supported keys using X11 keysym constants:
+    - Letters A-Z (XK_a through XK_z: 0x61-0x7a, with uppercase support 0x41-0x5a)
+    - Numbers 0-9 (XK_0 through XK_9: 0x30-0x39)
+    - Function keys F1-F12 (XK_F1 through XK_F12: 0xffbe-0xffc9)
+    - Special keys: Escape (0xff1b), Tab (0xff09), Space (0x20), Return (0xff0d), Backspace (0xff08)
+    - Navigation keys: Arrow keys (0xff51-0xff54), Home (0xff50), End (0xff57), PageUp (0xff55), PageDown (0xff56)
+    - Punctuation: Minus, Equal, Brackets, Backslash, Semicolon, Quote, Grave, etc.
+  - Both uppercase and lowercase letter keysyms map to the same Key variant (case-insensitive)
+  - Key to keysym conversion uses lowercase keysyms by default
+  - Added X11 keysym constants following X11/keysymdef.h naming conventions
+  - Added 14 comprehensive unit tests for key mappings, including:
+    - Roundtrip conversion tests
+    - Case-insensitive letter mapping tests
+    - Complete coverage verification
+  - All tests pass, clippy clean, build successful
+  - Updated issue counts: 10 open, 59 closed
+  - Updated priority counts: 0 Critical, 0 High, 9 Medium, 1 Low
+
 - Completed Issue #107: Research Wayland input blocking solutions
   - Created comprehensive research document at `docs/WAYLAND_INPUT_RESEARCH.md`
   - Investigated 6 Wayland protocols for input interception:
