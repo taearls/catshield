@@ -331,16 +331,16 @@ Testing (can be done in parallel):
 |----------|-------|-------|--------------|--------|
 | ✅ Done | #100 | Add Windows keyboard hook implementation (InputBlocker) | #94, #96 | ~2-3 days |
 | ✅ Done | #101 | Add Windows power management (PowerManager) | #94 | ~1 day |
-| 🟢 Medium | #102 | Add Windows system tray implementation | #94, #96 | ~2 days |
+| ✅ Done | #102 | Add Windows system tray implementation | #94, #96 | ~2 days |
 | 🟢 Medium | #103 | Add Windows overlay window implementation | #94, #96 | ~2 days |
 | ✅ Done | #104 | Add Windows keycode mappings | #97 | ~1 day |
-| 🟢 Medium | #105 | Create Windows entry point and event loop integration | #100, #102, #103 | ~1-2 days |
+| 🟢 Medium | #105 | Create Windows entry point and event loop integration | #100, ✅ #102, #103 | ~1-2 days |
 
 **Implementation Order:**
 ```text
 #100: Windows Keyboard Hook ✅ ─┬─ #105: Windows Entry Point
 #101: Windows Power Mgmt ✅ ────┤
-#102: Windows System Tray ──────┤
+#102: Windows System Tray ✅ ───┤
 #103: Windows Overlay ──────────┘
 #104: Windows Keycodes ✅ (parallel with #97)
 ```
@@ -385,6 +385,7 @@ Testing (can be done in parallel):
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #102 | feat: Add Windows system tray implementation | 2026-01-14 |
 | #111 | feat: Add Linux keycode mappings | 2026-01-14 |
 | #106 | feat: Add X11 keyboard grab implementation (InputBlocker) | 2026-01-14 |
 | #107 | docs: Research Wayland input blocking solutions | 2026-01-14 |
