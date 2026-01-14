@@ -7,8 +7,11 @@
 //!
 //! These are unit tests that mock the GUI components to test the logic
 //! without requiring actual AppKit interaction.
+//!
+//! Note: These tests are macOS-only because they depend on ui::state which
+//! uses AppKit types.
 
-#[cfg(test)]
+#[cfg(all(test, target_os = "macos"))]
 mod tests {
     use crate::config::Config;
     use crate::timer::{
