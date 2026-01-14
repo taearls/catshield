@@ -224,10 +224,9 @@ unsafe extern "system" fn keyboard_hook_callback(
             if (message == WM_KEYDOWN || message == WM_SYSKEYDOWN)
                 && check_exit_key(vk_code, &modifiers)
             {
-                // Exit key detected - this will be handled by the application
-                // For now, let the event through so the app can respond
-                // In a full implementation, this would signal the main thread to exit
-                return LRESULT(0);
+                // Exit key detected - let the event propagate to the application
+                // TODO: In a full implementation, this would signal the main thread to exit
+                return CallNextHookEx(HHOOK::default(), ncode, wparam, lparam);
             }
 
             // Check if this key is in the allowed list
@@ -267,6 +266,14 @@ impl WindowsInputBlocker {
 impl InputBlocker for WindowsInputBlocker {
     fn setup(&mut self) -> Result<(), InputBlockError> {
         if self.active {
+            return Ok(());
+        }
+
+        // Check if another instance already has the hook installed
+        // This prevents leaking hook handles when multiple instances exist
+        if !KEYBOARD_HOOK.load(Ordering::Acquire).is_null() {
+            // Another instance owns the hook - just mark ourselves as tracking it
+            self.active = true;
             return Ok(());
         }
 
