@@ -27,33 +27,60 @@
 //! Go to System Preferences → Security & Privacy → Privacy → Accessibility
 //! and add this application.
 
+// This application is currently macOS-only
+#[cfg(not(target_os = "macos"))]
+fn main() {
+    eprintln!("Cat Shield is currently only supported on macOS.");
+    eprintln!("Windows and Linux support is planned for future releases.");
+    std::process::exit(1);
+}
+
+#[cfg(target_os = "macos")]
 use cat_shield::config::{has_immediate_start_args, Args, Config};
+#[cfg(target_os = "macos")]
 use cat_shield::input::{set_exit_key, ExitKey, DEFAULT_EXIT_KEY};
+#[cfg(target_os = "macos")]
 use cat_shield::lock::{acquire_instance_lock, release_instance_lock, LockResult};
+#[cfg(target_os = "macos")]
 use cat_shield::platform::{allow_sleep, prevent_sleep, setup_event_tap};
+#[cfg(target_os = "macos")]
 use cat_shield::shield_core::{
     create_shield_window, ensure_accessibility, print_activation_banner, print_shield_active,
     setup_close_button, setup_timer_display,
 };
+#[cfg(target_os = "macos")]
 use cat_shield::timer::{format_duration, get_remaining_seconds};
+#[cfg(target_os = "macos")]
 use cat_shield::ui::menu_bar::setup_menu_bar;
+#[cfg(target_os = "macos")]
 use cat_shield::ui::shield::{stop_close_button_timer, timer_callback};
+#[cfg(target_os = "macos")]
 use cat_shield::ui::state::{animation, shield};
 
+#[cfg(target_os = "macos")]
 use clap::Parser;
+#[cfg(target_os = "macos")]
 use objc2::rc::Retained;
+#[cfg(target_os = "macos")]
 use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy, NSScreen};
+#[cfg(target_os = "macos")]
 use objc2_core_foundation::{kCFRunLoopCommonModes, CFString};
+#[cfg(target_os = "macos")]
 use objc2_foundation::MainThreadMarker;
+#[cfg(target_os = "macos")]
 use std::ffi::c_void;
+#[cfg(target_os = "macos")]
 use std::process;
+#[cfg(target_os = "macos")]
 use std::sync::atomic::Ordering;
 
+#[cfg(target_os = "macos")]
 use cat_shield::platform::{
     CFAbsoluteTimeGetCurrent, CFRunLoopAddTimer, CFRunLoopGetCurrent, CFRunLoopTimerCreate,
 };
 
 /// Start the animation timer for immediate mode
+#[cfg(target_os = "macos")]
 fn start_close_button_timer() {
     // SAFETY: CFRunLoopTimerCreate and related calls are safe because:
     // - All arguments are valid (null allocator uses default, valid time values)
@@ -81,6 +108,7 @@ fn start_close_button_timer() {
     }
 }
 
+#[cfg(target_os = "macos")]
 fn main() {
     // Parse command line arguments
     let args = Args::parse();

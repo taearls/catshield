@@ -2,11 +2,33 @@
 //!
 //! Ensures only one instance of Cat Shield can run at a time.
 
-use crate::platform::kill;
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
 use std::path::PathBuf;
 use std::process;
+
+// Platform-specific kill function for checking if a process exists
+#[cfg(unix)]
+extern "C" {
+    fn kill(pid: i32, sig: i32) -> i32;
+}
+
+/// Check if a process with the given PID is still running (Unix implementation)
+#[cfg(unix)]
+fn is_process_running_impl(pid: u32) -> bool {
+    // Use kill with signal 0 to check if process exists
+    // This doesn't actually send a signal, just checks if the process exists
+    unsafe { kill(pid as i32, 0) == 0 }
+}
+
+/// Check if a process with the given PID is still running (Windows stub)
+#[cfg(windows)]
+fn is_process_running_impl(_pid: u32) -> bool {
+    // On Windows, we'd need to use OpenProcess to check if a process exists
+    // For now, assume stale locks should be cleaned up (returns false)
+    // This will be implemented properly when Windows support is added
+    false
+}
 
 /// Lock file name for single-instance enforcement
 const LOCK_FILE_NAME: &str = "catshield.lock";
@@ -23,9 +45,7 @@ pub(crate) fn lock_file_path() -> Option<PathBuf> {
 
 /// Check if a process with the given PID is still running
 pub(crate) fn is_process_running(pid: u32) -> bool {
-    // Use kill with signal 0 to check if process exists
-    // This doesn't actually send a signal, just checks if the process exists
-    unsafe { kill(pid as i32, 0) == 0 }
+    is_process_running_impl(pid)
 }
 
 /// Result of attempting to acquire the single-instance lock

@@ -1,4 +1,6 @@
 //! Shield overlay activation and deactivation for Cat Shield
+//!
+//! This module is macOS-only. Windows and Linux support is planned for future releases.
 
 use crate::config::Config;
 use crate::input::get_exit_key;
