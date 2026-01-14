@@ -350,18 +350,18 @@ Testing (can be done in parallel):
 | Priority | Issue | Title | Dependencies | Effort |
 |----------|-------|-------|--------------|--------|
 | 🟡 High | #106 | Add X11 keyboard grab implementation (InputBlocker) | #94, #96 | ~2-3 days |
-| 🟡 High | #107 | Research Wayland input blocking solutions | None | ~1-2 days |
+| ✅ Done | #107 | Research Wayland input blocking solutions | None | ~1-2 days |
 | 🟢 Medium | #108 | Add Linux power management via DBus | #94 | ~1-2 days |
 | 🟢 Medium | #109 | Add Linux system tray via libappindicator | #94, #96 | ~2 days |
-| 🟢 Medium | #110 | Add Linux overlay window (X11 + Wayland) | #94, #96, #107 | ~2-3 days |
+| 🟢 Medium | #110 | Add Linux overlay window (X11 + Wayland) | #94, #96, ✅ #107 | ~2-3 days |
 | 🟢 Medium | #111 | Add Linux keycode mappings | #97 | ~1 day |
 
 **Implementation Order:**
 ```text
-#107: Research Wayland ──┬─ #110: Linux Overlay
-#106: X11 Keyboard Grab ─┤
-#108: Linux Power Mgmt ──┤
-#109: Linux System Tray ─┘
+#107: Research Wayland ✅ ─┬─ #110: Linux Overlay
+#106: X11 Keyboard Grab ───┤
+#108: Linux Power Mgmt ────┤
+#109: Linux System Tray ───┘
 #111: Linux Keycodes (parallel with #97)
 ```
 
@@ -383,6 +383,7 @@ Testing (can be done in parallel):
 
 | Issue | Title | Completed |
 |-------|-------|-----------|
+| #107 | docs: Research Wayland input blocking solutions | 2026-01-14 |
 | #128 | feat: Migrate from println!/eprintln! to log crate | 2026-01-14 |
 | #101 | feat: Add Windows power management (PowerManager) | 2026-01-14 |
 | #100 | feat: Add Windows keyboard hook implementation (InputBlocker) | 2026-01-14 |
@@ -427,12 +428,12 @@ Testing (can be done in parallel):
 
 | Status | Count | Issues |
 |--------|-------|--------|
-| Open | 11 | #102, #103, #105, #106, #107, #108, #109, #110, #111, #113, #114 |
-| Closed | 56 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80, #83, #85, #86, #87, #91, #94, #95, #96, #97, #98, #99, #100, #101, #104, #112, #120, #128 |
+| Open | 10 | #102, #103, #105, #106, #108, #109, #110, #111, #113, #114 |
+| Closed | 57 | #3, #5, #6, #7, #10, #11, #13, #14, #15, #16, #17, #18, #19, #24, #25, #28, #30, #31, #35, #38, #42, #44, #46, #48, #49, #52, #53, #54, #55, #56, #57, #58, #59, #60, #64, #65, #73, #75, #80, #83, #85, #86, #87, #91, #94, #95, #96, #97, #98, #99, #100, #101, #104, #107, #112, #120, #128 |
 
 ### By Priority
 - 🔴 Critical: 0
-- 🟡 High: 2 (#106, #107)
+- 🟡 High: 1 (#106)
 - 🟢 Medium: 8 (#102, #103, #105, #108, #109, #110, #111, #113)
 - 🔵 Low: 1 (#114)
 
@@ -534,11 +535,11 @@ Windows:        #100 (Keyboard Hook) ✅ ─┬── #105 (Entry Point)
                 #103 (Overlay) ──────────┘
                 #104 (Keycodes) ✅ ──────── (parallel with #97)
 
-Linux:          #107 (Wayland Research) ─┬── #110 (Overlay)
-                #106 (X11 Keyboard) ─────┤
-                #108 (Power via DBus) ───┤
-                #109 (System Tray) ──────┘
-                #111 (Keycodes) ────────── (parallel with #97)
+Linux:          #107 (Wayland Research) ✅ ─┬── #110 (Overlay)
+                #106 (X11 Keyboard) ────────┤
+                #108 (Power via DBus) ──────┤
+                #109 (System Tray) ─────────┘
+                #111 (Keycodes) ─────────────── (parallel with #97)
 
 CI:             #112 (Cross-Platform CI) ✅ ── #113 (Platform Tests)
 
@@ -559,6 +560,24 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-14
+- Completed Issue #107: Research Wayland input blocking solutions
+  - Created comprehensive research document at `docs/WAYLAND_INPUT_RESEARCH.md`
+  - Investigated 6 Wayland protocols for input interception:
+    - `zwp_input_method_v2`: Designed for CJK input methods, not general input blocking
+    - `wlr-input-inhibitor-unstable-v1`: Deprecated, not for production use
+    - `ext-session-lock-v1`: Secure session locking, no selective key passthrough
+    - `keyboard-shortcuts-inhibit-unstable-v1`: Partially viable for wlroots compositors
+    - `xdg-desktop-portal GlobalShortcuts`: Registration only, cannot block input
+    - `zwp_virtual_keyboard_v1`: Input injection, not blocking
+  - Investigated compositor-specific solutions (KDE/KWin, GNOME/Mutter, Sway/wlroots, Hyprland)
+  - **Key finding**: Full input blocking is not possible on Wayland by design (security)
+  - **Partial solution**: Fullscreen layer-shell + keyboard-shortcuts-inhibit for wlroots
+  - **Limitation**: Pointer input cannot be blocked; user/cat can click away
+  - Documented recommended implementation approach and path forward
+  - Updated README.md with Platform Support table and Wayland Limitations section
+  - Updated issue counts: 10 open, 57 closed
+  - Updated priority counts: 0 Critical, 1 High, 8 Medium, 1 Low
+
 - Completed Issue #128: Migrate from println!/eprintln! to log crate
   - Added `log` v0.4 and `env_logger` v0.11 dependencies to Cargo.toml
   - Created `src/logging.rs` module with `init()` function for logger initialization
