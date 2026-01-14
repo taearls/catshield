@@ -21,6 +21,9 @@ pub use types::{KeyEvent, Modifiers, Rect, SleepAssertion};
 #[cfg(target_os = "macos")]
 pub mod macos;
 
+#[cfg(target_os = "windows")]
+pub mod windows;
+
 // Re-export platform-specific items for backward compatibility
 // High-level APIs (accessibility, power, event tap)
 #[cfg(target_os = "macos")]
@@ -62,4 +65,11 @@ pub use macos::{
     IOPMAssertionCreateWithName,
     IOPMAssertionRelease,
     K_IOPM_ASSERTION_LEVEL_ON,
+};
+
+// Windows platform trait implementations and helpers
+#[cfg(target_os = "windows")]
+pub use windows::{
+    clear_allowed_keys, set_allowed_keys, set_exit_key_config, AllowedKeyConfig,
+    WindowsInputBlocker,
 };
