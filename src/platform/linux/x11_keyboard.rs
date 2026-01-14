@@ -28,9 +28,6 @@ use x11rb::rust_connection::RustConnection;
 /// Global pointer to the X11 connection
 static X11_CONNECTION: AtomicPtr<RustConnection> = AtomicPtr::new(std::ptr::null_mut());
 
-/// Flag indicating whether input blocking is currently enabled
-static BLOCKING_ENABLED: AtomicBool = AtomicBool::new(false);
-
 /// Global storage for exit key configuration
 static EXIT_KEY_KEYCODE: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 static EXIT_KEY_REQUIRES_SUPER: AtomicBool = AtomicBool::new(false);
@@ -290,8 +287,6 @@ impl InputBlocker for X11InputBlocker {
         let conn_box = Box::new(conn);
         let conn_ptr = Box::into_raw(conn_box);
         X11_CONNECTION.store(conn_ptr, Ordering::Release);
-
-        BLOCKING_ENABLED.store(true, Ordering::Release);
         self.active = true;
 
         log::info!("✓ X11 keyboard grab enabled");
@@ -302,8 +297,6 @@ impl InputBlocker for X11InputBlocker {
         if !self.active {
             return;
         }
-
-        BLOCKING_ENABLED.store(false, Ordering::Release);
 
         // Get and clear the connection pointer
         let conn_ptr = X11_CONNECTION.swap(std::ptr::null_mut(), Ordering::AcqRel);
