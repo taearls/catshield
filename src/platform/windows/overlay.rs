@@ -22,24 +22,21 @@
 
 use std::sync::atomic::{AtomicBool, AtomicPtr, AtomicU8, Ordering};
 
-use log::{debug, error, info, warn};
+use log::{debug, info, warn};
 use windows::core::{w, PCWSTR};
 use windows::Win32::Foundation::{COLORREF, HINSTANCE, HWND, LPARAM, LRESULT, RECT, WPARAM};
 use windows::Win32::Graphics::Gdi::{
     BeginPaint, CreatePen, CreateSolidBrush, DeleteObject, Ellipse, EndPaint, FillRect,
-    GetStockObject, InvalidateRect, SelectObject, SetBkMode, SetTextColor, TextOutW,
-    HBRUSH, NULL_BRUSH, PAINTSTRUCT, PS_SOLID, TRANSPARENT,
+    InvalidateRect, SelectObject, SetBkMode, SetTextColor, TextOutW, UpdateWindow, PAINTSTRUCT,
+    PS_SOLID, TRANSPARENT,
 };
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DefWindowProcW, DestroyWindow, GetClientRect, GetSystemMetrics,
-    RegisterClassW, SetTimer, ShowWindow, KillTimer, UpdateWindow,
-    WNDCLASSW, WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_POPUP,
-    SM_CXSCREEN, SM_CYSCREEN, SW_HIDE, SW_SHOW, WM_DESTROY, WM_LBUTTONDOWN,
-    WM_LBUTTONUP, WM_MOUSEMOVE, WM_PAINT, WM_TIMER,
+    CreateWindowExW, DefWindowProcW, DestroyWindow, GetClientRect, GetSystemMetrics, KillTimer,
+    RegisterClassW, SetLayeredWindowAttributes, SetTimer, ShowWindow, LWA_ALPHA, SM_CXSCREEN,
+    SM_CYSCREEN, SW_HIDE, SW_SHOW, WM_DESTROY, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEMOVE,
+    WM_PAINT, WM_TIMER, WNDCLASSW, WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_POPUP,
 };
-use windows::Win32::UI::WindowsAndMessaging::SetLayeredWindowAttributes;
-use windows::Win32::UI::WindowsAndMessaging::LWA_ALPHA;
 
 use crate::platform::errors::WindowError;
 use crate::platform::traits::OverlayWindow;
@@ -200,8 +197,9 @@ impl WindowsOverlayWindow {
             return Ok(());
         }
 
-        let hinstance = unsafe { GetModuleHandleW(None) }
-            .map_err(|e| WindowError::CreationFailed(format!("Failed to get module handle: {e}")))?;
+        let hinstance = unsafe { GetModuleHandleW(None) }.map_err(|e| {
+            WindowError::CreationFailed(format!("Failed to get module handle: {e}"))
+        })?;
 
         let wc = WNDCLASSW {
             lpfnWndProc: Some(overlay_window_proc),
@@ -241,8 +239,9 @@ impl OverlayWindow for WindowsOverlayWindow {
     fn create(&mut self) -> Result<(), WindowError> {
         self.register_window_class()?;
 
-        let hmodule = unsafe { GetModuleHandleW(None) }
-            .map_err(|e| WindowError::CreationFailed(format!("Failed to get module handle: {e}")))?;
+        let hmodule = unsafe { GetModuleHandleW(None) }.map_err(|e| {
+            WindowError::CreationFailed(format!("Failed to get module handle: {e}"))
+        })?;
         let hinstance: HINSTANCE = hmodule.into();
 
         let (screen_width, screen_height) = self.get_screen_size();
@@ -253,7 +252,10 @@ impl OverlayWindow for WindowsOverlayWindow {
             ));
         }
 
-        debug!("Creating overlay window: {}x{}", screen_width, screen_height);
+        debug!(
+            "Creating overlay window: {}x{}",
+            screen_width, screen_height
+        );
 
         // Create the window with layered, topmost, and toolwindow styles
         let ex_style = WS_EX_LAYERED | WS_EX_TOPMOST | WS_EX_TOOLWINDOW;
@@ -285,8 +287,9 @@ impl OverlayWindow for WindowsOverlayWindow {
         // Set the initial opacity
         let opacity_byte = (self.opacity * 255.0).clamp(0.0, 255.0) as u8;
         unsafe {
-            SetLayeredWindowAttributes(hwnd, COLORREF(0), opacity_byte, LWA_ALPHA)
-                .map_err(|e| WindowError::ConfigurationFailed(format!("Failed to set opacity: {e}")))?;
+            SetLayeredWindowAttributes(hwnd, COLORREF(0), opacity_byte, LWA_ALPHA).map_err(
+                |e| WindowError::ConfigurationFailed(format!("Failed to set opacity: {e}")),
+            )?;
         }
 
         self.hwnd = hwnd;
@@ -475,7 +478,8 @@ unsafe extern "system" fn overlay_window_proc(
                         // Draw timer in the center of the screen
                         let text_x = width / 2 - 50;
                         let text_y = height / 2;
-                        let _ = TextOutW(hdc, text_x, text_y, &text[..text.len() - 1]); // Exclude null terminator
+                        let _ = TextOutW(hdc, text_x, text_y, &text[..text.len() - 1]);
+                        // Exclude null terminator
                     }
                 }
 
@@ -597,7 +601,12 @@ mod tests {
 
         // Point far away should be outside
         assert!(!is_point_in_close_button(0, 0, width, height));
-        assert!(!is_point_in_close_button(width / 2, height / 2, width, height));
+        assert!(!is_point_in_close_button(
+            width / 2,
+            height / 2,
+            width,
+            height
+        ));
     }
 
     #[test]
