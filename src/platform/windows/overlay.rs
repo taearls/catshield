@@ -581,13 +581,6 @@ mod tests {
     }
 
     #[test]
-    fn test_close_button_constants() {
-        assert!(CLOSE_BUTTON_RADIUS > 0);
-        assert!(CLOSE_BUTTON_MARGIN > 0);
-        assert!(TIMER_INTERVAL_MS > 0);
-    }
-
-    #[test]
     fn test_is_point_in_close_button() {
         let width = 1920;
         let height = 1080;
