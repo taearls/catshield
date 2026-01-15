@@ -196,7 +196,7 @@ impl WindowsSystemTray {
                 0,
                 None,
                 None,
-                Some(hinstance),
+                hinstance,
                 None,
             )
         }
