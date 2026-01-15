@@ -2,7 +2,7 @@
 
 ## Quick Reference
 <!-- AI-OPTIMIZED: This section contains actionable info for automated tools -->
-<!-- Keep under 100 lines - agents read this first -->
+<!-- Keep under 150 lines - agents read this first -->
 
 **Current Phase**: 8 - Cross-Platform Support
 **Next Priority**: #103 (Windows overlay window)

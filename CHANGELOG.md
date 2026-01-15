@@ -2,6 +2,8 @@
 
 All notable changes to Cat Shield are documented in this file.
 
+*See [ROADMAP.md](ROADMAP.md) for current project status and open issues.*
+
 ## [Unreleased]
 
 ### 2026-01-15
