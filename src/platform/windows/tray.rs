@@ -23,7 +23,7 @@ use std::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
 
 use log::{debug, error, info, warn};
 use windows::core::{w, PCWSTR};
-use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, WPARAM};
+use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Shell::{
     Shell_NotifyIconW, NIF_ICON, NIF_MESSAGE, NIF_TIP, NIM_ADD, NIM_DELETE, NIM_MODIFY,
@@ -214,12 +214,9 @@ impl WindowsSystemTray {
 
     /// Creates the tray icon.
     fn create_tray_icon(&mut self) -> Result<(), TrayError> {
-        let hinstance: HINSTANCE = unsafe { GetModuleHandleW(None) }
-            .map_err(|e| TrayError::IconFailed(format!("Failed to get module handle: {e}")))?
-            .into();
-
         // Load the default application icon
-        let hicon = unsafe { LoadIconW(Some(hinstance), IDI_APPLICATION) }
+        // Note: For predefined system icons like IDI_APPLICATION, hInstance must be None
+        let hicon = unsafe { LoadIconW(None, IDI_APPLICATION) }
             .map_err(|e| TrayError::IconFailed(format!("Failed to load icon: {e}")))?;
 
         // Initialize NOTIFYICONDATAW
