@@ -20,7 +20,7 @@
 //! Custom painting is performed in the `WM_PAINT` handler using GDI functions.
 //! The close button is tracked for mouse hover and click events.
 
-use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicPtr, AtomicU8, Ordering};
 use std::sync::{Arc, Mutex};
 
 use log::{debug, info, warn};
