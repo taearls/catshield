@@ -3,7 +3,7 @@
 //! This module implements the [`OverlayWindow`] trait for Windows using:
 //! - `CreateWindowEx` with `WS_EX_TOPMOST`, `WS_EX_TOOLWINDOW`, and `WS_EX_LAYERED`
 //! - `SetLayeredWindowAttributes` for opacity control
-//! - GDI+ for custom painting (close button and timer display)
+//! - GDI for custom painting (close button and timer display)
 //!
 //! # Requirements
 //!
@@ -20,7 +20,8 @@
 //! Custom painting is performed in the `WM_PAINT` handler using GDI functions.
 //! The close button is tracked for mouse hover and click events.
 
-use std::sync::atomic::{AtomicBool, AtomicPtr, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+use std::sync::{Arc, Mutex};
 
 use log::{debug, info, warn};
 use windows::core::{w, PCWSTR};
@@ -88,14 +89,14 @@ static CLOSE_BUTTON_HOVERED: AtomicBool = AtomicBool::new(false);
 /// Mouse down state for close button
 static CLOSE_BUTTON_PRESSED: AtomicBool = AtomicBool::new(false);
 
-/// Callback for close button click
-static CLOSE_CALLBACK: AtomicPtr<()> = AtomicPtr::new(std::ptr::null_mut());
+/// Callback for close button click (protected by mutex for thread safety)
+static CLOSE_CALLBACK: Mutex<Option<Arc<dyn Fn() + Send + Sync>>> = Mutex::new(None);
 
 /// Timer text to display (null-terminated UTF-16, max 32 chars including null)
 static TIMER_TEXT: std::sync::RwLock<Option<Vec<u16>>> = std::sync::RwLock::new(None);
 
 /// Callback type for close button click
-pub type CloseCallback = Box<dyn Fn() + Send + Sync>;
+pub type CloseCallback = Arc<dyn Fn() + Send + Sync>;
 
 /// Windows overlay window implementation.
 ///
@@ -142,29 +143,22 @@ impl WindowsOverlayWindow {
     /// Sets the callback function for close button clicks.
     ///
     /// The callback will be invoked when the user clicks the close button.
+    /// This method is thread-safe and ensures the callback cannot be freed
+    /// while being invoked.
     ///
     /// # Arguments
     ///
     /// * `callback` - A function that is called when the close button is clicked
     pub fn set_close_callback(callback: CloseCallback) {
-        let boxed = Box::new(callback);
-        let ptr = Box::into_raw(boxed) as *mut ();
-        let old = CLOSE_CALLBACK.swap(ptr, Ordering::SeqCst);
-        if !old.is_null() {
-            // Clean up the old callback
-            unsafe {
-                drop(Box::from_raw(old as *mut CloseCallback));
-            }
+        if let Ok(mut guard) = CLOSE_CALLBACK.lock() {
+            *guard = Some(callback);
         }
     }
 
     /// Clears the close callback.
     pub fn clear_close_callback() {
-        let old = CLOSE_CALLBACK.swap(std::ptr::null_mut(), Ordering::SeqCst);
-        if !old.is_null() {
-            unsafe {
-                drop(Box::from_raw(old as *mut CloseCallback));
-            }
+        if let Ok(mut guard) = CLOSE_CALLBACK.lock() {
+            *guard = None;
         }
     }
 
@@ -542,11 +536,10 @@ unsafe extern "system" fn overlay_window_proc(
 
             if was_pressed && is_point_in_close_button(x, y, width, height) {
                 debug!("Close button clicked");
-                // Invoke the callback if set
-                let ptr = CLOSE_CALLBACK.load(Ordering::SeqCst);
-                if !ptr.is_null() {
-                    let callback = &*(ptr as *const CloseCallback);
-                    callback();
+                // Invoke the callback if set (clone Arc to ensure it stays alive during call)
+                let callback = CLOSE_CALLBACK.lock().ok().and_then(|guard| guard.clone());
+                if let Some(cb) = callback {
+                    cb();
                 }
             }
 
@@ -564,6 +557,7 @@ unsafe extern "system" fn overlay_window_proc(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
 
     #[test]
     fn test_overlay_window_new() {
@@ -624,6 +618,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_timer_text_lock() {
         // Test that timer text can be set and read
         WindowsOverlayWindow::set_timer_text(Some("Test"));
@@ -640,10 +635,12 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_global_atomics_default_state() {
-        // These tests verify the default state of global atomics
-        // Note: These may fail if other tests have modified the state
-        // In a real scenario, you'd want test isolation
+        // Reset global state before testing
+        CLOSE_BUTTON_HOVERED.store(false, Ordering::SeqCst);
+        CLOSE_BUTTON_PRESSED.store(false, Ordering::SeqCst);
+
         assert!(!CLOSE_BUTTON_HOVERED.load(Ordering::SeqCst));
         assert!(!CLOSE_BUTTON_PRESSED.load(Ordering::SeqCst));
     }
