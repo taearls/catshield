@@ -75,8 +75,8 @@ pub use macos::{
 // Windows platform trait implementations and helpers
 #[cfg(target_os = "windows")]
 pub use windows::{
-    clear_allowed_keys, set_allowed_keys, set_exit_key_config, AllowedKeyConfig,
-    WindowsInputBlocker, WindowsPowerManager,
+    clear_allowed_keys, set_allowed_keys, set_exit_key_config, AllowedKeyConfig, MenuCallback,
+    TrayMenuAction, WindowsInputBlocker, WindowsPowerManager, WindowsSystemTray,
 };
 
 // Linux platform trait implementations and helpers
