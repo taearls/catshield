@@ -23,7 +23,7 @@ use std::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
 
 use log::{debug, error, info, warn};
 use windows::core::{w, PCWSTR};
-use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
+use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Shell::{
     Shell_NotifyIconW, NIF_ICON, NIF_MESSAGE, NIF_TIP, NIM_ADD, NIM_DELETE, NIM_MODIFY,
@@ -32,7 +32,7 @@ use windows::Win32::UI::Shell::{
 use windows::Win32::UI::WindowsAndMessaging::{
     AppendMenuW, CreatePopupMenu, CreateWindowExW, DefWindowProcW, DestroyMenu, DestroyWindow,
     GetCursorPos, LoadIconW, PostQuitMessage, RegisterClassW, SetForegroundWindow, TrackPopupMenu,
-    HMENU, IDI_APPLICATION, MF_ENABLED, MF_GRAYED, MF_SEPARATOR, MF_STRING, TPM_BOTTOMALIGN,
+    IDI_APPLICATION, MF_ENABLED, MF_GRAYED, MF_SEPARATOR, MF_STRING, TPM_BOTTOMALIGN,
     TPM_LEFTALIGN, TPM_RIGHTBUTTON, WINDOW_EX_STYLE, WM_COMMAND, WM_DESTROY, WM_LBUTTONUP,
     WM_RBUTTONUP, WNDCLASSW, WS_OVERLAPPEDWINDOW,
 };
@@ -180,8 +180,9 @@ impl WindowsSystemTray {
 
     /// Creates the hidden window for receiving tray messages.
     fn create_hidden_window(&mut self) -> Result<(), TrayError> {
-        let hinstance = unsafe { GetModuleHandleW(None) }
+        let hmodule = unsafe { GetModuleHandleW(None) }
             .map_err(|e| TrayError::CreationFailed(format!("Failed to get module handle: {e}")))?;
+        let hinstance: HINSTANCE = hmodule.into();
 
         let hwnd = unsafe {
             CreateWindowExW(
@@ -195,7 +196,7 @@ impl WindowsSystemTray {
                 0,
                 None,
                 None,
-                Some(hinstance.into()),
+                Some(hinstance),
                 None,
             )
         }
