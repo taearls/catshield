@@ -34,7 +34,7 @@ fn main() {
     cat_shield::logging::init(0);
 
     log::error!("Cat Shield is not yet fully supported on Linux.");
-    log::error!("See https://github.com/your-repo/catshield for progress on Linux support.");
+    log::error!("See https://github.com/taearls/catshield for progress on Linux support.");
     std::process::exit(1);
 }
 
@@ -229,6 +229,11 @@ fn main() {
             TrayMenuAction::Quit => {
                 log::info!("Quit requested");
                 WINDOWS_SHOULD_QUIT.store(true, Ordering::SeqCst);
+                // Post WM_QUIT to wake the message loop immediately
+                // Without this, GetMessageW may block until the next Windows message arrives
+                unsafe {
+                    windows::Win32::UI::WindowsAndMessaging::PostQuitMessage(0);
+                }
             }
         }
     });
