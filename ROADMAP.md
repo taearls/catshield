@@ -5,15 +5,14 @@
 <!-- Keep under 150 lines - agents read this first -->
 
 **Current Phase**: 8 - Cross-Platform Support
-**Next Priority**: #103 (Windows overlay window)
+**Next Priority**: #105 (Windows entry point and event loop)
 **Blocking Issues**: None
 
 ### Open Issues by Priority
 
 | # | Title | Priority | Effort | Blocked By | Phase |
 |---|-------|----------|--------|------------|-------|
-| 103 | Windows overlay window implementation | 🟢 Medium | ~2 days | None | 8.2 |
-| 105 | Windows entry point and event loop | 🟢 Medium | ~1-2 days | #103 | 8.2 |
+| 105 | Windows entry point and event loop | 🟢 Medium | ~1-2 days | None | 8.2 |
 | 109 | Linux system tray via libappindicator | 🟢 Medium | ~2 days | None | 8.3 |
 | 110 | Linux overlay window (X11 + Wayland) | 🟢 Medium | ~2-3 days | None | 8.3 |
 | 131 | Wayland keyboard-shortcuts-inhibit | 🟢 Medium | ~1 day | #110 | 8.3 |
@@ -21,11 +20,11 @@
 | 113 | Platform-specific integration tests | 🟢 Medium | ~2 days | None | 8.4 |
 | 114 | Animated cat companion overlay | 🔵 Low | ~2-3 days | None | 9 |
 
-**Summary**: 8 open issues (0 Critical, 0 High, 7 Medium, 1 Low)
+**Summary**: 7 open issues (0 Critical, 0 High, 6 Medium, 1 Low)
 
 ### Recommended Next Issues
 
-1. **#103** - Windows overlay window (unblocks #105 for full Windows support)
+1. **#105** - Windows entry point and event loop (completes Windows support)
 2. **#109** - Linux system tray (parallel with Windows work)
 3. **#110** - Linux overlay window (parallel with Windows work)
 
@@ -40,9 +39,9 @@
 | ✅ | #100 | Windows keyboard hook (InputBlocker) | None |
 | ✅ | #101 | Windows power management | None |
 | ✅ | #102 | Windows system tray | None |
+| ✅ | #103 | Windows overlay window | None |
 | ✅ | #104 | Windows keycode mappings | None |
-| 🔲 | #103 | Windows overlay window | None |
-| 🔲 | #105 | Windows entry point | #103 |
+| 🔲 | #105 | Windows entry point | None |
 
 ### Phase 8.3: Linux Support
 
@@ -71,7 +70,7 @@
 
 ```
 Windows (remaining):
-#103 (Overlay) ─── #105 (Entry Point) ─── Windows Complete ✅
+#105 (Entry Point) ─── Windows Complete ✅
 
 Linux (remaining):
 #109 (System Tray) ─┬── Linux Basic Complete
@@ -115,6 +114,7 @@ Potential future enhancements (not yet tracked as issues):
 
 | Issue | Title | Date |
 |-------|-------|------|
+| #103 | Windows overlay window implementation | 2026-01-15 |
 | #102 | Windows system tray implementation | 2026-01-15 |
 | #108 | Linux power management via DBus | 2026-01-14 |
 | #111 | Linux keycode mappings | 2026-01-14 |
