@@ -25,11 +25,11 @@ use std::sync::{Arc, Mutex};
 
 use log::{debug, info, warn};
 use windows::core::{w, PCWSTR};
-use windows::Win32::Foundation::{COLORREF, HINSTANCE, HWND, LPARAM, LRESULT, RECT, WPARAM};
+use windows::Win32::Foundation::{COLORREF, HINSTANCE, HWND, LPARAM, LRESULT, RECT, SIZE, WPARAM};
 use windows::Win32::Graphics::Gdi::{
     BeginPaint, CreatePen, CreateSolidBrush, DeleteObject, Ellipse, EndPaint, FillRect,
-    InvalidateRect, SelectObject, SetBkMode, SetTextColor, TextOutW, UpdateWindow, PAINTSTRUCT,
-    PS_SOLID, TRANSPARENT,
+    GetTextExtentPoint32W, InvalidateRect, SelectObject, SetBkMode, SetTextColor, TextOutW,
+    UpdateWindow, PAINTSTRUCT, PS_SOLID, TRANSPARENT,
 };
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::WindowsAndMessaging::{
@@ -469,11 +469,15 @@ unsafe extern "system" fn overlay_window_proc(
                 if let Ok(timer_text) = TIMER_TEXT.read() {
                     if let Some(ref text) = *timer_text {
                         let _ = SetTextColor(hdc, TEXT_COLOR);
-                        // Draw timer in the center of the screen
-                        let text_x = width / 2 - 50;
+                        // Get the text slice without null terminator for drawing
+                        let text_slice = &text[..text.len() - 1];
+                        // Measure actual text width for proper centering
+                        let mut size = SIZE::default();
+                        let _ = GetTextExtentPoint32W(hdc, text_slice, &mut size);
+                        // Center text horizontally and vertically
+                        let text_x = (width - size.cx) / 2;
                         let text_y = height / 2;
-                        let _ = TextOutW(hdc, text_x, text_y, &text[..text.len() - 1]);
-                        // Exclude null terminator
+                        let _ = TextOutW(hdc, text_x, text_y, text_slice);
                     }
                 }
 
