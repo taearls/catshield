@@ -1,10 +1,10 @@
-//! Cat Shield - A cat-proof screen overlay for macOS
+//! Cat Shield - A cat-proof screen overlay for macOS, Windows, and Linux
 //!
 //! Creates a semi-transparent overlay that:
 //! - Blocks all keyboard and mouse input
 //! - Keeps the machine awake
 //! - Click and hold close button (3 seconds) to exit
-//! - Or unlock with configurable keyboard shortcut (default: Cmd+Option+U)
+//! - Or unlock with configurable keyboard shortcut (default: Cmd+Option+U on macOS, Win+Alt+U on Windows)
 //! - Optional timer-based auto-exit
 //!
 //! Usage: Run the application, and it will immediately activate the shield.
@@ -23,20 +23,399 @@
 //! Config File: Persistent settings can be stored in ~/.config/catshield/config.toml:
 //!   exit_key = "Cmd+Option+U"
 //!
-//! Note: Keyboard shortcuts require Accessibility permissions.
+//! Note: Keyboard shortcuts require Accessibility permissions on macOS.
 //! Go to System Preferences → Security & Privacy → Privacy → Accessibility
 //! and add this application.
 
-// This application is currently macOS-only
-#[cfg(not(target_os = "macos"))]
+// Linux is not yet fully supported
+#[cfg(target_os = "linux")]
 fn main() {
     // Initialize logger with default verbosity (warn level)
     cat_shield::logging::init(0);
 
-    log::error!("Cat Shield is currently only supported on macOS.");
-    log::error!("Windows and Linux support is planned for future releases.");
+    log::error!("Cat Shield is not yet fully supported on Linux.");
+    log::error!("See https://github.com/your-repo/catshield for progress on Linux support.");
     std::process::exit(1);
 }
+
+// =============================================================================
+// Windows Entry Point and Event Loop
+// =============================================================================
+
+#[cfg(target_os = "windows")]
+use cat_shield::config::Config;
+#[cfg(target_os = "windows")]
+use cat_shield::input::keycodes::{key_from_name, key_to_keycode};
+#[cfg(target_os = "windows")]
+use cat_shield::lock::{acquire_instance_lock, release_instance_lock, LockResult};
+#[cfg(target_os = "windows")]
+use cat_shield::platform::traits::{InputBlocker, OverlayWindow, PowerManager, SystemTray};
+#[cfg(target_os = "windows")]
+use cat_shield::platform::{
+    set_exit_key_config, MenuCallback, TrayMenuAction, WindowsInputBlocker, WindowsOverlayWindow,
+    WindowsPowerManager, WindowsSystemTray,
+};
+// Note: format_duration will be used when timer display is added to Windows overlay
+#[cfg(target_os = "windows")]
+#[allow(unused_imports)]
+use cat_shield::timer::format_duration;
+#[cfg(target_os = "windows")]
+use std::process;
+#[cfg(target_os = "windows")]
+use std::sync::atomic::{AtomicBool, Ordering};
+#[cfg(target_os = "windows")]
+use std::sync::Arc;
+
+/// Global flag to signal application shutdown on Windows
+#[cfg(target_os = "windows")]
+static WINDOWS_SHOULD_QUIT: AtomicBool = AtomicBool::new(false);
+
+/// Global flag indicating shield is active on Windows
+#[cfg(target_os = "windows")]
+static WINDOWS_SHIELD_ACTIVE: AtomicBool = AtomicBool::new(false);
+
+/// Default exit key for Windows: Win+Alt+U (similar to macOS Cmd+Option+U)
+#[cfg(target_os = "windows")]
+const WINDOWS_DEFAULT_EXIT_KEY: &str = "Win+Alt+U";
+
+/// Parse a Windows exit key string and configure the keyboard hook.
+///
+/// Supports modifier names: Win/Windows, Alt/Option, Shift, Ctrl/Control
+/// Key names: Same as macOS (A-Z, 0-9, F1-F12, Escape, etc.)
+#[cfg(target_os = "windows")]
+fn parse_and_set_windows_exit_key(input: &str) -> Result<String, String> {
+    let input = input.trim();
+    if input.is_empty() {
+        return Err("Exit key cannot be empty".to_string());
+    }
+
+    let parts: Vec<&str> = input.split('+').map(|s| s.trim()).collect();
+    if parts.is_empty() {
+        return Err("Invalid key combination format".to_string());
+    }
+
+    let mut requires_win = false;
+    let mut requires_alt = false;
+    let mut requires_shift = false;
+    let mut requires_ctrl = false;
+    let mut key_name: Option<&str> = None;
+
+    for part in &parts {
+        let lower = part.to_lowercase();
+        match lower.as_str() {
+            "win" | "windows" | "super" | "cmd" | "command" | "⊞" => requires_win = true,
+            "alt" | "opt" | "option" | "⌥" => requires_alt = true,
+            "shift" | "⇧" => requires_shift = true,
+            "ctrl" | "control" | "⌃" => requires_ctrl = true,
+            _ => {
+                if key_name.is_some() {
+                    return Err(format!("Multiple keys specified in '{}'", input));
+                }
+                key_name = Some(part);
+            }
+        }
+    }
+
+    let key_name = key_name.ok_or("No key specified in combination")?;
+
+    // Convert key name to platform-agnostic Key, then to Windows virtual key code
+    let key = key_from_name(key_name).ok_or_else(|| {
+        format!(
+            "Unknown key: '{}'. Valid keys: A-Z, 0-9, F1-F12, Escape, Return, Tab, Space, Delete, arrow keys",
+            key_name
+        )
+    })?;
+
+    let vk_code = key_to_keycode(key).ok_or_else(|| {
+        format!("Key '{}' has no Windows keycode mapping", key_name)
+    })?;
+
+    // Require at least one modifier
+    if !requires_win && !requires_alt && !requires_shift && !requires_ctrl {
+        return Err(
+            "At least one modifier required (Win, Alt, Shift, or Ctrl)".to_string()
+        );
+    }
+
+    // Configure the keyboard hook with the exit key
+    set_exit_key_config(vk_code, requires_win, requires_alt, requires_shift, requires_ctrl);
+
+    Ok(input.to_string())
+}
+
+/// Windows main entry point
+#[cfg(target_os = "windows")]
+fn main() {
+    // Initialize logger with default verbosity (warn level)
+    cat_shield::logging::init(0);
+
+    // Check for existing instance (single-instance enforcement)
+    match acquire_instance_lock() {
+        LockResult::Acquired => {
+            // Successfully acquired lock, continue startup
+        }
+        LockResult::AlreadyRunning(pid) => {
+            log::warn!("Cat Shield is already running (PID: {})", pid);
+            log::warn!("Look for the Cat Shield icon in your system tray.");
+            process::exit(0);
+        }
+        LockResult::Error(e) => {
+            log::warn!("Could not check for existing instance: {}", e);
+            // Continue anyway - lock check is best-effort
+        }
+    }
+
+    // Load config file
+    let config = Config::load();
+
+    // Determine exit key: config file > default
+    let exit_key_str = config
+        .exit_key
+        .as_deref()
+        .unwrap_or(WINDOWS_DEFAULT_EXIT_KEY);
+
+    let exit_key_display = match parse_and_set_windows_exit_key(exit_key_str) {
+        Ok(display) => display,
+        Err(e) => {
+            log::warn!("Invalid exit_key in config: {}", e);
+            log::warn!("Using default: {}", WINDOWS_DEFAULT_EXIT_KEY);
+            parse_and_set_windows_exit_key(WINDOWS_DEFAULT_EXIT_KEY)
+                .expect("Default exit key should be valid")
+        }
+    };
+
+    log::info!("🐱 CAT SHIELD 🛡️");
+    log::info!("════════════════════════════════════════");
+
+    // Initialize Windows components
+    let mut tray = WindowsSystemTray::new();
+    let mut overlay = WindowsOverlayWindow::new();
+    let mut input_blocker = WindowsInputBlocker::new();
+    let power_manager = WindowsPowerManager::new();
+
+    // Set up system tray
+    if let Err(e) = tray.setup() {
+        log::error!("Failed to set up system tray: {}", e);
+        release_instance_lock();
+        process::exit(1);
+    }
+    log::info!("✓ System tray active");
+
+    // Set up tray menu callback
+    let exit_key_for_callback = exit_key_display.clone();
+    let menu_callback: MenuCallback = Box::new(move |action| {
+        match action {
+            TrayMenuAction::StartProtection => {
+                log::info!("Starting protection...");
+                // Signal that we want to activate the shield
+                // The main loop will handle the actual activation
+                if !WINDOWS_SHIELD_ACTIVE.load(Ordering::SeqCst) {
+                    WINDOWS_SHIELD_ACTIVE.store(true, Ordering::SeqCst);
+                }
+            }
+            TrayMenuAction::StopProtection => {
+                log::info!("Stopping protection...");
+                WINDOWS_SHIELD_ACTIVE.store(false, Ordering::SeqCst);
+            }
+            TrayMenuAction::OpenSettings => {
+                log::info!("Settings requested (not yet implemented on Windows)");
+                // TODO: Implement settings window for Windows
+            }
+            TrayMenuAction::ShowAbout => {
+                log::info!("Cat Shield - A cat-proof screen overlay");
+                log::info!("Exit key: {}", exit_key_for_callback);
+                // TODO: Show About dialog on Windows
+            }
+            TrayMenuAction::Quit => {
+                log::info!("Quit requested");
+                WINDOWS_SHOULD_QUIT.store(true, Ordering::SeqCst);
+            }
+        }
+    });
+    WindowsSystemTray::set_callback(menu_callback);
+
+    // Create overlay window (but don't show yet)
+    if let Err(e) = overlay.create() {
+        log::error!("Failed to create overlay window: {}", e);
+        tray.remove();
+        release_instance_lock();
+        process::exit(1);
+    }
+    log::info!("✓ Overlay window created");
+
+    // Set overlay opacity from config
+    overlay.set_opacity(config.opacity());
+
+    // Set up close button callback for overlay
+    let close_callback = Arc::new(|| {
+        log::info!("Close button clicked - deactivating shield");
+        WINDOWS_SHIELD_ACTIVE.store(false, Ordering::SeqCst);
+    });
+    WindowsOverlayWindow::set_close_callback(close_callback);
+
+    // Track power assertion
+    let mut sleep_assertion = None;
+
+    log::info!("✓ Exit key: {}", exit_key_display);
+    log::info!("════════════════════════════════════════");
+    log::info!("Menu bar mode active");
+    log::info!("Right-click the Cat Shield icon in your system tray to access options.");
+    log::info!("Use 'Start Protection' to activate the shield.");
+
+    // Windows message loop
+    run_windows_message_loop(
+        &mut tray,
+        &mut overlay,
+        &mut input_blocker,
+        &power_manager,
+        &mut sleep_assertion,
+    );
+
+    // Cleanup
+    log::info!("Shutting down...");
+
+    // Disable input blocking if still active
+    if input_blocker.is_active() {
+        input_blocker.disable();
+    }
+
+    // Release sleep assertion if held
+    if let Some(assertion) = sleep_assertion.take() {
+        if let Err(e) = power_manager.allow_sleep(assertion) {
+            log::warn!("Failed to release sleep assertion: {}", e);
+        }
+    }
+
+    // Close overlay
+    overlay.close();
+    WindowsOverlayWindow::clear_close_callback();
+
+    // Remove tray icon
+    WindowsSystemTray::clear_callback();
+    tray.remove();
+
+    // Release single-instance lock
+    release_instance_lock();
+
+    log::info!("👋 Cat Shield closed. Goodbye!");
+}
+
+/// Run the Windows message loop.
+///
+/// This is the core event loop that processes Windows messages, handles
+/// shield activation/deactivation, and responds to user input.
+#[cfg(target_os = "windows")]
+fn run_windows_message_loop(
+    tray: &mut WindowsSystemTray,
+    overlay: &mut WindowsOverlayWindow,
+    input_blocker: &mut WindowsInputBlocker,
+    power_manager: &WindowsPowerManager,
+    sleep_assertion: &mut Option<cat_shield::platform::types::SleepAssertion>,
+) {
+    use windows::Win32::UI::WindowsAndMessaging::{
+        DispatchMessageW, GetMessageW, TranslateMessage, MSG,
+    };
+
+    let mut msg = MSG::default();
+    let mut shield_was_active = false;
+
+    // Message loop: GetMessage returns false when WM_QUIT is received
+    loop {
+        // Check if we should quit
+        if WINDOWS_SHOULD_QUIT.load(Ordering::SeqCst) {
+            break;
+        }
+
+        // Handle shield activation/deactivation state changes
+        let shield_active = WINDOWS_SHIELD_ACTIVE.load(Ordering::SeqCst);
+
+        if shield_active && !shield_was_active {
+            // Activating shield
+            log::info!("Activating shield...");
+
+            // Set up input blocking
+            if let Err(e) = input_blocker.setup() {
+                log::error!("Failed to set up input blocking: {}", e);
+                WINDOWS_SHIELD_ACTIVE.store(false, Ordering::SeqCst);
+            } else {
+                log::info!("✓ Input blocking active");
+
+                // Prevent sleep
+                match power_manager.prevent_sleep() {
+                    Ok(assertion) => {
+                        *sleep_assertion = Some(assertion);
+                    }
+                    Err(e) => {
+                        log::warn!("Failed to prevent sleep: {}", e);
+                    }
+                }
+
+                // Show overlay
+                overlay.show();
+                log::info!("✓ Overlay visible");
+
+                // Update tray state
+                tray.set_state(true);
+
+                log::info!("════════════════════════════════════════");
+                log::info!("🛡️  SHIELD ACTIVE");
+                log::info!("════════════════════════════════════════");
+
+                shield_was_active = true;
+            }
+        } else if !shield_active && shield_was_active {
+            // Deactivating shield
+            log::info!("Deactivating shield...");
+
+            // Hide overlay
+            overlay.hide();
+
+            // Disable input blocking
+            input_blocker.disable();
+            log::info!("✓ Input blocking disabled");
+
+            // Allow sleep
+            if let Some(assertion) = sleep_assertion.take() {
+                if let Err(e) = power_manager.allow_sleep(assertion) {
+                    log::warn!("Failed to release sleep assertion: {}", e);
+                }
+            }
+
+            // Update tray state
+            tray.set_state(false);
+
+            log::info!("════════════════════════════════════════");
+            log::info!("Shield deactivated");
+            log::info!("════════════════════════════════════════");
+
+            shield_was_active = false;
+        }
+
+        // Process Windows messages
+        // Use GetMessageW which blocks until a message is available
+        // Return value: -1 = error, 0 = WM_QUIT, positive = message available
+        let result = unsafe { GetMessageW(&mut msg, None, 0, 0) };
+
+        if result.0 == 0 {
+            // WM_QUIT received
+            break;
+        } else if result.0 == -1 {
+            // Error occurred
+            log::error!("GetMessageW error");
+            break;
+        }
+
+        // Translate and dispatch the message
+        unsafe {
+            let _ = TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
+    }
+}
+
+// =============================================================================
+// macOS Entry Point
+// =============================================================================
 
 #[cfg(target_os = "macos")]
 use cat_shield::config::{has_immediate_start_args, Args, Config};

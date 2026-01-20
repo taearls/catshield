@@ -5,14 +5,13 @@
 <!-- Keep under 150 lines - agents read this first -->
 
 **Current Phase**: 8 - Cross-Platform Support
-**Next Priority**: #105 (Windows entry point and event loop)
+**Next Priority**: #109 (Linux system tray via libappindicator)
 **Blocking Issues**: None
 
 ### Open Issues by Priority
 
 | # | Title | Priority | Effort | Blocked By | Phase |
 |---|-------|----------|--------|------------|-------|
-| 105 | Windows entry point and event loop | 🟢 Medium | ~1-2 days | None | 8.2 |
 | 109 | Linux system tray via libappindicator | 🟢 Medium | ~2 days | None | 8.3 |
 | 110 | Linux overlay window (X11 + Wayland) | 🟢 Medium | ~2-3 days | None | 8.3 |
 | 131 | Wayland keyboard-shortcuts-inhibit | 🟢 Medium | ~1 day | #110 | 8.3 |
@@ -20,13 +19,13 @@
 | 113 | Platform-specific integration tests | 🟢 Medium | ~2 days | None | 8.4 |
 | 114 | Animated cat companion overlay | 🔵 Low | ~2-3 days | None | 9 |
 
-**Summary**: 7 open issues (0 Critical, 0 High, 6 Medium, 1 Low)
+**Summary**: 6 open issues (0 Critical, 0 High, 5 Medium, 1 Low)
 
 ### Recommended Next Issues
 
-1. **#105** - Windows entry point and event loop (completes Windows support)
-2. **#109** - Linux system tray (parallel with Windows work)
-3. **#110** - Linux overlay window (parallel with Windows work)
+1. **#109** - Linux system tray via libappindicator (parallel with Windows polish)
+2. **#110** - Linux overlay window (X11 + Wayland)
+3. **#113** - Platform-specific integration tests
 
 ---
 
@@ -41,7 +40,7 @@
 | ✅ | #102 | Windows system tray | None |
 | ✅ | #103 | Windows overlay window | None |
 | ✅ | #104 | Windows keycode mappings | None |
-| 🔲 | #105 | Windows entry point | None |
+| ✅ | #105 | Windows entry point | None |
 
 ### Phase 8.3: Linux Support
 
@@ -69,8 +68,8 @@
 ## Critical Path
 
 ```
-Windows (remaining):
-#105 (Entry Point) ─── Windows Complete ✅
+Windows: Complete ✅
+#100-#105 all implemented
 
 Linux (remaining):
 #109 (System Tray) ─┬── Linux Basic Complete
@@ -114,6 +113,7 @@ Potential future enhancements (not yet tracked as issues):
 
 | Issue | Title | Date |
 |-------|-------|------|
+| #105 | Windows entry point and event loop integration | 2026-01-19 |
 | #103 | Windows overlay window implementation | 2026-01-15 |
 | #102 | Windows system tray implementation | 2026-01-15 |
 | #108 | Linux power management via DBus | 2026-01-14 |
