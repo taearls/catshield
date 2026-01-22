@@ -30,7 +30,7 @@ use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 
 use ksni::{menu::StandardItem, Icon, MenuItem, Tray, TrayService};
-use log::{debug, error, info, warn};
+use log::{debug, info, warn};
 
 use crate::platform::errors::TrayError;
 use crate::platform::traits::SystemTray;
@@ -286,16 +286,7 @@ impl SystemTray for LinuxSystemTray {
         };
 
         // Create the tray service
-        let service = match TrayService::new(tray) {
-            Ok(s) => s,
-            Err(e) => {
-                error!("Failed to create tray service: {}", e);
-                return Err(TrayError::CreationFailed(format!(
-                    "Failed to create StatusNotifierItem service: {}",
-                    e
-                )));
-            }
-        };
+        let service = TrayService::new(tray);
 
         // Get the handle for controlling the tray
         let handle = service.handle();
