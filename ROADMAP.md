@@ -5,27 +5,26 @@
 <!-- Keep under 150 lines - agents read this first -->
 
 **Current Phase**: 8 - Cross-Platform Support
-**Next Priority**: #109 (Linux system tray via libappindicator)
+**Next Priority**: #110 (Linux overlay window)
 **Blocking Issues**: None
 
 ### Open Issues by Priority
 
 | # | Title | Priority | Effort | Blocked By | Phase |
 |---|-------|----------|--------|------------|-------|
-| 109 | Linux system tray via libappindicator | 🟢 Medium | ~2 days | None | 8.3 |
 | 110 | Linux overlay window (X11 + Wayland) | 🟢 Medium | ~2-3 days | None | 8.3 |
 | 131 | Wayland keyboard-shortcuts-inhibit | 🟢 Medium | ~1 day | #110 | 8.3 |
 | 132 | XWayland fallback detection | 🟢 Medium | ~0.5 day | #110, #131 | 8.3 |
 | 113 | Platform-specific integration tests | 🟢 Medium | ~2 days | None | 8.4 |
 | 114 | Animated cat companion overlay | 🔵 Low | ~2-3 days | None | 9 |
 
-**Summary**: 6 open issues (0 Critical, 0 High, 5 Medium, 1 Low)
+**Summary**: 5 open issues (0 Critical, 0 High, 4 Medium, 1 Low)
 
 ### Recommended Next Issues
 
-1. **#109** - Linux system tray via libappindicator (parallel with Windows polish)
-2. **#110** - Linux overlay window (X11 + Wayland)
-3. **#113** - Platform-specific integration tests
+1. **#110** - Linux overlay window (X11 + Wayland)
+2. **#113** - Platform-specific integration tests
+3. **#131** - Wayland keyboard-shortcuts-inhibit
 
 ---
 
@@ -50,7 +49,7 @@
 | ✅ | #107 | Wayland input research | None |
 | ✅ | #108 | Linux power management (DBus) | None |
 | ✅ | #111 | Linux keycode mappings | None |
-| 🔲 | #109 | Linux system tray | None |
+| ✅ | #109 | Linux system tray | None |
 | 🔲 | #110 | Linux overlay window | None |
 | 🔲 | #131 | Wayland shortcuts-inhibit | #110 |
 | 🔲 | #132 | XWayland fallback | #110, #131 |
@@ -72,8 +71,8 @@ Windows: Complete ✅
 #100-#105 all implemented
 
 Linux (remaining):
-#109 (System Tray) ─┬── Linux Basic Complete
-#110 (Overlay) ─────┴── #131 (Shortcuts Inhibit) ─── #132 (XWayland) ─── Linux Complete ✅
+#109 (System Tray) ✅
+#110 (Overlay) ─── #131 (Shortcuts Inhibit) ─── #132 (XWayland) ─── Linux Complete ✅
 
 Future:
 #114 (Animated Cat) ─── Phase 9 Complete
@@ -113,6 +112,7 @@ Potential future enhancements (not yet tracked as issues):
 
 | Issue | Title | Date |
 |-------|-------|------|
+| #109 | Linux system tray via ksni (StatusNotifierItem) | 2026-01-22 |
 | #105 | Windows entry point and event loop integration | 2026-01-19 |
 | #103 | Windows overlay window implementation | 2026-01-15 |
 | #102 | Windows system tray implementation | 2026-01-15 |
