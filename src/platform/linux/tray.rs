@@ -295,7 +295,9 @@ impl SystemTray for LinuxSystemTray {
         // Run the service in a background thread
         let join_handle = thread::spawn(move || {
             debug!("Starting tray service thread");
-            service.run();
+            if let Err(e) = service.run() {
+                warn!("Tray service exited with error: {}", e);
+            }
             debug!("Tray service thread exited");
         });
 
