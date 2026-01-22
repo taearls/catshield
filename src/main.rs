@@ -266,7 +266,7 @@ fn main() {
 
     log::info!("✓ Exit key: {}", exit_key_display);
     log::info!("════════════════════════════════════════");
-    log::info!("Menu bar mode active");
+    log::info!("System tray mode active");
     log::info!("Right-click the Cat Shield icon in your system tray to access options.");
     log::info!("Use 'Start Protection' to activate the shield.");
 
@@ -409,7 +409,8 @@ fn run_windows_message_loop(
             break;
         } else if result.0 == -1 {
             // Error occurred
-            log::error!("GetMessageW error");
+            let err = unsafe { windows::Win32::Foundation::GetLastError() };
+            log::error!("GetMessageW error: {:?}", err);
             break;
         }
 
