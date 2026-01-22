@@ -61,9 +61,14 @@ static MENU_CALLBACK: Mutex<Option<Arc<MenuCallback>>> = Mutex::new(None);
 
 /// Helper to invoke the menu callback
 fn invoke_callback(action: TrayMenuAction) {
-    if let Ok(guard) = MENU_CALLBACK.lock() {
-        if let Some(callback) = guard.as_ref() {
-            callback(action);
+    match MENU_CALLBACK.lock() {
+        Ok(guard) => {
+            if let Some(callback) = guard.as_ref() {
+                callback(action);
+            }
+        }
+        Err(e) => {
+            warn!("Menu callback mutex poisoned: {}", e);
         }
     }
 }
@@ -115,7 +120,9 @@ impl Tray for CatShieldTray {
     }
 
     fn menu(&self) -> Vec<MenuItem<Self>> {
-        let active = SHIELD_ACTIVE.load(Ordering::SeqCst);
+        // Use self.active as the single source of truth for UI consistency
+        // (title(), tool_tip(), and menu() all read from self.active)
+        let active = self.active;
 
         let mut items = Vec::new();
 
@@ -332,9 +339,8 @@ impl SystemTray for LinuxSystemTray {
             handle.shutdown();
         }
 
-        // Wait for the service thread to finish (with timeout)
+        // Wait for the service thread to finish
         if let Some(thread) = self.service_thread.take() {
-            // Give it a moment to clean up, but don't block forever
             let _ = thread.join();
         }
 
