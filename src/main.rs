@@ -126,19 +126,22 @@ fn parse_and_set_windows_exit_key(input: &str) -> Result<String, String> {
         )
     })?;
 
-    let vk_code = key_to_keycode(key).ok_or_else(|| {
-        format!("Key '{}' has no Windows keycode mapping", key_name)
-    })?;
+    let vk_code = key_to_keycode(key)
+        .ok_or_else(|| format!("Key '{}' has no Windows keycode mapping", key_name))?;
 
     // Require at least one modifier
     if !requires_win && !requires_alt && !requires_shift && !requires_ctrl {
-        return Err(
-            "At least one modifier required (Win, Alt, Shift, or Ctrl)".to_string()
-        );
+        return Err("At least one modifier required (Win, Alt, Shift, or Ctrl)".to_string());
     }
 
     // Configure the keyboard hook with the exit key
-    set_exit_key_config(vk_code, requires_win, requires_alt, requires_shift, requires_ctrl);
+    set_exit_key_config(
+        vk_code,
+        requires_win,
+        requires_alt,
+        requires_shift,
+        requires_ctrl,
+    );
 
     Ok(input.to_string())
 }
