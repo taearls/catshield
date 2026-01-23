@@ -13,16 +13,14 @@
 | # | Title | Priority | Effort | Blocked By | Phase |
 |---|-------|----------|--------|------------|-------|
 | 132 | XWayland fallback detection | 🟢 Medium | ~0.5 day | None | 8.3 |
-| 113 | Platform-specific integration tests | 🟢 Medium | ~2 days | None | 8.4 |
 | 114 | Animated cat companion overlay | 🔵 Low | ~2-3 days | None | 9 |
 
-**Summary**: 3 open issues (0 Critical, 0 High, 2 Medium, 1 Low)
+**Summary**: 2 open issues (0 Critical, 0 High, 1 Medium, 1 Low)
 
 ### Recommended Next Issues
 
 1. **#132** - XWayland fallback detection
-2. **#113** - Platform-specific integration tests
-3. **#114** - Animated cat companion overlay
+2. **#114** - Animated cat companion overlay
 
 ---
 
@@ -58,7 +56,7 @@
 |--------|-------|-------|--------------|
 | ✅ | #112 | Cross-platform CI | None |
 | ✅ | #120 | Docker dev containers | None |
-| 🔲 | #113 | Platform integration tests | None |
+| ✅ | #113 | Platform integration tests | None |
 
 ---
 
@@ -110,6 +108,7 @@ Potential future enhancements (not yet tracked as issues):
 
 | Issue | Title | Date |
 |-------|-------|------|
+| #113 | Platform-specific integration tests | 2026-01-23 |
 | #131 | Wayland keyboard-shortcuts-inhibit protocol support | 2026-01-23 |
 | #110 | Linux overlay window (X11 + Wayland wlr-layer-shell) | 2026-01-23 |
 | #109 | Linux system tray via ksni (StatusNotifierItem) | 2026-01-22 |
