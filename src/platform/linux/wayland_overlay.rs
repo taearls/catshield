@@ -6,15 +6,16 @@
 //! # Protocol Support
 //!
 //! - **wlr-layer-shell**: Used for creating overlay layer surfaces
+//! - **keyboard-shortcuts-inhibit-unstable-v1**: Inhibits compositor keyboard shortcuts
 //! - Layer: OVERLAY (topmost layer)
 //! - Anchored to all edges for fullscreen coverage
 //!
 //! # Compositor Compatibility
 //!
-//! - **Sway**: Full support via wlr-layer-shell
-//! - **Wayfire**: Full support via wlr-layer-shell
-//! - **Hyprland**: Full support via wlr-layer-shell
-//! - **GNOME**: Not supported (uses different protocol)
+//! - **Sway**: Full support via wlr-layer-shell + keyboard-shortcuts-inhibit
+//! - **Wayfire**: Full support via wlr-layer-shell + keyboard-shortcuts-inhibit
+//! - **Hyprland**: Full support via wlr-layer-shell + keyboard-shortcuts-inhibit
+//! - **GNOME**: Not supported (uses different protocols)
 //! - **KDE Plasma**: Partial support (may work with XWayland fallback)
 //!
 //! # Implementation Notes
@@ -22,14 +23,20 @@
 //! The overlay uses software rendering with shared memory buffers (wl_shm).
 //! This is simpler and more portable than GPU-based rendering for our use case.
 //!
-//! # Current Limitations
+//! # Keyboard Input Handling
+//!
+//! When the overlay is shown:
+//! 1. We request a keyboard shortcuts inhibitor via `zwp_keyboard_shortcuts_inhibit_manager_v1`
+//! 2. The compositor will send all keyboard events to our surface when it has focus
+//! 3. We process events for exit key detection and allowed keys filtering
+//! 4. The inhibitor is released when the overlay is hidden
+//!
+//! # Known Limitations
 //!
 //! - **Timer text rendering**: Currently renders placeholder dots instead of actual
 //!   characters. Proper text rendering would require a font library (e.g., freetype).
-//!   The X11 implementation uses `image_text8` for basic text rendering.
-//! - **Close button interaction**: The close button is drawn but pointer input is not
-//!   yet wired up (no `wl_seat`/`wl_pointer` binding). The overlay can only be closed
-//!   via compositor-initiated close events.
+//! - **Pointer input**: User can click away to remove keyboard focus (Wayland security).
+//! - **Compositor discretion**: Some compositors may keep certain key combinations.
 
 use std::os::unix::io::AsFd;
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
@@ -37,11 +44,18 @@ use std::sync::{Arc, Mutex, RwLock};
 
 use log::{debug, error, info, warn};
 use wayland_client::protocol::{
-    wl_buffer, wl_callback, wl_compositor, wl_output, wl_registry, wl_shm, wl_shm_pool, wl_surface,
+    wl_buffer, wl_callback, wl_compositor, wl_keyboard, wl_output, wl_registry, wl_seat, wl_shm,
+    wl_shm_pool, wl_surface,
 };
 use wayland_client::{Connection, Dispatch, QueueHandle, WEnum};
+use wayland_protocols::wp::keyboard_shortcuts_inhibit::zv1::client::{
+    zwp_keyboard_shortcuts_inhibit_manager_v1, zwp_keyboard_shortcuts_inhibitor_v1,
+};
 use wayland_protocols_wlr::layer_shell::v1::client::{zwlr_layer_shell_v1, zwlr_layer_surface_v1};
 
+use super::wayland_keyboard::{
+    process_wayland_key_event, WaylandKeyboardResult, WaylandModifierState,
+};
 use crate::platform::errors::WindowError;
 use crate::platform::types::Rect;
 
@@ -81,6 +95,9 @@ static WAYLAND_TIMER_TEXT: RwLock<Option<String>> = RwLock::new(None);
 /// Callback type for close button click
 pub type WaylandCloseCallback = Arc<dyn Fn() + Send + Sync>;
 
+/// Global state for exit key detection callback
+static WAYLAND_EXIT_CALLBACK: Mutex<Option<Arc<dyn Fn() + Send + Sync>>> = Mutex::new(None);
+
 /// State for Wayland event dispatching
 struct WaylandState {
     /// Whether the layer shell protocol is available
@@ -110,6 +127,27 @@ struct WaylandState {
     configured_height: u32,
     /// Whether the surface should close
     should_close: bool,
+    // Keyboard-related state
+    /// The seat (input device collection)
+    seat: Option<wl_seat::WlSeat>,
+    /// The keyboard object
+    keyboard: Option<wl_keyboard::WlKeyboard>,
+    /// The keyboard shortcuts inhibit manager
+    shortcuts_inhibit_manager:
+        Option<zwp_keyboard_shortcuts_inhibit_manager_v1::ZwpKeyboardShortcutsInhibitManagerV1>,
+    /// The current shortcuts inhibitor
+    shortcuts_inhibitor:
+        Option<zwp_keyboard_shortcuts_inhibitor_v1::ZwpKeyboardShortcutsInhibitorV1>,
+    /// Whether keyboard-shortcuts-inhibit protocol is available
+    shortcuts_inhibit_available: bool,
+    /// Current modifier state
+    modifiers: WaylandModifierState,
+    /// Whether we have keyboard focus
+    has_keyboard_focus: bool,
+    /// Whether the inhibitor is currently active
+    inhibitor_active: bool,
+    /// Whether exit was requested via keyboard
+    exit_requested: bool,
 }
 
 impl WaylandState {
@@ -129,6 +167,16 @@ impl WaylandState {
             configured_width: 0,
             configured_height: 0,
             should_close: false,
+            // Keyboard-related state
+            seat: None,
+            keyboard: None,
+            shortcuts_inhibit_manager: None,
+            shortcuts_inhibitor: None,
+            shortcuts_inhibit_available: false,
+            modifiers: WaylandModifierState::default(),
+            has_keyboard_focus: false,
+            inhibitor_active: false,
+            exit_requested: false,
         }
     }
 }
@@ -188,6 +236,29 @@ impl Dispatch<wl_registry::WlRegistry, ()> for WaylandState {
                     state.layer_shell = Some(layer_shell);
                     state.layer_shell_available = true;
                     debug!("Bound zwlr_layer_shell_v1 v{}", version.min(4));
+                }
+                "wl_seat" => {
+                    // Only bind the first seat
+                    if state.seat.is_none() {
+                        let seat =
+                            registry.bind::<wl_seat::WlSeat, _, _>(name, version.min(7), qh, ());
+                        state.seat = Some(seat);
+                        debug!("Bound wl_seat v{}", version.min(7));
+                    }
+                }
+                "zwp_keyboard_shortcuts_inhibit_manager_v1" => {
+                    let manager = registry.bind::<zwp_keyboard_shortcuts_inhibit_manager_v1::ZwpKeyboardShortcutsInhibitManagerV1, _, _>(
+                        name,
+                        version.min(1),
+                        qh,
+                        (),
+                    );
+                    state.shortcuts_inhibit_manager = Some(manager);
+                    state.shortcuts_inhibit_available = true;
+                    debug!(
+                        "Bound zwp_keyboard_shortcuts_inhibit_manager_v1 v{}",
+                        version.min(1)
+                    );
                 }
                 _ => {}
             }
@@ -362,6 +433,167 @@ impl Dispatch<zwlr_layer_surface_v1::ZwlrLayerSurfaceV1, ()> for WaylandState {
     }
 }
 
+// Dispatch for seat - this is where we get keyboard capabilities
+impl Dispatch<wl_seat::WlSeat, ()> for WaylandState {
+    fn event(
+        state: &mut Self,
+        seat: &wl_seat::WlSeat,
+        event: wl_seat::Event,
+        _: &(),
+        _: &Connection,
+        qh: &QueueHandle<WaylandState>,
+    ) {
+        if let wl_seat::Event::Capabilities { capabilities } = event {
+            let caps = wl_seat::Capability::from_bits_truncate(capabilities.into());
+            debug!("Seat capabilities: {:?}", caps);
+
+            // Request keyboard if available and we don't have one yet
+            if caps.contains(wl_seat::Capability::Keyboard) && state.keyboard.is_none() {
+                let keyboard = seat.get_keyboard(qh, ());
+                state.keyboard = Some(keyboard);
+                debug!("Requested keyboard from seat");
+            }
+        }
+    }
+}
+
+// Dispatch for keyboard - this is where we receive key events
+impl Dispatch<wl_keyboard::WlKeyboard, ()> for WaylandState {
+    fn event(
+        state: &mut Self,
+        _: &wl_keyboard::WlKeyboard,
+        event: wl_keyboard::Event,
+        _: &(),
+        _: &Connection,
+        _: &QueueHandle<WaylandState>,
+    ) {
+        match event {
+            wl_keyboard::Event::Keymap { format, fd, size } => {
+                debug!(
+                    "Keyboard keymap: format={:?}, fd={:?}, size={}",
+                    format, fd, size
+                );
+                // We don't need to parse the keymap - we use raw evdev keycodes
+            }
+            wl_keyboard::Event::Enter {
+                serial,
+                surface,
+                keys,
+            } => {
+                debug!(
+                    "Keyboard enter: serial={}, surface={:?}, keys={:?}",
+                    serial, surface, keys
+                );
+                state.has_keyboard_focus = true;
+            }
+            wl_keyboard::Event::Leave { serial, surface } => {
+                debug!("Keyboard leave: serial={}, surface={:?}", serial, surface);
+                state.has_keyboard_focus = false;
+            }
+            wl_keyboard::Event::Key {
+                serial,
+                time,
+                key,
+                state: key_state,
+            } => {
+                let pressed = matches!(key_state, WEnum::Value(wl_keyboard::KeyState::Pressed));
+                debug!(
+                    "Keyboard key: serial={}, time={}, key={}, pressed={}",
+                    serial, time, key, pressed
+                );
+
+                // Only process key press events (not releases)
+                if pressed && state.has_keyboard_focus {
+                    let result = process_wayland_key_event(key, &state.modifiers);
+                    match result {
+                        WaylandKeyboardResult::ExitRequested => {
+                            info!("Exit key detected via Wayland keyboard");
+                            state.exit_requested = true;
+                            // Trigger the exit callback if set
+                            if let Ok(guard) = WAYLAND_EXIT_CALLBACK.lock() {
+                                if let Some(ref callback) = *guard {
+                                    callback();
+                                }
+                            }
+                        }
+                        WaylandKeyboardResult::Allowed => {
+                            debug!("Allowed key: {}", key);
+                            // In Wayland, we can't forward keys to other apps
+                            // The key is simply not blocked (compositor handles it)
+                        }
+                        WaylandKeyboardResult::Blocked => {
+                            debug!("Blocked key: {}", key);
+                            // Key is absorbed by the overlay
+                        }
+                        WaylandKeyboardResult::NotActive => {
+                            // Not active, ignore
+                        }
+                    }
+                }
+            }
+            wl_keyboard::Event::Modifiers {
+                serial,
+                mods_depressed,
+                mods_latched,
+                mods_locked,
+                group,
+            } => {
+                debug!(
+                    "Keyboard modifiers: serial={}, depressed={:#x}, latched={:#x}, locked={:#x}, group={}",
+                    serial, mods_depressed, mods_latched, mods_locked, group
+                );
+                state.modifiers = WaylandModifierState::from_depressed(mods_depressed);
+            }
+            wl_keyboard::Event::RepeatInfo { rate, delay } => {
+                debug!("Keyboard repeat info: rate={}, delay={}", rate, delay);
+            }
+            _ => {}
+        }
+    }
+}
+
+// Dispatch for keyboard shortcuts inhibit manager
+impl Dispatch<zwp_keyboard_shortcuts_inhibit_manager_v1::ZwpKeyboardShortcutsInhibitManagerV1, ()>
+    for WaylandState
+{
+    fn event(
+        _state: &mut Self,
+        _: &zwp_keyboard_shortcuts_inhibit_manager_v1::ZwpKeyboardShortcutsInhibitManagerV1,
+        _event: zwp_keyboard_shortcuts_inhibit_manager_v1::Event,
+        _: &(),
+        _: &Connection,
+        _: &QueueHandle<WaylandState>,
+    ) {
+        // The manager has no events
+    }
+}
+
+// Dispatch for keyboard shortcuts inhibitor
+impl Dispatch<zwp_keyboard_shortcuts_inhibitor_v1::ZwpKeyboardShortcutsInhibitorV1, ()>
+    for WaylandState
+{
+    fn event(
+        state: &mut Self,
+        _: &zwp_keyboard_shortcuts_inhibitor_v1::ZwpKeyboardShortcutsInhibitorV1,
+        event: zwp_keyboard_shortcuts_inhibitor_v1::Event,
+        _: &(),
+        _: &Connection,
+        _: &QueueHandle<WaylandState>,
+    ) {
+        match event {
+            zwp_keyboard_shortcuts_inhibitor_v1::Event::Active => {
+                info!("Keyboard shortcuts inhibitor is now active");
+                state.inhibitor_active = true;
+            }
+            zwp_keyboard_shortcuts_inhibitor_v1::Event::Inactive => {
+                info!("Keyboard shortcuts inhibitor is now inactive");
+                state.inhibitor_active = false;
+            }
+            _ => {}
+        }
+    }
+}
+
 /// Wayland overlay window implementation using wlr-layer-shell.
 ///
 /// This struct manages the fullscreen overlay window on Wayland using the
@@ -423,6 +655,23 @@ impl WaylandOverlayWindow {
     /// Clears the close callback.
     pub fn clear_close_callback() {
         if let Ok(mut guard) = WAYLAND_CLOSE_CALLBACK.lock() {
+            *guard = None;
+        }
+    }
+
+    /// Sets the callback function for exit key detection.
+    ///
+    /// This callback is triggered when the configured exit key combination
+    /// is pressed while the overlay has keyboard focus.
+    pub fn set_exit_callback(callback: WaylandCloseCallback) {
+        if let Ok(mut guard) = WAYLAND_EXIT_CALLBACK.lock() {
+            *guard = Some(callback);
+        }
+    }
+
+    /// Clears the exit callback.
+    pub fn clear_exit_callback() {
+        if let Ok(mut guard) = WAYLAND_EXIT_CALLBACK.lock() {
             *guard = None;
         }
     }
@@ -768,13 +1017,107 @@ impl WaylandOverlayWindow {
             return;
         }
 
+        // Request keyboard shortcuts inhibitor if available
+        self.request_shortcuts_inhibitor();
+
         self.visible = true;
         WAYLAND_OVERLAY_VISIBLE.store(true, Ordering::SeqCst);
         info!("Showing Wayland overlay window");
     }
 
+    /// Requests a keyboard shortcuts inhibitor from the compositor.
+    ///
+    /// This allows the overlay to receive all keyboard input when it has focus,
+    /// bypassing compositor shortcuts.
+    fn request_shortcuts_inhibitor(&mut self) {
+        let event_queue = match &self.event_queue {
+            Some(eq) => eq,
+            None => {
+                warn!("Cannot request shortcuts inhibitor: no event queue");
+                return;
+            }
+        };
+
+        let state = match &mut self.state {
+            Some(s) => s,
+            None => {
+                warn!("Cannot request shortcuts inhibitor: no state");
+                return;
+            }
+        };
+
+        // Check if we have the necessary objects
+        if !state.shortcuts_inhibit_available {
+            info!("Keyboard shortcuts inhibit protocol not available on this compositor");
+            return;
+        }
+
+        // Don't create if we already have an inhibitor
+        if state.shortcuts_inhibitor.is_some() {
+            debug!("Shortcuts inhibitor already exists");
+            return;
+        }
+
+        let manager = match &state.shortcuts_inhibit_manager {
+            Some(m) => m,
+            None => {
+                warn!("No shortcuts inhibit manager available");
+                return;
+            }
+        };
+
+        let surface = match &state.surface {
+            Some(s) => s,
+            None => {
+                warn!("No surface available for shortcuts inhibitor");
+                return;
+            }
+        };
+
+        let seat = match &state.seat {
+            Some(s) => s,
+            None => {
+                warn!("No seat available for shortcuts inhibitor");
+                return;
+            }
+        };
+
+        // Create the shortcuts inhibitor
+        let qh = event_queue.handle();
+        let inhibitor = manager.inhibit_shortcuts(surface, seat, &qh, ());
+        state.shortcuts_inhibitor = Some(inhibitor);
+        info!("Requested keyboard shortcuts inhibitor");
+
+        // Flush to send the request
+        if let Some(conn) = &self.connection {
+            let _ = conn.flush();
+        }
+    }
+
+    /// Releases the keyboard shortcuts inhibitor.
+    fn release_shortcuts_inhibitor(&mut self) {
+        let state = match &mut self.state {
+            Some(s) => s,
+            None => return,
+        };
+
+        if let Some(inhibitor) = state.shortcuts_inhibitor.take() {
+            inhibitor.destroy();
+            state.inhibitor_active = false;
+            info!("Released keyboard shortcuts inhibitor");
+
+            // Flush to send the destroy request
+            if let Some(conn) = &self.connection {
+                let _ = conn.flush();
+            }
+        }
+    }
+
     /// Hides the overlay window.
     pub fn hide(&mut self) {
+        // Release the keyboard shortcuts inhibitor first
+        self.release_shortcuts_inhibitor();
+
         if let Some(state) = &self.state {
             if let Some(surface) = &state.surface {
                 // Attach null buffer to hide
@@ -815,7 +1158,18 @@ impl WaylandOverlayWindow {
 
     /// Closes the overlay window.
     pub fn close(&mut self) {
-        // Destroy layer surface first
+        // Release the keyboard shortcuts inhibitor first
+        self.release_shortcuts_inhibitor();
+
+        // Destroy keyboard-related objects
+        if let Some(state) = &mut self.state {
+            if let Some(keyboard) = state.keyboard.take() {
+                keyboard.release();
+            }
+            // Note: seat doesn't need explicit cleanup
+        }
+
+        // Destroy layer surface
         if let Some(state) = &self.state {
             if let Some(layer_surface) = &state.layer_surface {
                 layer_surface.destroy();
@@ -856,6 +1210,9 @@ impl WaylandOverlayWindow {
     }
 
     /// Processes pending Wayland events.
+    ///
+    /// Returns `Ok(true)` if the overlay should close (either due to compositor
+    /// request or exit key detection), `Ok(false)` otherwise.
     pub fn process_events(&mut self) -> Result<bool, WindowError> {
         let event_queue = self
             .event_queue
@@ -872,6 +1229,12 @@ impl WaylandOverlayWindow {
             .dispatch_pending(state)
             .map_err(|e| WindowError::Platform(format!("Failed to dispatch events: {}", e)))?;
 
+        // Check if exit was requested via keyboard
+        if state.exit_requested {
+            state.exit_requested = false; // Reset the flag
+            return Ok(true);
+        }
+
         // Check if compositor requested close
         if state.should_close {
             let callback = WAYLAND_CLOSE_CALLBACK
@@ -886,6 +1249,30 @@ impl WaylandOverlayWindow {
 
         Ok(false)
     }
+
+    /// Returns whether the keyboard shortcuts inhibitor is active.
+    pub fn is_shortcuts_inhibitor_active(&self) -> bool {
+        self.state
+            .as_ref()
+            .map(|s| s.inhibitor_active)
+            .unwrap_or(false)
+    }
+
+    /// Returns whether the keyboard shortcuts inhibit protocol is available.
+    pub fn is_shortcuts_inhibit_available(&self) -> bool {
+        self.state
+            .as_ref()
+            .map(|s| s.shortcuts_inhibit_available)
+            .unwrap_or(false)
+    }
+
+    /// Returns whether the overlay has keyboard focus.
+    pub fn has_keyboard_focus(&self) -> bool {
+        self.state
+            .as_ref()
+            .map(|s| s.has_keyboard_focus)
+            .unwrap_or(false)
+    }
 }
 
 impl Default for WaylandOverlayWindow {
@@ -897,6 +1284,7 @@ impl Default for WaylandOverlayWindow {
 impl Drop for WaylandOverlayWindow {
     fn drop(&mut self) {
         Self::clear_close_callback();
+        Self::clear_exit_callback();
         self.close();
     }
 }
@@ -1020,5 +1408,27 @@ mod tests {
     fn test_wayland_global_atomics() {
         WAYLAND_CLOSE_BUTTON_HOVERED.store(false, Ordering::SeqCst);
         assert!(!WAYLAND_CLOSE_BUTTON_HOVERED.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn test_wayland_state_new_keyboard_fields() {
+        let state = WaylandState::new();
+        assert!(state.seat.is_none());
+        assert!(state.keyboard.is_none());
+        assert!(state.shortcuts_inhibit_manager.is_none());
+        assert!(state.shortcuts_inhibitor.is_none());
+        assert!(!state.shortcuts_inhibit_available);
+        assert!(!state.has_keyboard_focus);
+        assert!(!state.inhibitor_active);
+        assert!(!state.exit_requested);
+    }
+
+    #[test]
+    fn test_wayland_overlay_keyboard_accessors() {
+        let overlay = WaylandOverlayWindow::new();
+        // Without state, these should return false
+        assert!(!overlay.is_shortcuts_inhibitor_active());
+        assert!(!overlay.is_shortcuts_inhibit_available());
+        assert!(!overlay.has_keyboard_focus());
     }
 }

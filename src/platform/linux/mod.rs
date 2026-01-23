@@ -2,6 +2,7 @@
 //!
 //! This module contains Linux-specific code:
 //! - X11 keyboard grab for input blocking
+//! - Wayland keyboard shortcuts inhibit for input capture
 //! - D-Bus power management for sleep prevention
 //! - System tray via StatusNotifierItem protocol
 //! - Overlay window (X11 and Wayland with wlr-layer-shell)
@@ -10,7 +11,7 @@
 //! # Implementation Status
 //!
 //! - [x] InputBlocker via X11 keyboard grab (XGrabKeyboard)
-//! - [ ] InputBlocker via Wayland (keyboard-shortcuts-inhibit) - future issue #131
+//! - [x] InputBlocker via Wayland (keyboard-shortcuts-inhibit) - Issue #131
 //! - [x] PowerManager via D-Bus (FreeDesktop ScreenSaver, GNOME SessionManager)
 //! - [ ] PermissionChecker (placeholder) - future issue
 //! - [x] SystemTray via ksni (StatusNotifierItem protocol)
@@ -27,16 +28,32 @@
 //! - **XWayland**: Fallback to X11 implementation works on most Wayland compositors
 //!
 //! Use `is_native_wayland_overlay_available()` to check for native Wayland support.
+//!
+//! # Wayland Keyboard Input
+//!
+//! On Wayland compositors that support the `keyboard-shortcuts-inhibit` protocol:
+//! - All keyboard input is captured when the overlay has focus
+//! - Exit key detection works for configured key combinations
+//! - Allowed keys passthrough is supported
+//! - **Limitation**: User can click away to remove keyboard focus (Wayland security model)
+//!
+//! Use `is_keyboard_shortcuts_inhibit_available()` to check for protocol support.
 
 mod overlay;
 mod power;
 mod tray;
+mod wayland_keyboard;
 mod wayland_overlay;
 mod x11_keyboard;
 
 pub use overlay::LinuxOverlayWindow;
 pub use power::LinuxPowerManager;
 pub use tray::{LinuxSystemTray, MenuCallback, TrayMenuAction};
+pub use wayland_keyboard::{
+    clear_wayland_allowed_keys, is_keyboard_shortcuts_inhibit_available, set_wayland_allowed_keys,
+    set_wayland_exit_key_config, WaylandAllowedKeyConfig, WaylandKeyboardResult,
+    WaylandModifierState,
+};
 pub use wayland_overlay::{is_wlr_layer_shell_available, WaylandOverlayWindow};
 pub use x11_keyboard::{
     allow_keyboard_event, block_keyboard_event, clear_allowed_keys, set_allowed_keys,

@@ -47,7 +47,7 @@ zbus = { version = "5.5", features = ["blocking"] }
 ksni = "0.2"
 # Wayland support for overlay (wlr-layer-shell protocol)
 wayland-client = "0.31"
-wayland-protocols = { version = "0.32", features = ["client"] }
+wayland-protocols = { version = "0.32", features = ["client", "unstable"] }
 wayland-protocols-wlr = { version = "0.3", features = ["client"] }
 # Shared memory for Wayland buffer
 memmap2 = "0.9"
