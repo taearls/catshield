@@ -35,7 +35,6 @@
 
 #[cfg(all(test, target_os = "macos"))]
 mod macos_tests {
-    use crate::platform::errors::{InputBlockError, PowerError, WindowError};
     use crate::platform::macos::{MacOSInputBlocker, MacOSPermissionChecker, MacOSPowerManager};
     use crate::platform::traits::{InputBlocker, PermissionChecker, PowerManager};
     use serial_test::serial;
@@ -227,7 +226,7 @@ mod macos_tests {
 
         // Second setup should either succeed (idempotent) or return an error
         // but should not panic
-        let result = blocker.setup();
+        let _result = blocker.setup();
         // Either way, blocker should still be active
         assert!(blocker.is_active());
 
@@ -241,7 +240,6 @@ mod macos_tests {
 
 #[cfg(all(test, target_os = "windows"))]
 mod windows_tests {
-    use crate::platform::errors::{PowerError, TrayError, WindowError};
     use crate::platform::traits::{InputBlocker, OverlayWindow, PowerManager, SystemTray};
     use crate::platform::windows::{
         WindowsInputBlocker, WindowsOverlayWindow, WindowsPowerManager, WindowsSystemTray,
@@ -276,9 +274,9 @@ mod windows_tests {
             .expect("Failed to create sleep assertion");
 
         // Verify we got a valid assertion
-        let id = assertion.id();
         // On Windows, the ID is the result of SetThreadExecutionState
         // which returns the previous state flags
+        let _id = assertion.id();
 
         // Release the assertion
         manager
@@ -444,7 +442,6 @@ mod windows_tests {
 
 #[cfg(all(test, target_os = "linux"))]
 mod linux_tests {
-    use crate::platform::errors::{PowerError, TrayError, WindowError};
     use crate::platform::linux::{
         is_native_wayland_overlay_available, is_wayland_session, is_x11_session,
         LinuxOverlayWindow, LinuxPowerManager, LinuxSystemTray, WaylandOverlayWindow,
@@ -521,16 +518,11 @@ mod linux_tests {
     #[test]
     #[serial]
     fn test_linux_x11_input_blocker_can_be_created() {
-        // This may fail if not in an X11 session, which is OK
-        let result = X11InputBlocker::new();
-        match result {
-            Ok(_blocker) => {
-                eprintln!("X11InputBlocker created successfully");
-            }
-            Err(e) => {
-                eprintln!("X11InputBlocker creation failed (expected if not X11): {:?}", e);
-            }
-        }
+        // X11InputBlocker::new() returns Self directly (no Result)
+        // It creates an inactive blocker that can be setup later
+        let blocker = X11InputBlocker::new();
+        assert!(!blocker.is_active());
+        eprintln!("X11InputBlocker created successfully (inactive state)");
     }
 
     #[test]
@@ -544,14 +536,7 @@ mod linux_tests {
     #[serial]
     #[ignore = "Requires X11 session with grab capability"]
     fn test_linux_x11_input_blocker_setup_disable_cycle() {
-        let blocker = X11InputBlocker::new();
-        let mut blocker = match blocker {
-            Ok(b) => b,
-            Err(e) => {
-                eprintln!("Skipping test - X11 not available: {:?}", e);
-                return;
-            }
-        };
+        let mut blocker = X11InputBlocker::new();
 
         assert!(!blocker.is_active());
 
@@ -654,28 +639,18 @@ mod linux_tests {
     #[test]
     #[serial]
     fn test_linux_tray_can_be_created() {
-        let result = LinuxSystemTray::new();
-        match result {
-            Ok(_tray) => {
-                eprintln!("LinuxSystemTray created successfully");
-            }
-            Err(e) => {
-                eprintln!("LinuxSystemTray creation failed (expected without D-Bus): {:?}", e);
-            }
-        }
+        // LinuxSystemTray::new() returns Self directly (no Result)
+        // It creates a tray that can be setup later
+        let tray = LinuxSystemTray::new();
+        assert!(!tray.is_visible());
+        eprintln!("LinuxSystemTray created successfully (not yet visible)");
     }
 
     #[test]
     #[serial]
     #[ignore = "Requires D-Bus session and SNI host"]
     fn test_linux_tray_setup_and_state() {
-        let mut tray = match LinuxSystemTray::new() {
-            Ok(t) => t,
-            Err(e) => {
-                eprintln!("Skipping test - tray not available: {:?}", e);
-                return;
-            }
-        };
+        let mut tray = LinuxSystemTray::new();
 
         tray.setup().expect("Failed to setup tray");
         assert!(tray.is_visible());
@@ -697,7 +672,7 @@ mod cross_platform_tests {
     use crate::platform::errors::{
         InputBlockError, PermissionError, PowerError, TrayError, WindowError,
     };
-    use crate::platform::traits::{InputBlocker, OverlayWindow, PermissionChecker, PowerManager, SystemTray};
+    use crate::platform::traits::{InputBlocker, PowerManager};
     use crate::platform::types::{Rect, SleepAssertion};
 
     // ========================================================================
