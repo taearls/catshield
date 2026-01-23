@@ -2,6 +2,7 @@
 //!
 //! This module is macOS-only. Windows and Linux support is planned for future releases.
 
+use crate::cat_animation;
 use crate::config::Config;
 use crate::input::get_exit_key;
 use crate::platform::{
@@ -16,10 +17,10 @@ use crate::timer::{
 };
 use crate::ui::ptr_helper::with_ptr_void;
 use crate::ui::state::{menu_bar, shield, IS_MOUSE_INSIDE, MOUSE_DOWN_TIME};
-use crate::ui::views::{CloseButtonLabelView, CloseButtonView, TimerDisplayView};
+use crate::ui::views::{CatAnimationView, CloseButtonLabelView, CloseButtonView, TimerDisplayView};
 use objc2::rc::Retained;
 use objc2_app_kit::{NSMenuItem, NSScreen, NSTextField, NSWindow};
-use objc2_core_foundation::{kCFRunLoopCommonModes, CFString};
+use objc2_core_foundation::{kCFRunLoopCommonModes, CGRect, CFString};
 use objc2_foundation::MainThreadMarker;
 use std::ffi::c_void;
 use std::mem::ManuallyDrop;
@@ -52,6 +53,7 @@ pub unsafe extern "C" fn timer_callback(_timer: *mut c_void, _info: *mut c_void)
     let close_btn_ptr = shield::CLOSE_BUTTON.load(Ordering::Acquire);
     let label_ptr = shield::CLOSE_BUTTON_LABEL.load(Ordering::Acquire);
     let timer_ptr = shield::TIMER_VIEW.load(Ordering::Acquire);
+    let cat_ptr = shield::CAT_ANIMATION_VIEW.load(Ordering::Acquire);
 
     // Check if hold duration has been exceeded (close button)
     let should_exit_from_button = MOUSE_DOWN_TIME.with(|time| {
@@ -127,6 +129,15 @@ pub unsafe extern "C" fn timer_callback(_timer: *mut c_void, _info: *mut c_void)
         // NSView pointer that was created in setup (immediate mode) or activate_shield.
         // The pointer remains valid for the lifetime of the shield window.
         let view: &NSView = &*(timer_ptr as *const NSView);
+        view.setNeedsDisplay(true);
+    }
+
+    // Trigger redraw of cat animation view using cached pointer
+    if !cat_ptr.is_null() {
+        // SAFETY: The pointer was loaded from shield::CAT_ANIMATION_VIEW which stores a valid
+        // NSView pointer that was created in activate_shield. The pointer remains valid
+        // for the lifetime of the shield window.
+        let view: &NSView = &*(cat_ptr as *const NSView);
         view.setNeedsDisplay(true);
     }
 }
@@ -331,6 +342,25 @@ pub fn deactivate_shield() {
         }
     }
 
+    // Release the cat animation view properly
+    let cat_animation_ptr =
+        shield::CAT_ANIMATION_VIEW.swap(std::ptr::null_mut(), Ordering::AcqRel);
+    if !cat_animation_ptr.is_null() {
+        // SAFETY: Retained::from_raw is safe because:
+        // - cat_animation_ptr was stored from a valid Retained<CatAnimationView> in activate_shield
+        // - The atomic swap ensures we only reclaim ownership once
+        // - The pointer type cast is correct (it was stored as *mut c_void from CatAnimationView)
+        unsafe {
+            let _cat_view: Retained<CatAnimationView> =
+                Retained::from_raw(cat_animation_ptr as *mut CatAnimationView)
+                    .expect("shield::CAT_ANIMATION_VIEW was valid");
+            // Dropped here, calling release()
+        }
+    }
+
+    // Cleanup cat animation state
+    cat_animation::cleanup();
+
     // Reset auto-exit timer state
     AUTO_EXIT_ENABLED.store(false, Ordering::Release);
     WARNING_SHOWN.store(false, Ordering::Release);
@@ -453,6 +483,39 @@ pub fn activate_shield(mtm: MainThreadMarker) {
     } else {
         None
     };
+
+    // Set up cat animation if enabled in config
+    if config.show_cat_animation() {
+        // Initialize cat animation with screen dimensions
+        cat_animation::init(
+            screen_frame.size.width,
+            screen_frame.size.height,
+            &config,
+        );
+
+        // Create cat animation view (fullscreen to allow cat to move anywhere)
+        let cat_frame = CGRect {
+            origin: objc2_core_foundation::CGPoint { x: 0.0, y: 0.0 },
+            size: screen_frame.size,
+        };
+        let cat_animation_view = CatAnimationView::new(mtm, cat_frame);
+
+        // Store reference for timer callback
+        shield::CAT_ANIMATION_VIEW.store(
+            Retained::as_ptr(&cat_animation_view) as *mut c_void,
+            Ordering::Release,
+        );
+
+        // Add to window's content view
+        if let Some(content_view) = window.contentView() {
+            content_view.addSubview(&cat_animation_view);
+        }
+
+        log::info!("✓ Animated cat companion active");
+
+        // Transfer ownership to ManuallyDrop
+        let _ = ManuallyDrop::new(cat_animation_view);
+    }
 
     // Load allowed keys from config
     if let Some(ref allowed_keys_strs) = config.allowed_keys {

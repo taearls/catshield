@@ -3,6 +3,7 @@
 //! This library provides all the functionality for Cat Shield,
 //! organized into the following modules:
 //!
+//! - [`cat_animation`]: Animated cat companion for the shield overlay
 //! - [`config`]: Configuration and CLI argument handling
 //! - [`input`]: Keyboard input handling and exit key parsing
 //! - [`lock`]: Single-instance lock mechanism
@@ -18,6 +19,7 @@
 //! - **Linux (X11)**: Full support via XGrabKeyboard
 //! - **Linux (Wayland)**: Keyboard capture when focused (pointer can escape)
 
+pub mod cat_animation;
 pub mod config;
 pub mod input;
 pub mod lock;

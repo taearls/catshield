@@ -23,4 +23,7 @@ pub use args::{has_immediate_start_args, Args};
 pub use args_linux::{has_immediate_start_args_linux, LinuxArgs};
 
 pub use file::{get_current_config, set_current_config};
-pub use types::{Config, DEFAULT_OVERLAY_OPACITY, MAX_OVERLAY_OPACITY, MIN_OVERLAY_OPACITY};
+pub use types::{
+    Config, DEFAULT_CAT_ANIMATION_SPEED, DEFAULT_OVERLAY_OPACITY, MAX_CAT_ANIMATION_SPEED,
+    MAX_OVERLAY_OPACITY, MIN_CAT_ANIMATION_SPEED, MIN_OVERLAY_OPACITY,
+};

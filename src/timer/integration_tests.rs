@@ -55,6 +55,7 @@ mod tests {
         shield::TIMER_HEADER.store(std::ptr::null_mut(), Ordering::Release);
         shield::TIMER_TIME.store(std::ptr::null_mut(), Ordering::Release);
         shield::TIMER_WARNING.store(std::ptr::null_mut(), Ordering::Release);
+        shield::CAT_ANIMATION_VIEW.store(std::ptr::null_mut(), Ordering::Release);
     }
 
     /// Acquire the test lock and reset all state.
@@ -77,6 +78,8 @@ mod tests {
             default_timer: None,
             overlay_opacity: None,
             allowed_keys: None,
+            show_cat_animation: None,
+            cat_animation_speed: None,
         };
 
         // When no default_timer is set, parsing should fail (empty string)
@@ -95,6 +98,8 @@ mod tests {
             default_timer: Some("30m".to_string()),
             overlay_opacity: None,
             allowed_keys: None,
+            show_cat_animation: None,
+            cat_animation_speed: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -112,6 +117,8 @@ mod tests {
             default_timer: Some("2h".to_string()),
             overlay_opacity: None,
             allowed_keys: None,
+            show_cat_animation: None,
+            cat_animation_speed: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -129,6 +136,8 @@ mod tests {
             default_timer: Some("1h30m".to_string()),
             overlay_opacity: None,
             allowed_keys: None,
+            show_cat_animation: None,
+            cat_animation_speed: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -146,6 +155,8 @@ mod tests {
             default_timer: Some("90s".to_string()),
             overlay_opacity: None,
             allowed_keys: None,
+            show_cat_animation: None,
+            cat_animation_speed: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -164,6 +175,8 @@ mod tests {
             default_timer: Some("5s".to_string()),
             overlay_opacity: None,
             allowed_keys: None,
+            show_cat_animation: None,
+            cat_animation_speed: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -182,6 +195,8 @@ mod tests {
             default_timer: Some("4s".to_string()),
             overlay_opacity: None,
             allowed_keys: None,
+            show_cat_animation: None,
+            cat_animation_speed: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -201,6 +216,8 @@ mod tests {
             default_timer: Some("24h".to_string()),
             overlay_opacity: None,
             allowed_keys: None,
+            show_cat_animation: None,
+            cat_animation_speed: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -219,6 +236,8 @@ mod tests {
             default_timer: Some("25h".to_string()),
             overlay_opacity: None,
             allowed_keys: None,
+            show_cat_animation: None,
+            cat_animation_speed: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -635,6 +654,8 @@ mod tests {
             default_timer: Some("30m".to_string()),
             overlay_opacity: Some(0.6),
             allowed_keys: None,
+            show_cat_animation: None,
+            cat_animation_speed: None,
         };
 
         original.save_to_path(&config_path).unwrap();
@@ -658,6 +679,8 @@ mod tests {
             default_timer: None,
             overlay_opacity: None,
             allowed_keys: None,
+            show_cat_animation: None,
+            cat_animation_speed: None,
         };
 
         original.save_to_path(&config_path).unwrap();

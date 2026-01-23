@@ -99,6 +99,9 @@ pub mod shield {
 
     /// Whether we have an active sleep assertion
     pub static HAS_SLEEP_ASSERTION: AtomicBool = AtomicBool::new(false);
+
+    /// Reference to the cat animation view
+    pub static CAT_ANIMATION_VIEW: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 }
 
 // ============================================================================
