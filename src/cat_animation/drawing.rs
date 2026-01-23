@@ -269,7 +269,8 @@ fn draw_sitting_cat(cmds: &mut CatDrawCommands, x: f64, y: f64, flip: f64, frame
     draw_ears(cmds, head_x, head_y - 12.0 + head_offset, flip);
 
     // Face (looking around based on frame)
-    let look_direction = if frame.is_multiple_of(2) { flip } else { -flip };
+    #[allow(clippy::manual_is_multiple_of)]
+    let look_direction = if frame % 2 == 0 { flip } else { -flip };
     draw_face(
         cmds,
         head_x + look_direction * 2.0,
@@ -351,7 +352,8 @@ fn draw_sleeping_cat(cmds: &mut CatDrawCommands, x: f64, y: f64, flip: f64, fram
     });
 
     // "Z" for sleeping (only on some frames)
-    if frame.is_multiple_of(2) {
+    #[allow(clippy::manual_is_multiple_of)]
+    if frame % 2 == 0 {
         let z_x = head_x + flip * 20.0;
         let z_y = head_y - 15.0;
         cmds.lines.push(Line {
