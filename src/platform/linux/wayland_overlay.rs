@@ -21,6 +21,15 @@
 //!
 //! The overlay uses software rendering with shared memory buffers (wl_shm).
 //! This is simpler and more portable than GPU-based rendering for our use case.
+//!
+//! # Current Limitations
+//!
+//! - **Timer text rendering**: Currently renders placeholder dots instead of actual
+//!   characters. Proper text rendering would require a font library (e.g., freetype).
+//!   The X11 implementation uses `image_text8` for basic text rendering.
+//! - **Close button interaction**: The close button is drawn but pointer input is not
+//!   yet wired up (no `wl_seat`/`wl_pointer` binding). The overlay can only be closed
+//!   via compositor-initiated close events.
 
 use std::os::unix::io::AsFd;
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
@@ -703,17 +712,16 @@ impl WaylandOverlayWindow {
             }
         }
 
-        // Draw timer text if set (simple bitmap rendering)
+        // Draw timer text if set (placeholder rendering)
+        // TODO: Implement proper text rendering with a font library (e.g., freetype).
+        // Currently renders dots as placeholders for each character position.
+        // The X11 implementation uses image_text8 for basic text rendering.
         if let Ok(timer_text) = WAYLAND_TIMER_TEXT.read() {
             if let Some(ref text) = *timer_text {
-                // Simple centered text rendering using a basic font
-                // For now, we'll just indicate where the text would go
-                // Full text rendering would require a font library
                 let text_y = height as i32 / 2;
                 let text_x = width as i32 / 2 - (text.len() as i32 * 4);
 
-                // Draw a simple indicator for the text location
-                // (actual text rendering would require freetype or similar)
+                // Draw placeholder dots for each character position
                 for (i, _c) in text.chars().enumerate() {
                     let px = text_x + (i as i32 * 10);
                     let py = text_y;

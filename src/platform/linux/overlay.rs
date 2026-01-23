@@ -206,6 +206,11 @@ impl LinuxOverlayWindow {
 
     /// Sets the timer display text.
     ///
+    /// Note: This is a static method that updates shared state. The text will be
+    /// rendered on the next draw cycle (e.g., Expose event). It does not trigger
+    /// an immediate repaint. For real-time timer updates, the caller should ensure
+    /// the overlay's event loop processes events regularly.
+    ///
     /// # Arguments
     ///
     /// * `text` - The text to display, or None to hide the timer
@@ -310,14 +315,14 @@ impl LinuxOverlayWindow {
             WindowError::ConfigurationFailed(format!("Failed to set window state: {e}"))
         })?;
 
-        // Set window opacity using _NET_WM_WINDOW_OPACITY
-        let opacity_value = ((self.opacity * u32::MAX as f64) as u32).to_ne_bytes();
-        conn.change_property8(
+        // Set window opacity using _NET_WM_WINDOW_OPACITY (32-bit CARDINAL per EWMH spec)
+        let opacity_value = (self.opacity * u32::MAX as f64) as u32;
+        conn.change_property32(
             PropMode::REPLACE,
             self.window_id,
             atoms.net_wm_opacity,
             AtomEnum::CARDINAL,
-            &opacity_value,
+            &[opacity_value],
         )
         .map_err(|e| WindowError::ConfigurationFailed(format!("Failed to set opacity: {e}")))?;
 
@@ -768,16 +773,16 @@ impl OverlayWindow for LinuxOverlayWindow {
         let opacity_byte = (clamped * 255.0) as u8;
         OVERLAY_OPACITY.store(opacity_byte, Ordering::SeqCst);
 
-        // Update the _NET_WM_WINDOW_OPACITY property if window exists
+        // Update the _NET_WM_WINDOW_OPACITY property if window exists (32-bit CARDINAL per EWMH)
         if self.window_id != 0 {
             if let (Some(conn), Some(atoms)) = (&self.connection, &self.atoms) {
-                let opacity_value = ((clamped * u32::MAX as f64) as u32).to_ne_bytes();
-                let _ = conn.change_property8(
+                let opacity_value = (clamped * u32::MAX as f64) as u32;
+                let _ = conn.change_property32(
                     PropMode::REPLACE,
                     self.window_id,
                     atoms.net_wm_opacity,
                     AtomEnum::CARDINAL,
-                    &opacity_value,
+                    &[opacity_value],
                 );
                 let _ = conn.flush();
             }
