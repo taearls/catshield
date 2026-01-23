@@ -43,7 +43,9 @@ use std::sync::RwLock;
 use crate::config::Config;
 
 // Re-export commonly used types
-pub use drawing::{generate_cat_draw_commands, CatDrawCommands, Color, Ellipse, Line, Point, Triangle};
+pub use drawing::{
+    generate_cat_draw_commands, CatDrawCommands, Color, Ellipse, Line, Point, Triangle,
+};
 
 /// Cat animation frame rate (updates per second)
 const ANIMATION_FPS: f64 = 10.0;
@@ -260,28 +262,25 @@ impl CatAnimationState {
         self.frame = ((self.state_time / frame_time) as u32) % total_frames;
 
         // Handle state-specific logic
-        match self.state {
-            CatState::Walking => {
-                // Move the cat
-                let move_amount = BASE_WALK_SPEED * effective_delta;
-                match self.direction {
-                    CatDirection::Left => self.x -= move_amount,
-                    CatDirection::Right => self.x += move_amount,
-                }
-
-                // Bounds checking - turn around at edges
-                let min_x = SCREEN_MARGIN + CAT_TOTAL_WIDTH / 2.0;
-                let max_x = self.screen_width - SCREEN_MARGIN - CAT_TOTAL_WIDTH / 2.0;
-
-                if self.x < min_x {
-                    self.x = min_x;
-                    self.direction = CatDirection::Right;
-                } else if self.x > max_x {
-                    self.x = max_x;
-                    self.direction = CatDirection::Left;
-                }
+        if self.state == CatState::Walking {
+            // Move the cat
+            let move_amount = BASE_WALK_SPEED * effective_delta;
+            match self.direction {
+                CatDirection::Left => self.x -= move_amount,
+                CatDirection::Right => self.x += move_amount,
             }
-            _ => {}
+
+            // Bounds checking - turn around at edges
+            let min_x = SCREEN_MARGIN + CAT_TOTAL_WIDTH / 2.0;
+            let max_x = self.screen_width - SCREEN_MARGIN - CAT_TOTAL_WIDTH / 2.0;
+
+            if self.x < min_x {
+                self.x = min_x;
+                self.direction = CatDirection::Right;
+            } else if self.x > max_x {
+                self.x = max_x;
+                self.direction = CatDirection::Left;
+            }
         }
 
         // Check if it's time to transition to a new state
@@ -358,7 +357,7 @@ pub fn update(current_time_secs: f64) -> CatFrame {
     let delta_time = if last_time_bits == 0 {
         FRAME_UPDATE_INTERVAL // First update
     } else {
-        (current_time_secs - last_time).max(0.0).min(1.0) // Clamp to prevent huge jumps
+        (current_time_secs - last_time).clamp(0.0, 1.0) // Clamp to prevent huge jumps
     };
 
     LAST_UPDATE_TIME.store(current_time_secs.to_bits(), Ordering::SeqCst);
@@ -514,7 +513,7 @@ mod tests {
         let mut state = CatAnimationState::new();
         for _ in 0..100 {
             let val = state.random_range(10.0, 20.0);
-            assert!(val >= 10.0 && val < 20.0);
+            assert!((10.0..20.0).contains(&val));
         }
     }
 

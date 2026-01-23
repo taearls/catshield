@@ -144,10 +144,10 @@ pub fn generate_cat_draw_commands(frame: &CatFrame) -> CatDrawCommands {
 fn draw_walking_cat(cmds: &mut CatDrawCommands, x: f64, y: f64, flip: f64, frame: u32) {
     // Leg animation offsets based on frame
     let leg_offset = match frame % 4 {
-        0 => (5.0, -5.0, -5.0, 5.0),  // Front-right forward
-        1 => (0.0, 0.0, 0.0, 0.0),    // Neutral
-        2 => (-5.0, 5.0, 5.0, -5.0),  // Front-left forward
-        _ => (0.0, 0.0, 0.0, 0.0),    // Neutral
+        0 => (5.0, -5.0, -5.0, 5.0), // Front-right forward
+        1 => (0.0, 0.0, 0.0, 0.0),   // Neutral
+        2 => (-5.0, 5.0, 5.0, -5.0), // Front-left forward
+        _ => (0.0, 0.0, 0.0, 0.0),   // Neutral
     };
 
     // Tail bob
@@ -269,8 +269,14 @@ fn draw_sitting_cat(cmds: &mut CatDrawCommands, x: f64, y: f64, flip: f64, frame
     draw_ears(cmds, head_x, head_y - 12.0 + head_offset, flip);
 
     // Face (looking around based on frame)
-    let look_direction = if frame % 2 == 0 { flip } else { -flip };
-    draw_face(cmds, head_x + look_direction * 2.0, head_y + head_offset, flip, false);
+    let look_direction = if frame.is_multiple_of(2) { flip } else { -flip };
+    draw_face(
+        cmds,
+        head_x + look_direction * 2.0,
+        head_y + head_offset,
+        flip,
+        false,
+    );
 
     // Tail wrapped around
     cmds.ellipses.push(Ellipse {
@@ -345,7 +351,7 @@ fn draw_sleeping_cat(cmds: &mut CatDrawCommands, x: f64, y: f64, flip: f64, fram
     });
 
     // "Z" for sleeping (only on some frames)
-    if frame % 2 == 0 {
+    if frame.is_multiple_of(2) {
         let z_x = head_x + flip * 20.0;
         let z_y = head_y - 15.0;
         cmds.lines.push(Line {
@@ -469,8 +475,8 @@ fn draw_grooming_cat(cmds: &mut CatDrawCommands, x: f64, y: f64, flip: f64, fram
     // Head position changes based on what's being groomed
     let (head_x, head_y) = match groom_phase {
         0 => (x + flip * 15.0, y - 35.0), // Looking at paw
-        1 => (x, y - 38.0),                // Looking at body
-        _ => (x - flip * 5.0, y - 40.0),   // Looking back
+        1 => (x, y - 38.0),               // Looking at body
+        _ => (x - flip * 5.0, y - 40.0),  // Looking back
     };
 
     cmds.ellipses.push(Ellipse {
@@ -746,7 +752,11 @@ mod tests {
             };
             let cmds = generate_cat_draw_commands(&frame);
             // All states should produce some drawing commands
-            assert!(!cmds.ellipses.is_empty(), "State {:?} should have ellipses", state);
+            assert!(
+                !cmds.ellipses.is_empty(),
+                "State {:?} should have ellipses",
+                state
+            );
         }
     }
 

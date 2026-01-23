@@ -20,7 +20,7 @@ use crate::ui::state::{menu_bar, shield, IS_MOUSE_INSIDE, MOUSE_DOWN_TIME};
 use crate::ui::views::{CatAnimationView, CloseButtonLabelView, CloseButtonView, TimerDisplayView};
 use objc2::rc::Retained;
 use objc2_app_kit::{NSMenuItem, NSScreen, NSTextField, NSWindow};
-use objc2_core_foundation::{kCFRunLoopCommonModes, CGRect, CFString};
+use objc2_core_foundation::{kCFRunLoopCommonModes, CFString, CGRect};
 use objc2_foundation::MainThreadMarker;
 use std::ffi::c_void;
 use std::mem::ManuallyDrop;
@@ -343,8 +343,7 @@ pub fn deactivate_shield() {
     }
 
     // Release the cat animation view properly
-    let cat_animation_ptr =
-        shield::CAT_ANIMATION_VIEW.swap(std::ptr::null_mut(), Ordering::AcqRel);
+    let cat_animation_ptr = shield::CAT_ANIMATION_VIEW.swap(std::ptr::null_mut(), Ordering::AcqRel);
     if !cat_animation_ptr.is_null() {
         // SAFETY: Retained::from_raw is safe because:
         // - cat_animation_ptr was stored from a valid Retained<CatAnimationView> in activate_shield
@@ -487,11 +486,7 @@ pub fn activate_shield(mtm: MainThreadMarker) {
     // Set up cat animation if enabled in config
     if config.show_cat_animation() {
         // Initialize cat animation with screen dimensions
-        cat_animation::init(
-            screen_frame.size.width,
-            screen_frame.size.height,
-            &config,
-        );
+        cat_animation::init(screen_frame.size.width, screen_frame.size.height, &config);
 
         // Create cat animation view (fullscreen to allow cat to move anywhere)
         let cat_frame = CGRect {
