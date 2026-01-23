@@ -14,6 +14,10 @@ pub mod errors;
 pub mod traits;
 pub mod types;
 
+// Integration tests
+#[cfg(test)]
+mod integration_tests;
+
 // Re-export commonly used items from the abstraction layer
 pub use errors::{InputBlockError, PermissionError, PowerError, TrayError, WindowError};
 pub use traits::{InputBlocker, OverlayWindow, PermissionChecker, PowerManager, SystemTray};
