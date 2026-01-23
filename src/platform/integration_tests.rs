@@ -523,7 +523,10 @@ mod linux_tests {
                 eprintln!("should_proceed(Auto) => Err({})", msg);
                 // If we get an error, it should be because no display was found
                 assert!(
-                    matches!(info.recommendation, DisplayRecommendation::Unsupported { .. }),
+                    matches!(
+                        info.recommendation,
+                        DisplayRecommendation::Unsupported { .. }
+                    ),
                     "Error should only occur for unsupported configuration"
                 );
             }

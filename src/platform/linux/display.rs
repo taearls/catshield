@@ -318,8 +318,10 @@ pub fn should_proceed(
             if info.wayland_display && info.wayland_caps.has_full_support() {
                 Ok(DisplayServer::WaylandNative)
             } else if !info.wayland_display {
-                Err("Not running in a Wayland session. Cannot use --wayland-mode=native."
-                    .to_string())
+                Err(
+                    "Not running in a Wayland session. Cannot use --wayland-mode=native."
+                        .to_string(),
+                )
             } else {
                 Err(format!(
                     "Native Wayland protocols not available (layer_shell: {}, keyboard_shortcuts_inhibit: {}). \
@@ -419,7 +421,10 @@ mod tests {
         assert_eq!(DisplayServer::X11.to_string(), "X11");
         assert_eq!(DisplayServer::WaylandNative.to_string(), "Wayland (native)");
         assert_eq!(DisplayServer::XWayland.to_string(), "XWayland");
-        assert_eq!(DisplayServer::WaylandLimited.to_string(), "Wayland (limited)");
+        assert_eq!(
+            DisplayServer::WaylandLimited.to_string(),
+            "Wayland (limited)"
+        );
         assert_eq!(DisplayServer::Unknown.to_string(), "Unknown");
     }
 
@@ -489,6 +494,9 @@ mod tests {
             },
         );
         assert_eq!(server, DisplayServer::XWayland);
-        assert!(matches!(rec, DisplayRecommendation::XWaylandFallback { .. }));
+        assert!(matches!(
+            rec,
+            DisplayRecommendation::XWaylandFallback { .. }
+        ));
     }
 }

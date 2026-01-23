@@ -31,9 +31,9 @@ pub mod ui;
 // Re-export commonly used items for convenience
 #[cfg(target_os = "macos")]
 pub use config::Args;
+pub use config::Config;
 #[cfg(target_os = "linux")]
 pub use config::LinuxArgs;
-pub use config::Config;
 #[cfg(target_os = "macos")]
 pub use input::ExitKey;
 pub use lock::{acquire_instance_lock, release_instance_lock, LockResult};

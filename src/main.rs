@@ -36,13 +36,12 @@ use cat_shield::config::{has_immediate_start_args_linux, LinuxArgs};
 #[cfg(target_os = "linux")]
 use cat_shield::lock::{acquire_instance_lock, release_instance_lock, LockResult};
 #[cfg(target_os = "linux")]
-use cat_shield::platform::{
-    detect_display_server, display_info_summary, should_proceed, DisplayServer,
-    LinuxOverlayWindow, LinuxPowerManager, LinuxSystemTray, MenuCallback, TrayMenuAction,
-    WaylandOverlayWindow,
-};
-#[cfg(target_os = "linux")]
 use cat_shield::platform::traits::{OverlayWindow, PowerManager, SystemTray};
+#[cfg(target_os = "linux")]
+use cat_shield::platform::{
+    detect_display_server, display_info_summary, should_proceed, DisplayServer, LinuxOverlayWindow,
+    LinuxPowerManager, LinuxSystemTray, MenuCallback, TrayMenuAction, WaylandOverlayWindow,
+};
 #[cfg(target_os = "linux")]
 use cat_shield::Config;
 #[cfg(target_os = "linux")]
@@ -120,29 +119,27 @@ fn main() {
     log::info!("✓ System tray active");
 
     // Set up tray menu callback
-    let menu_callback: MenuCallback = Box::new(move |action| {
-        match action {
-            TrayMenuAction::StartProtection => {
-                log::info!("Starting protection...");
-                if !LINUX_SHIELD_ACTIVE.load(Ordering::SeqCst) {
-                    LINUX_SHIELD_ACTIVE.store(true, Ordering::SeqCst);
-                }
+    let menu_callback: MenuCallback = Box::new(move |action| match action {
+        TrayMenuAction::StartProtection => {
+            log::info!("Starting protection...");
+            if !LINUX_SHIELD_ACTIVE.load(Ordering::SeqCst) {
+                LINUX_SHIELD_ACTIVE.store(true, Ordering::SeqCst);
             }
-            TrayMenuAction::StopProtection => {
-                log::info!("Stopping protection...");
-                LINUX_SHIELD_ACTIVE.store(false, Ordering::SeqCst);
-            }
-            TrayMenuAction::OpenSettings => {
-                log::info!("Settings requested (not yet implemented on Linux)");
-            }
-            TrayMenuAction::ShowAbout => {
-                log::info!("Cat Shield - A cat-proof screen overlay");
-                log::info!("Display server: {}", effective_display);
-            }
-            TrayMenuAction::Quit => {
-                log::info!("Quit requested");
-                LINUX_SHOULD_QUIT.store(true, Ordering::SeqCst);
-            }
+        }
+        TrayMenuAction::StopProtection => {
+            log::info!("Stopping protection...");
+            LINUX_SHIELD_ACTIVE.store(false, Ordering::SeqCst);
+        }
+        TrayMenuAction::OpenSettings => {
+            log::info!("Settings requested (not yet implemented on Linux)");
+        }
+        TrayMenuAction::ShowAbout => {
+            log::info!("Cat Shield - A cat-proof screen overlay");
+            log::info!("Display server: {}", effective_display);
+        }
+        TrayMenuAction::Quit => {
+            log::info!("Quit requested");
+            LINUX_SHOULD_QUIT.store(true, Ordering::SeqCst);
         }
     });
     LinuxSystemTray::set_callback(menu_callback);
