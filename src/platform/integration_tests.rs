@@ -441,15 +441,117 @@ mod windows_tests {
 #[cfg(all(test, target_os = "linux"))]
 mod linux_tests {
     use crate::platform::linux::{
-        is_native_wayland_overlay_available, is_wayland_session, is_x11_session,
-        LinuxOverlayWindow, LinuxPowerManager, LinuxSystemTray, WaylandOverlayWindow,
+        detect_display_server, display_info_summary, is_native_wayland_overlay_available,
+        is_wayland_session, is_x11_session, should_proceed, DisplayRecommendation, DisplayServer,
+        LinuxOverlayWindow, LinuxPowerManager, LinuxSystemTray, WaylandMode, WaylandOverlayWindow,
         X11InputBlocker,
     };
     use crate::platform::traits::{InputBlocker, OverlayWindow, PowerManager, SystemTray};
     use serial_test::serial;
 
     // ========================================================================
-    // Session Detection Tests
+    // Display Server Detection Tests (Issue #132)
+    // ========================================================================
+
+    #[test]
+    fn test_linux_detect_display_server() {
+        // detect_display_server should not panic and should return valid info
+        let info = detect_display_server();
+
+        // Log the detection results for debugging
+        eprintln!("Display detection: {}", display_info_summary(&info));
+        eprintln!("  server: {:?}", info.server);
+        eprintln!("  session_type: {:?}", info.session_type);
+        eprintln!("  wayland_display: {}", info.wayland_display);
+        eprintln!("  x11_display: {}", info.x11_display);
+        eprintln!("  wayland_caps: {:?}", info.wayland_caps);
+        eprintln!("  recommendation: {:?}", info.recommendation);
+    }
+
+    #[test]
+    fn test_linux_display_server_types() {
+        // Test that all DisplayServer variants can be displayed
+        let servers = [
+            DisplayServer::X11,
+            DisplayServer::WaylandNative,
+            DisplayServer::XWayland,
+            DisplayServer::WaylandLimited,
+            DisplayServer::Unknown,
+        ];
+
+        for server in servers {
+            let display = format!("{}", server);
+            assert!(!display.is_empty());
+            eprintln!("DisplayServer::{:?} => \"{}\"", server, display);
+        }
+    }
+
+    #[test]
+    fn test_linux_wayland_mode_parsing() {
+        // Test WaylandMode parsing from string
+        assert_eq!("auto".parse::<WaylandMode>().unwrap(), WaylandMode::Auto);
+        assert_eq!(
+            "accept".parse::<WaylandMode>().unwrap(),
+            WaylandMode::Accept
+        );
+        assert_eq!("x11".parse::<WaylandMode>().unwrap(), WaylandMode::ForceX11);
+        assert_eq!(
+            "xwayland".parse::<WaylandMode>().unwrap(),
+            WaylandMode::ForceX11
+        );
+        assert_eq!(
+            "native".parse::<WaylandMode>().unwrap(),
+            WaylandMode::ForceNative
+        );
+
+        // Invalid mode should return error
+        assert!("invalid".parse::<WaylandMode>().is_err());
+    }
+
+    #[test]
+    fn test_linux_should_proceed_with_auto_mode() {
+        let info = detect_display_server();
+
+        // Auto mode should generally succeed unless no display server is detected
+        let result = should_proceed(&info, WaylandMode::Auto);
+
+        match &result {
+            Ok(server) => {
+                eprintln!("should_proceed(Auto) => Ok({:?})", server);
+            }
+            Err(msg) => {
+                eprintln!("should_proceed(Auto) => Err({})", msg);
+                // If we get an error, it should be because no display was found
+                assert!(
+                    matches!(
+                        info.recommendation,
+                        DisplayRecommendation::Unsupported { .. }
+                    ),
+                    "Error should only occur for unsupported configuration"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_linux_should_proceed_with_accept_mode() {
+        let info = detect_display_server();
+
+        // Accept mode suppresses warnings but should still proceed
+        let result = should_proceed(&info, WaylandMode::Accept);
+
+        match &result {
+            Ok(server) => {
+                eprintln!("should_proceed(Accept) => Ok({:?})", server);
+            }
+            Err(msg) => {
+                eprintln!("should_proceed(Accept) => Err({})", msg);
+            }
+        }
+    }
+
+    // ========================================================================
+    // Session Detection Tests (Legacy)
     // ========================================================================
 
     #[test]

@@ -27,15 +27,376 @@
 //! Go to System Preferences → Security & Privacy → Privacy → Accessibility
 //! and add this application.
 
-// Linux is not yet fully supported
+// =============================================================================
+// Linux Entry Point and Event Loop
+// =============================================================================
+
+#[cfg(target_os = "linux")]
+use cat_shield::config::{has_immediate_start_args_linux, LinuxArgs};
+#[cfg(target_os = "linux")]
+use cat_shield::lock::{acquire_instance_lock, release_instance_lock, LockResult};
+#[cfg(target_os = "linux")]
+use cat_shield::platform::traits::{OverlayWindow, PowerManager, SystemTray};
+#[cfg(target_os = "linux")]
+use cat_shield::platform::{
+    detect_display_server, display_info_summary, should_proceed, DisplayServer, LinuxOverlayWindow,
+    LinuxPowerManager, LinuxSystemTray, MenuCallback, TrayMenuAction, WaylandOverlayWindow,
+};
+#[cfg(target_os = "linux")]
+use cat_shield::Config;
+#[cfg(target_os = "linux")]
+use clap::Parser;
+#[cfg(target_os = "linux")]
+use std::process;
+#[cfg(target_os = "linux")]
+use std::sync::atomic::{AtomicBool, Ordering};
+
+/// Global flag to signal application shutdown on Linux
+#[cfg(target_os = "linux")]
+static LINUX_SHOULD_QUIT: AtomicBool = AtomicBool::new(false);
+
+/// Global flag indicating shield is active on Linux
+#[cfg(target_os = "linux")]
+static LINUX_SHIELD_ACTIVE: AtomicBool = AtomicBool::new(false);
+
+/// Linux main entry point
 #[cfg(target_os = "linux")]
 fn main() {
-    // Initialize logger with default verbosity (warn level)
-    cat_shield::logging::init(0);
+    // Parse CLI arguments
+    let args = LinuxArgs::parse();
 
-    log::error!("Cat Shield is not yet fully supported on Linux.");
-    log::error!("See https://github.com/taearls/catshield for progress on Linux support.");
-    std::process::exit(1);
+    // Initialize logging with verbosity level from CLI args
+    cat_shield::logging::init(args.verbose);
+
+    // Check for existing instance (single-instance enforcement)
+    match acquire_instance_lock() {
+        LockResult::Acquired => {
+            // Successfully acquired lock, continue startup
+        }
+        LockResult::AlreadyRunning(pid) => {
+            log::warn!("Cat Shield is already running (PID: {})", pid);
+            log::warn!("Look for the Cat Shield icon in your system tray.");
+            process::exit(0);
+        }
+        LockResult::Error(e) => {
+            log::warn!("Could not check for existing instance: {}", e);
+            // Continue anyway - lock check is best-effort
+        }
+    }
+
+    // Detect display server and check compatibility
+    let display_info = detect_display_server();
+    log::info!("{}", display_info_summary(&display_info));
+
+    // Check if we should proceed based on display server and user preferences
+    let effective_display = match should_proceed(&display_info, args.wayland_mode) {
+        Ok(server) => server,
+        Err(msg) => {
+            log::error!("{}", msg);
+            release_instance_lock();
+            process::exit(1);
+        }
+    };
+
+    log::info!("Using display server: {}", effective_display);
+
+    // Load config file
+    let config = Config::load();
+
+    log::info!("🐱 CAT SHIELD 🛡️");
+    log::info!("════════════════════════════════════════");
+
+    // Initialize Linux components based on detected display server
+    let mut tray = LinuxSystemTray::new();
+    let power_manager = LinuxPowerManager::new();
+
+    // Set up system tray
+    if let Err(e) = tray.setup() {
+        log::error!("Failed to set up system tray: {}", e);
+        release_instance_lock();
+        process::exit(1);
+    }
+    log::info!("✓ System tray active");
+
+    // Set up tray menu callback
+    let menu_callback: MenuCallback = Box::new(move |action| match action {
+        TrayMenuAction::StartProtection => {
+            log::info!("Starting protection...");
+            if !LINUX_SHIELD_ACTIVE.load(Ordering::SeqCst) {
+                LINUX_SHIELD_ACTIVE.store(true, Ordering::SeqCst);
+            }
+        }
+        TrayMenuAction::StopProtection => {
+            log::info!("Stopping protection...");
+            LINUX_SHIELD_ACTIVE.store(false, Ordering::SeqCst);
+        }
+        TrayMenuAction::OpenSettings => {
+            log::info!("Settings requested (not yet implemented on Linux)");
+        }
+        TrayMenuAction::ShowAbout => {
+            log::info!("Cat Shield - A cat-proof screen overlay");
+            log::info!("Display server: {}", effective_display);
+        }
+        TrayMenuAction::Quit => {
+            log::info!("Quit requested");
+            LINUX_SHOULD_QUIT.store(true, Ordering::SeqCst);
+        }
+    });
+    LinuxSystemTray::set_callback(menu_callback);
+
+    log::info!("════════════════════════════════════════");
+
+    // Check if we should start shield immediately (CLI args provided)
+    if has_immediate_start_args_linux(&args) {
+        log::info!("Immediate start mode active");
+        LINUX_SHIELD_ACTIVE.store(true, Ordering::SeqCst);
+    } else {
+        log::info!("System tray mode active");
+        log::info!("Right-click the Cat Shield icon in your system tray to access options.");
+        log::info!("Use 'Start Protection' to activate the shield.");
+    }
+
+    // Run the event loop based on display server
+    match effective_display {
+        DisplayServer::X11 | DisplayServer::XWayland => {
+            run_linux_x11_event_loop(&mut tray, &power_manager, config.opacity());
+        }
+        DisplayServer::WaylandNative | DisplayServer::WaylandLimited => {
+            run_linux_wayland_event_loop(&mut tray, &power_manager, config.opacity());
+        }
+        DisplayServer::Unknown => {
+            log::error!("Unknown display server, cannot proceed");
+            release_instance_lock();
+            process::exit(1);
+        }
+    }
+
+    // Cleanup
+    log::info!("Shutting down...");
+
+    // Remove tray icon
+    LinuxSystemTray::clear_callback();
+    tray.remove();
+
+    // Release single-instance lock
+    release_instance_lock();
+
+    log::info!("👋 Cat Shield closed. Goodbye!");
+}
+
+/// Run the event loop for X11/XWayland
+#[cfg(target_os = "linux")]
+fn run_linux_x11_event_loop(
+    tray: &mut LinuxSystemTray,
+    power_manager: &LinuxPowerManager,
+    opacity: f64,
+) {
+    use cat_shield::platform::types::SleepAssertion;
+
+    let mut overlay = LinuxOverlayWindow::new();
+    let mut sleep_assertion: Option<SleepAssertion> = None;
+    let mut shield_was_active = false;
+
+    // Create overlay window (but don't show yet)
+    if let Err(e) = overlay.create() {
+        log::error!("Failed to create X11 overlay window: {}", e);
+        return;
+    }
+    log::info!("✓ X11 overlay window created");
+    overlay.set_opacity(opacity);
+
+    // Main event loop
+    loop {
+        // Check if we should quit
+        if LINUX_SHOULD_QUIT.load(Ordering::SeqCst) {
+            break;
+        }
+
+        // Handle shield activation/deactivation
+        let shield_active = LINUX_SHIELD_ACTIVE.load(Ordering::SeqCst);
+
+        if shield_active && !shield_was_active {
+            // Activating shield
+            log::info!("Activating shield (X11)...");
+
+            // Prevent sleep
+            match power_manager.prevent_sleep() {
+                Ok(assertion) => {
+                    sleep_assertion = Some(assertion);
+                }
+                Err(e) => {
+                    log::warn!("Failed to prevent sleep: {}", e);
+                }
+            }
+
+            // Show overlay
+            overlay.show();
+            log::info!("✓ Overlay visible");
+
+            // Update tray state
+            tray.set_state(true);
+
+            log::info!("════════════════════════════════════════");
+            log::info!("🛡️  SHIELD ACTIVE (X11)");
+            log::info!("════════════════════════════════════════");
+
+            shield_was_active = true;
+        } else if !shield_active && shield_was_active {
+            // Deactivating shield
+            log::info!("Deactivating shield...");
+
+            // Hide overlay
+            overlay.hide();
+
+            // Allow sleep
+            if let Some(assertion) = sleep_assertion.take() {
+                if let Err(e) = power_manager.allow_sleep(assertion) {
+                    log::warn!("Failed to release sleep assertion: {}", e);
+                }
+            }
+
+            // Update tray state
+            tray.set_state(false);
+
+            log::info!("════════════════════════════════════════");
+            log::info!("Shield deactivated");
+            log::info!("════════════════════════════════════════");
+
+            shield_was_active = false;
+        }
+
+        // Process X11 events
+        match overlay.process_events() {
+            Ok(should_close) => {
+                if should_close {
+                    log::info!("Exit key detected, deactivating shield");
+                    LINUX_SHIELD_ACTIVE.store(false, Ordering::SeqCst);
+                }
+            }
+            Err(e) => {
+                log::debug!("Error processing X11 events: {}", e);
+            }
+        }
+
+        // Small sleep to prevent busy-waiting
+        std::thread::sleep(std::time::Duration::from_millis(16));
+    }
+
+    // Cleanup
+    if let Some(assertion) = sleep_assertion.take() {
+        if let Err(e) = power_manager.allow_sleep(assertion) {
+            log::warn!("Failed to release sleep assertion: {}", e);
+        }
+    }
+    overlay.close();
+}
+
+/// Run the event loop for native Wayland
+#[cfg(target_os = "linux")]
+fn run_linux_wayland_event_loop(
+    tray: &mut LinuxSystemTray,
+    power_manager: &LinuxPowerManager,
+    opacity: f64,
+) {
+    use cat_shield::platform::types::SleepAssertion;
+
+    let mut overlay = WaylandOverlayWindow::new();
+    let mut sleep_assertion: Option<SleepAssertion> = None;
+    let mut shield_was_active = false;
+
+    // Create overlay window (but don't show yet)
+    if let Err(e) = overlay.create() {
+        log::error!("Failed to create Wayland overlay window: {}", e);
+        return;
+    }
+    log::info!("✓ Wayland overlay window created");
+    overlay.set_opacity(opacity);
+
+    // Main event loop
+    loop {
+        // Check if we should quit
+        if LINUX_SHOULD_QUIT.load(Ordering::SeqCst) {
+            break;
+        }
+
+        // Handle shield activation/deactivation
+        let shield_active = LINUX_SHIELD_ACTIVE.load(Ordering::SeqCst);
+
+        if shield_active && !shield_was_active {
+            // Activating shield
+            log::info!("Activating shield (Wayland)...");
+
+            // Prevent sleep
+            match power_manager.prevent_sleep() {
+                Ok(assertion) => {
+                    sleep_assertion = Some(assertion);
+                }
+                Err(e) => {
+                    log::warn!("Failed to prevent sleep: {}", e);
+                }
+            }
+
+            // Show overlay
+            overlay.show();
+            log::info!("✓ Overlay visible");
+
+            // Update tray state
+            tray.set_state(true);
+
+            log::info!("════════════════════════════════════════");
+            log::info!("🛡️  SHIELD ACTIVE (Wayland)");
+            log::info!("Note: Pointer clicks can bypass the overlay");
+            log::info!("════════════════════════════════════════");
+
+            shield_was_active = true;
+        } else if !shield_active && shield_was_active {
+            // Deactivating shield
+            log::info!("Deactivating shield...");
+
+            // Hide overlay
+            overlay.hide();
+
+            // Allow sleep
+            if let Some(assertion) = sleep_assertion.take() {
+                if let Err(e) = power_manager.allow_sleep(assertion) {
+                    log::warn!("Failed to release sleep assertion: {}", e);
+                }
+            }
+
+            // Update tray state
+            tray.set_state(false);
+
+            log::info!("════════════════════════════════════════");
+            log::info!("Shield deactivated");
+            log::info!("════════════════════════════════════════");
+
+            shield_was_active = false;
+        }
+
+        // Process Wayland events
+        match overlay.process_events() {
+            Ok(should_close) => {
+                if should_close {
+                    log::info!("Exit key detected, deactivating shield");
+                    LINUX_SHIELD_ACTIVE.store(false, Ordering::SeqCst);
+                }
+            }
+            Err(e) => {
+                log::debug!("Error processing Wayland events: {}", e);
+            }
+        }
+
+        // Small sleep to prevent busy-waiting
+        std::thread::sleep(std::time::Duration::from_millis(16));
+    }
+
+    // Cleanup
+    if let Some(assertion) = sleep_assertion.take() {
+        if let Err(e) = power_manager.allow_sleep(assertion) {
+            log::warn!("Failed to release sleep assertion: {}", e);
+        }
+    }
+    overlay.close();
 }
 
 // =============================================================================

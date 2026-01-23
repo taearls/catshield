@@ -87,6 +87,11 @@ pub use windows::{
 // Linux platform trait implementations and helpers
 #[cfg(target_os = "linux")]
 pub use linux::{
-    allow_keyboard_event, block_keyboard_event, clear_allowed_keys, set_allowed_keys,
-    set_exit_key_config, AllowedKeyConfig, LinuxPowerManager, ProcessResult, X11InputBlocker,
+    allow_keyboard_event, block_keyboard_event, clear_allowed_keys, detect_display_server,
+    display_info_summary, is_keyboard_shortcuts_inhibit_available,
+    is_native_wayland_overlay_available, is_wayland_session, is_wlr_layer_shell_available,
+    is_x11_session, print_wayland_warning, set_allowed_keys, set_exit_key_config, should_proceed,
+    AllowedKeyConfig, DisplayRecommendation, DisplayServer, DisplayServerInfo, LinuxOverlayWindow,
+    LinuxPowerManager, LinuxSystemTray, MenuCallback, ProcessResult, TrayMenuAction,
+    WaylandCapabilities, WaylandMode, WaylandOverlayWindow, X11InputBlocker,
 };

@@ -6,6 +6,7 @@
 //! - D-Bus power management for sleep prevention
 //! - System tray via StatusNotifierItem protocol
 //! - Overlay window (X11 and Wayland with wlr-layer-shell)
+//! - Display server detection (X11, Wayland, XWayland)
 //! - Platform trait implementations
 //!
 //! # Implementation Status
@@ -17,6 +18,17 @@
 //! - [x] SystemTray via ksni (StatusNotifierItem protocol)
 //! - [x] OverlayWindow via X11 (_NET_WM_STATE_ABOVE, _NET_WM_STATE_FULLSCREEN)
 //! - [x] OverlayWindow via Wayland (wlr-layer-shell protocol)
+//! - [x] Display server detection with XWayland fallback - Issue #132
+//!
+//! # Display Server Detection
+//!
+//! Cat Shield automatically detects the display server type:
+//!
+//! - **X11**: Full input blocking support via XGrabKeyboard
+//! - **Wayland (native)**: Keyboard capture via keyboard-shortcuts-inhibit (pointer can escape)
+//! - **XWayland**: Fallback to X11 input blocking when native Wayland protocols unavailable
+//!
+//! Use `detect_display_server()` to get detailed information about the display environment.
 //!
 //! # Overlay Window Support
 //!
@@ -38,7 +50,17 @@
 //! - **Limitation**: User can click away to remove keyboard focus (Wayland security model)
 //!
 //! Use `is_keyboard_shortcuts_inhibit_available()` to check for protocol support.
+//!
+//! # Command-Line Options
+//!
+//! The `--wayland-mode` flag controls how Cat Shield handles Wayland sessions:
+//!
+//! - `auto` (default): Auto-detect and show warnings about limitations
+//! - `accept`: Accept Wayland limitations without showing warnings
+//! - `x11`: Force XWayland fallback for full input blocking
+//! - `native`: Force native Wayland (error if protocols unavailable)
 
+mod display;
 mod overlay;
 mod power;
 mod tray;
@@ -46,6 +68,10 @@ mod wayland_keyboard;
 mod wayland_overlay;
 mod x11_keyboard;
 
+pub use display::{
+    detect_display_server, display_info_summary, print_wayland_warning, should_proceed,
+    DisplayRecommendation, DisplayServer, DisplayServerInfo, WaylandCapabilities, WaylandMode,
+};
 pub use overlay::LinuxOverlayWindow;
 pub use power::LinuxPowerManager;
 pub use tray::{LinuxSystemTray, MenuCallback, TrayMenuAction};

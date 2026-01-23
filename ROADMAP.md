@@ -4,23 +4,21 @@
 <!-- AI-OPTIMIZED: This section contains actionable info for automated tools -->
 <!-- Keep under 150 lines - agents read this first -->
 
-**Current Phase**: 8 - Cross-Platform Support
-**Next Priority**: #132 (XWayland fallback detection)
+**Current Phase**: 8 - Cross-Platform Support (Complete!)
+**Next Priority**: #114 (Animated cat companion overlay)
 **Blocking Issues**: None
 
 ### Open Issues by Priority
 
 | # | Title | Priority | Effort | Blocked By | Phase |
 |---|-------|----------|--------|------------|-------|
-| 132 | XWayland fallback detection | 🟢 Medium | ~0.5 day | None | 8.3 |
 | 114 | Animated cat companion overlay | 🔵 Low | ~2-3 days | None | 9 |
 
-**Summary**: 2 open issues (0 Critical, 0 High, 1 Medium, 1 Low)
+**Summary**: 1 open issue (0 Critical, 0 High, 0 Medium, 1 Low)
 
 ### Recommended Next Issues
 
-1. **#132** - XWayland fallback detection
-2. **#114** - Animated cat companion overlay
+1. **#114** - Animated cat companion overlay
 
 ---
 
@@ -48,7 +46,7 @@
 | ✅ | #109 | Linux system tray | None |
 | ✅ | #110 | Linux overlay window | None |
 | ✅ | #131 | Wayland shortcuts-inhibit | None |
-| 🔲 | #132 | XWayland fallback | None |
+| ✅ | #132 | XWayland fallback | None |
 
 ### Phase 8.4: CI & Testing
 
@@ -66,9 +64,9 @@
 Windows: Complete ✅
 #100-#105 all implemented
 
-Linux (remaining):
+Linux: Complete ✅
 #109 (System Tray) ✅
-#110 (Overlay) ✅ ─── #131 (Shortcuts Inhibit) ✅ ─── #132 (XWayland) ─── Linux Complete ✅
+#110 (Overlay) ✅ ─── #131 (Shortcuts Inhibit) ✅ ─── #132 (XWayland) ✅
 
 Future:
 #114 (Animated Cat) ─── Phase 9 Complete
@@ -88,7 +86,7 @@ Future:
 | 5 | ✅ Complete | Performance & code quality |
 | 6 | ✅ Complete | Enhanced input control (key allowlist) |
 | 7 | ✅ Complete | Settings window polish |
-| 8 | 🔄 In Progress | Cross-platform support |
+| 8 | ✅ Complete | Cross-platform support |
 | 9 | 📋 Planned | Feature enhancements |
 
 ---
@@ -108,6 +106,7 @@ Potential future enhancements (not yet tracked as issues):
 
 | Issue | Title | Date |
 |-------|-------|------|
+| #132 | XWayland fallback detection and recommendation | 2026-01-23 |
 | #113 | Platform-specific integration tests | 2026-01-23 |
 | #131 | Wayland keyboard-shortcuts-inhibit protocol support | 2026-01-23 |
 | #110 | Linux overlay window (X11 + Wayland wlr-layer-shell) | 2026-01-23 |
