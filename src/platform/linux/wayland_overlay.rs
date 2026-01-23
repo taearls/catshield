@@ -210,10 +210,11 @@ impl Dispatch<wl_shm::WlShm, ()> for WaylandState {
         _: &Connection,
         _: &QueueHandle<WaylandState>,
     ) {
-        if let wl_shm::Event::Format { format } = event {
-            if let WEnum::Value(fmt) = format {
-                state.shm_formats.push(fmt);
-            }
+        if let wl_shm::Event::Format {
+            format: WEnum::Value(fmt),
+        } = event
+        {
+            state.shm_formats.push(fmt);
         }
     }
 }

@@ -486,7 +486,7 @@ impl LinuxOverlayWindow {
                     .map_err(|e| WindowError::Platform(format!("Failed to create text GC: {e}")))?;
 
                 // Draw text centered (approximate centering)
-                let text_x = (width / 2).saturating_sub((text.len() as u16 * 4));
+                let text_x = (width / 2).saturating_sub(text.len() as u16 * 4);
                 let text_y = height / 2;
 
                 conn.image_text8(
