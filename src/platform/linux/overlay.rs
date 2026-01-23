@@ -40,20 +40,18 @@
 //! The close button and timer display are rendered using simple X11 drawing
 //! primitives. The window captures mouse events for the close button interaction.
 
-use std::sync::atomic::{AtomicBool, AtomicPtr, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
-use log::{debug, error, info, warn};
+use log::{debug, info, warn};
 use x11rb::connection::Connection;
 use x11rb::protocol::xproto::{
-    Atom, AtomEnum, ChangeWindowAttributesAux, ColormapAlloc, ConfigureWindowAux, ConnectionExt,
-    CreateGCAux, CreateWindowAux, Cursor, EventMask, ExposeEvent, GcontextWrapper, ImageFormat,
-    PropMode, Screen, VisualClass, Visualid, Window, WindowClass,
+    Atom, AtomEnum, ColormapAlloc, ConfigureWindowAux, ConnectionExt, CreateGCAux, CreateWindowAux,
+    EventMask, PropMode, Screen, VisualClass, Visualid, Window, WindowClass,
 };
 use x11rb::protocol::Event;
 use x11rb::rust_connection::RustConnection;
 use x11rb::wrapper::ConnectionExt as WrapperConnectionExt;
-use x11rb::COPY_DEPTH_FROM_PARENT;
 
 use crate::platform::errors::WindowError;
 use crate::platform::traits::OverlayWindow;
@@ -76,9 +74,6 @@ const CLOSE_BUTTON_RADIUS: i32 = 30;
 
 /// Close button margin from bottom-right corner
 const CLOSE_BUTTON_MARGIN: i32 = 50;
-
-/// Global X11 connection for the overlay
-static X11_CONNECTION: AtomicPtr<std::ffi::c_void> = AtomicPtr::new(std::ptr::null_mut());
 
 /// Global window ID
 static OVERLAY_WINDOW_ID: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
@@ -103,9 +98,10 @@ pub type CloseCallback = Arc<dyn Fn() + Send + Sync>;
 
 /// Detects whether the current session is running on Wayland
 fn is_wayland_session() -> bool {
-    std::env::var("WAYLAND_DISPLAY").is_ok() || std::env::var("XDG_SESSION_TYPE")
-        .map(|v| v.to_lowercase() == "wayland")
-        .unwrap_or(false)
+    std::env::var("WAYLAND_DISPLAY").is_ok()
+        || std::env::var("XDG_SESSION_TYPE")
+            .map(|v| v.to_lowercase() == "wayland")
+            .unwrap_or(false)
 }
 
 /// Detects whether the current session is running on X11
@@ -159,7 +155,6 @@ struct OverlayAtoms {
     wm_state_skip_pager: Atom,
     wm_window_type: Atom,
     wm_window_type_splash: Atom,
-    wm_window_type_dock: Atom,
     net_wm_opacity: Atom,
 }
 
@@ -222,9 +217,10 @@ impl LinuxOverlayWindow {
 
     /// Interns an atom, returning an error if it fails
     fn intern_atom(&self, name: &[u8]) -> Result<Atom, WindowError> {
-        let conn = self.connection.as_ref().ok_or_else(|| {
-            WindowError::Platform("No X11 connection".into())
-        })?;
+        let conn = self
+            .connection
+            .as_ref()
+            .ok_or_else(|| WindowError::Platform("No X11 connection".into()))?;
 
         conn.intern_atom(false, name)
             .map_err(|e| WindowError::Platform(format!("Failed to intern atom: {e}")))?
@@ -243,7 +239,6 @@ impl LinuxOverlayWindow {
             wm_state_skip_pager: self.intern_atom(b"_NET_WM_STATE_SKIP_PAGER")?,
             wm_window_type: self.intern_atom(b"_NET_WM_WINDOW_TYPE")?,
             wm_window_type_splash: self.intern_atom(b"_NET_WM_WINDOW_TYPE_SPLASH")?,
-            wm_window_type_dock: self.intern_atom(b"_NET_WM_WINDOW_TYPE_DOCK")?,
             net_wm_opacity: self.intern_atom(b"_NET_WM_WINDOW_OPACITY")?,
         };
         self.atoms = Some(atoms);
@@ -252,9 +247,10 @@ impl LinuxOverlayWindow {
 
     /// Gets the screen info for the specified screen
     fn get_screen(&self) -> Result<&Screen, WindowError> {
-        let conn = self.connection.as_ref().ok_or_else(|| {
-            WindowError::Platform("No X11 connection".into())
-        })?;
+        let conn = self
+            .connection
+            .as_ref()
+            .ok_or_else(|| WindowError::Platform("No X11 connection".into()))?;
 
         conn.setup()
             .roots
@@ -278,12 +274,14 @@ impl LinuxOverlayWindow {
 
     /// Sets EWMH window properties for topmost fullscreen behavior
     fn set_window_properties(&self) -> Result<(), WindowError> {
-        let conn = self.connection.as_ref().ok_or_else(|| {
-            WindowError::Platform("No X11 connection".into())
-        })?;
-        let atoms = self.atoms.as_ref().ok_or_else(|| {
-            WindowError::Platform("Atoms not initialized".into())
-        })?;
+        let conn = self
+            .connection
+            .as_ref()
+            .ok_or_else(|| WindowError::Platform("No X11 connection".into()))?;
+        let atoms = self
+            .atoms
+            .as_ref()
+            .ok_or_else(|| WindowError::Platform("Atoms not initialized".into()))?;
 
         // Set window type to splash (doesn't require decoration)
         conn.change_property32(
@@ -292,7 +290,8 @@ impl LinuxOverlayWindow {
             atoms.wm_window_type,
             AtomEnum::ATOM,
             &[atoms.wm_window_type_splash],
-        ).map_err(|e| WindowError::ConfigurationFailed(format!("Failed to set window type: {e}")))?;
+        )
+        .map_err(|e| WindowError::ConfigurationFailed(format!("Failed to set window type: {e}")))?;
 
         // Set window states: above, fullscreen, skip taskbar/pager
         conn.change_property32(
@@ -306,7 +305,10 @@ impl LinuxOverlayWindow {
                 atoms.wm_state_skip_taskbar,
                 atoms.wm_state_skip_pager,
             ],
-        ).map_err(|e| WindowError::ConfigurationFailed(format!("Failed to set window state: {e}")))?;
+        )
+        .map_err(|e| {
+            WindowError::ConfigurationFailed(format!("Failed to set window state: {e}"))
+        })?;
 
         // Set window opacity using _NET_WM_WINDOW_OPACITY
         let opacity_value = ((self.opacity * u32::MAX as f64) as u32).to_ne_bytes();
@@ -316,30 +318,32 @@ impl LinuxOverlayWindow {
             atoms.net_wm_opacity,
             AtomEnum::CARDINAL,
             &opacity_value,
-        ).map_err(|e| WindowError::ConfigurationFailed(format!("Failed to set opacity: {e}")))?;
+        )
+        .map_err(|e| WindowError::ConfigurationFailed(format!("Failed to set opacity: {e}")))?;
 
-        conn.flush().map_err(|e| WindowError::ConfigurationFailed(format!("Failed to flush: {e}")))?;
+        conn.flush()
+            .map_err(|e| WindowError::ConfigurationFailed(format!("Failed to flush: {e}")))?;
 
         Ok(())
     }
 
     /// Creates a graphics context for drawing
     fn create_graphics_context(&mut self) -> Result<(), WindowError> {
-        let conn = self.connection.as_ref().ok_or_else(|| {
-            WindowError::Platform("No X11 connection".into())
-        })?;
+        let conn = self
+            .connection
+            .as_ref()
+            .ok_or_else(|| WindowError::Platform("No X11 connection".into()))?;
 
-        let gc_id = conn.generate_id().map_err(|e| {
-            WindowError::CreationFailed(format!("Failed to generate GC ID: {e}"))
-        })?;
+        let gc_id = conn
+            .generate_id()
+            .map_err(|e| WindowError::CreationFailed(format!("Failed to generate GC ID: {e}")))?;
 
         let gc_aux = CreateGCAux::new()
             .foreground(TEXT_COLOR)
             .background(BG_COLOR_ARGB);
 
-        conn.create_gc(gc_id, self.window_id, &gc_aux).map_err(|e| {
-            WindowError::CreationFailed(format!("Failed to create GC: {e}"))
-        })?;
+        conn.create_gc(gc_id, self.window_id, &gc_aux)
+            .map_err(|e| WindowError::CreationFailed(format!("Failed to create GC: {e}")))?;
 
         self.gc = Some(gc_id);
         Ok(())
@@ -347,25 +351,26 @@ impl LinuxOverlayWindow {
 
     /// Draws the overlay content (background, close button, timer)
     pub fn draw(&self) -> Result<(), WindowError> {
-        let conn = self.connection.as_ref().ok_or_else(|| {
-            WindowError::Platform("No X11 connection".into())
-        })?;
+        let conn = self
+            .connection
+            .as_ref()
+            .ok_or_else(|| WindowError::Platform("No X11 connection".into()))?;
 
-        let gc = self.gc.ok_or_else(|| {
-            WindowError::Platform("Graphics context not created".into())
-        })?;
+        // Verify graphics context was created (we use temporary GCs for drawing operations)
+        let _gc = self
+            .gc
+            .ok_or_else(|| WindowError::Platform("Graphics context not created".into()))?;
 
         let width = self.bounds.width as u16;
         let height = self.bounds.height as u16;
 
         // Fill background
-        let bg_gc = conn.generate_id().map_err(|e| {
-            WindowError::Platform(format!("Failed to generate ID: {e}"))
-        })?;
+        let bg_gc = conn
+            .generate_id()
+            .map_err(|e| WindowError::Platform(format!("Failed to generate ID: {e}")))?;
         let bg_aux = CreateGCAux::new().foreground(BG_COLOR_ARGB & 0x00FFFFFF);
-        conn.create_gc(bg_gc, self.window_id, &bg_aux).map_err(|e| {
-            WindowError::Platform(format!("Failed to create background GC: {e}"))
-        })?;
+        conn.create_gc(bg_gc, self.window_id, &bg_aux)
+            .map_err(|e| WindowError::Platform(format!("Failed to create background GC: {e}")))?;
 
         conn.poly_fill_rectangle(
             self.window_id,
@@ -376,11 +381,11 @@ impl LinuxOverlayWindow {
                 width,
                 height,
             }],
-        ).map_err(|e| WindowError::Platform(format!("Failed to fill background: {e}")))?;
+        )
+        .map_err(|e| WindowError::Platform(format!("Failed to fill background: {e}")))?;
 
-        conn.free_gc(bg_gc).map_err(|e| {
-            WindowError::Platform(format!("Failed to free background GC: {e}"))
-        })?;
+        conn.free_gc(bg_gc)
+            .map_err(|e| WindowError::Platform(format!("Failed to free background GC: {e}")))?;
 
         // Draw close button
         let button_x = width as i16 - CLOSE_BUTTON_MARGIN as i16 - CLOSE_BUTTON_RADIUS as i16;
@@ -394,13 +399,12 @@ impl LinuxOverlayWindow {
         };
 
         // Create GC for close button
-        let btn_gc = conn.generate_id().map_err(|e| {
-            WindowError::Platform(format!("Failed to generate ID: {e}"))
-        })?;
+        let btn_gc = conn
+            .generate_id()
+            .map_err(|e| WindowError::Platform(format!("Failed to generate ID: {e}")))?;
         let btn_aux = CreateGCAux::new().foreground(button_color & 0x00FFFFFF);
-        conn.create_gc(btn_gc, self.window_id, &btn_aux).map_err(|e| {
-            WindowError::Platform(format!("Failed to create button GC: {e}"))
-        })?;
+        conn.create_gc(btn_gc, self.window_id, &btn_aux)
+            .map_err(|e| WindowError::Platform(format!("Failed to create button GC: {e}")))?;
 
         // Draw filled circle for close button (approximated with arc)
         let diameter = (CLOSE_BUTTON_RADIUS * 2) as u16;
@@ -415,22 +419,21 @@ impl LinuxOverlayWindow {
                 angle1: 0,
                 angle2: 360 * 64, // Full circle in 1/64th degree units
             }],
-        ).map_err(|e| WindowError::Platform(format!("Failed to draw close button: {e}")))?;
+        )
+        .map_err(|e| WindowError::Platform(format!("Failed to draw close button: {e}")))?;
 
-        conn.free_gc(btn_gc).map_err(|e| {
-            WindowError::Platform(format!("Failed to free button GC: {e}"))
-        })?;
+        conn.free_gc(btn_gc)
+            .map_err(|e| WindowError::Platform(format!("Failed to free button GC: {e}")))?;
 
         // Draw "X" on the close button
-        let x_gc = conn.generate_id().map_err(|e| {
-            WindowError::Platform(format!("Failed to generate ID: {e}"))
-        })?;
+        let x_gc = conn
+            .generate_id()
+            .map_err(|e| WindowError::Platform(format!("Failed to generate ID: {e}")))?;
         let x_aux = CreateGCAux::new()
             .foreground(TEXT_COLOR & 0x00FFFFFF)
             .line_width(3);
-        conn.create_gc(x_gc, self.window_id, &x_aux).map_err(|e| {
-            WindowError::Platform(format!("Failed to create X GC: {e}"))
-        })?;
+        conn.create_gc(x_gc, self.window_id, &x_aux)
+            .map_err(|e| WindowError::Platform(format!("Failed to create X GC: {e}")))?;
 
         // Draw X using two lines
         let x_offset = (CLOSE_BUTTON_RADIUS as f64 * 0.5) as i16;
@@ -448,7 +451,8 @@ impl LinuxOverlayWindow {
                     y: button_y + x_offset,
                 },
             ],
-        ).map_err(|e| WindowError::Platform(format!("Failed to draw X line 1: {e}")))?;
+        )
+        .map_err(|e| WindowError::Platform(format!("Failed to draw X line 1: {e}")))?;
 
         conn.poly_line(
             x11rb::protocol::xproto::CoordMode::ORIGIN,
@@ -464,47 +468,53 @@ impl LinuxOverlayWindow {
                     y: button_y + x_offset,
                 },
             ],
-        ).map_err(|e| WindowError::Platform(format!("Failed to draw X line 2: {e}")))?;
+        )
+        .map_err(|e| WindowError::Platform(format!("Failed to draw X line 2: {e}")))?;
 
-        conn.free_gc(x_gc).map_err(|e| {
-            WindowError::Platform(format!("Failed to free X GC: {e}"))
-        })?;
+        conn.free_gc(x_gc)
+            .map_err(|e| WindowError::Platform(format!("Failed to free X GC: {e}")))?;
 
         // Draw timer text if set
         if let Ok(timer_text) = TIMER_TEXT.read() {
             if let Some(ref text) = *timer_text {
                 // Create text GC
-                let text_gc = conn.generate_id().map_err(|e| {
-                    WindowError::Platform(format!("Failed to generate ID: {e}"))
-                })?;
+                let text_gc = conn
+                    .generate_id()
+                    .map_err(|e| WindowError::Platform(format!("Failed to generate ID: {e}")))?;
                 let text_aux = CreateGCAux::new().foreground(TEXT_COLOR & 0x00FFFFFF);
-                conn.create_gc(text_gc, self.window_id, &text_aux).map_err(|e| {
-                    WindowError::Platform(format!("Failed to create text GC: {e}"))
-                })?;
+                conn.create_gc(text_gc, self.window_id, &text_aux)
+                    .map_err(|e| WindowError::Platform(format!("Failed to create text GC: {e}")))?;
 
                 // Draw text centered (approximate centering)
                 let text_x = (width / 2).saturating_sub((text.len() as u16 * 4));
                 let text_y = height / 2;
 
-                conn.image_text8(self.window_id, text_gc, text_x as i16, text_y as i16, text.as_bytes())
-                    .map_err(|e| WindowError::Platform(format!("Failed to draw timer text: {e}")))?;
+                conn.image_text8(
+                    self.window_id,
+                    text_gc,
+                    text_x as i16,
+                    text_y as i16,
+                    text.as_bytes(),
+                )
+                .map_err(|e| WindowError::Platform(format!("Failed to draw timer text: {e}")))?;
 
-                conn.free_gc(text_gc).map_err(|e| {
-                    WindowError::Platform(format!("Failed to free text GC: {e}"))
-                })?;
+                conn.free_gc(text_gc)
+                    .map_err(|e| WindowError::Platform(format!("Failed to free text GC: {e}")))?;
             }
         }
 
-        conn.flush().map_err(|e| WindowError::Platform(format!("Failed to flush: {e}")))?;
+        conn.flush()
+            .map_err(|e| WindowError::Platform(format!("Failed to flush: {e}")))?;
 
         Ok(())
     }
 
     /// Processes pending X11 events (should be called in event loop)
     pub fn process_events(&mut self) -> Result<bool, WindowError> {
-        let conn = self.connection.as_ref().ok_or_else(|| {
-            WindowError::Platform("No X11 connection".into())
-        })?;
+        let conn = self
+            .connection
+            .as_ref()
+            .ok_or_else(|| WindowError::Platform("No X11 connection".into()))?;
 
         // Non-blocking poll for events
         match conn.poll_for_event() {
@@ -531,9 +541,8 @@ impl LinuxOverlayWindow {
                             // Left mouse button
                             if self.is_point_in_close_button(ev.event_x, ev.event_y) {
                                 debug!("Close button clicked");
-                                let callback = CLOSE_CALLBACK.lock()
-                                    .ok()
-                                    .and_then(|guard| guard.clone());
+                                let callback =
+                                    CLOSE_CALLBACK.lock().ok().and_then(|guard| guard.clone());
                                 if let Some(cb) = callback {
                                     cb();
                                     return Ok(true); // Signal that close was requested
@@ -619,7 +628,8 @@ impl OverlayWindow for LinuxOverlayWindow {
         let conn = self.connection.as_ref().unwrap();
 
         // Try to find an ARGB visual for transparency
-        let (visual_id, depth) = self.find_argb_visual(&screen)
+        let (visual_id, depth) = self
+            .find_argb_visual(&screen)
             .unwrap_or((screen.root_visual, screen.root_depth));
 
         debug!("Using visual {:?} with depth {}", visual_id, depth);
@@ -635,7 +645,9 @@ impl OverlayWindow for LinuxOverlayWindow {
                 WindowError::CreationFailed(format!("Failed to generate colormap ID: {e}"))
             })?;
             conn.create_colormap(ColormapAlloc::NONE, colormap_id, screen.root, visual_id)
-                .map_err(|e| WindowError::CreationFailed(format!("Failed to create colormap: {e}")))?;
+                .map_err(|e| {
+                    WindowError::CreationFailed(format!("Failed to create colormap: {e}"))
+                })?;
             Some(colormap_id)
         } else {
             None
@@ -648,7 +660,7 @@ impl OverlayWindow for LinuxOverlayWindow {
                     | EventMask::BUTTON_PRESS
                     | EventMask::BUTTON_RELEASE
                     | EventMask::POINTER_MOTION
-                    | EventMask::STRUCTURE_NOTIFY
+                    | EventMask::STRUCTURE_NOTIFY,
             )
             .background_pixel(BG_COLOR_ARGB & 0x00FFFFFF)
             .border_pixel(0)
@@ -671,7 +683,8 @@ impl OverlayWindow for LinuxOverlayWindow {
             WindowClass::INPUT_OUTPUT,
             visual_id,
             &win_aux,
-        ).map_err(|e| WindowError::CreationFailed(format!("Failed to create window: {e}")))?;
+        )
+        .map_err(|e| WindowError::CreationFailed(format!("Failed to create window: {e}")))?;
 
         self.window_id = window_id;
         self.bounds = Rect::new(0.0, 0.0, screen_width as f64, screen_height as f64);
@@ -711,7 +724,8 @@ impl OverlayWindow for LinuxOverlayWindow {
         }
 
         // Raise the window to ensure it's on top
-        let configure_aux = ConfigureWindowAux::new().stack_mode(x11rb::protocol::xproto::StackMode::ABOVE);
+        let configure_aux =
+            ConfigureWindowAux::new().stack_mode(x11rb::protocol::xproto::StackMode::ABOVE);
         if let Err(e) = conn.configure_window(self.window_id, &configure_aux) {
             warn!("Failed to raise window: {}", e);
         }

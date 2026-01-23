@@ -31,9 +31,7 @@ use wayland_client::protocol::{
     wl_buffer, wl_callback, wl_compositor, wl_output, wl_registry, wl_shm, wl_shm_pool, wl_surface,
 };
 use wayland_client::{Connection, Dispatch, QueueHandle, WEnum};
-use wayland_protocols_wlr::layer_shell::v1::client::{
-    zwlr_layer_shell_v1, zwlr_layer_surface_v1,
-};
+use wayland_protocols_wlr::layer_shell::v1::client::{zwlr_layer_shell_v1, zwlr_layer_surface_v1};
 
 use crate::platform::errors::WindowError;
 use crate::platform::types::Rect;
@@ -103,9 +101,6 @@ struct WaylandState {
     configured_height: u32,
     /// Whether the surface should close
     should_close: bool,
-    /// Mouse position for hover tracking
-    mouse_x: f64,
-    mouse_y: f64,
 }
 
 impl WaylandState {
@@ -125,21 +120,7 @@ impl WaylandState {
             configured_width: 0,
             configured_height: 0,
             should_close: false,
-            mouse_x: 0.0,
-            mouse_y: 0.0,
         }
-    }
-
-    /// Check if a point is within the close button
-    fn is_point_in_close_button(&self, x: f64, y: f64) -> bool {
-        let button_x = self.configured_width as f64 - CLOSE_BUTTON_MARGIN as f64 - CLOSE_BUTTON_RADIUS as f64;
-        let button_y = self.configured_height as f64 - CLOSE_BUTTON_MARGIN as f64 - CLOSE_BUTTON_RADIUS as f64;
-
-        let dx = x - button_x;
-        let dy = y - button_y;
-        let distance_squared = dx * dx + dy * dy;
-
-        distance_squared <= (CLOSE_BUTTON_RADIUS as f64 * CLOSE_BUTTON_RADIUS as f64)
     }
 }
 
@@ -153,7 +134,12 @@ impl Dispatch<wl_registry::WlRegistry, ()> for WaylandState {
         _: &Connection,
         qh: &QueueHandle<WaylandState>,
     ) {
-        if let wl_registry::Event::Global { name, interface, version } = event {
+        if let wl_registry::Event::Global {
+            name,
+            interface,
+            version,
+        } = event
+        {
             match interface.as_str() {
                 "wl_compositor" => {
                     let compositor = registry.bind::<wl_compositor::WlCompositor, _, _>(
@@ -166,12 +152,7 @@ impl Dispatch<wl_registry::WlRegistry, ()> for WaylandState {
                     debug!("Bound wl_compositor v{}", version.min(4));
                 }
                 "wl_shm" => {
-                    let shm = registry.bind::<wl_shm::WlShm, _, _>(
-                        name,
-                        version.min(1),
-                        qh,
-                        (),
-                    );
+                    let shm = registry.bind::<wl_shm::WlShm, _, _>(name, version.min(1), qh, ());
                     state.shm = Some(shm);
                     debug!("Bound wl_shm v{}", version.min(1));
                 }
@@ -338,13 +319,28 @@ impl Dispatch<zwlr_layer_surface_v1::ZwlrLayerSurfaceV1, ()> for WaylandState {
         _: &QueueHandle<WaylandState>,
     ) {
         match event {
-            zwlr_layer_surface_v1::Event::Configure { serial, width, height } => {
-                debug!("Layer surface configure: {}x{} (serial {})", width, height, serial);
+            zwlr_layer_surface_v1::Event::Configure {
+                serial,
+                width,
+                height,
+            } => {
+                debug!(
+                    "Layer surface configure: {}x{} (serial {})",
+                    width, height, serial
+                );
                 layer_surface.ack_configure(serial);
 
                 // Use configured dimensions or fallback to output dimensions
-                state.configured_width = if width > 0 { width } else { state.output_width as u32 };
-                state.configured_height = if height > 0 { height } else { state.output_height as u32 };
+                state.configured_width = if width > 0 {
+                    width
+                } else {
+                    state.output_width as u32
+                };
+                state.configured_height = if height > 0 {
+                    height
+                } else {
+                    state.output_height as u32
+                };
                 state.configured = true;
             }
             zwlr_layer_surface_v1::Event::Closed => {
@@ -445,9 +441,9 @@ impl WaylandOverlayWindow {
 
         // Create state and do initial roundtrip to get globals
         let mut state = WaylandState::new();
-        event_queue.roundtrip(&mut state).map_err(|e| {
-            WindowError::CreationFailed(format!("Failed to roundtrip: {}", e))
-        })?;
+        event_queue
+            .roundtrip(&mut state)
+            .map_err(|e| WindowError::CreationFailed(format!("Failed to roundtrip: {}", e)))?;
 
         // Check if layer shell is available
         if !state.layer_shell_available {
@@ -455,7 +451,8 @@ impl WaylandOverlayWindow {
                 "wlr-layer-shell protocol not available. \
                 This Wayland compositor does not support overlay windows. \
                 Try using a wlroots-based compositor (Sway, Wayfire, Hyprland) \
-                or fall back to XWayland.".into()
+                or fall back to XWayland."
+                    .into(),
             ));
         }
 
@@ -465,17 +462,19 @@ impl WaylandOverlayWindow {
         })?;
 
         // Verify we have the required globals
-        let compositor = state.compositor.as_ref().ok_or_else(|| {
-            WindowError::CreationFailed("wl_compositor not available".into())
-        })?;
+        let compositor = state
+            .compositor
+            .as_ref()
+            .ok_or_else(|| WindowError::CreationFailed("wl_compositor not available".into()))?;
 
         let layer_shell = state.layer_shell.as_ref().ok_or_else(|| {
             WindowError::CreationFailed("zwlr_layer_shell_v1 not available".into())
         })?;
 
-        let _shm = state.shm.as_ref().ok_or_else(|| {
-            WindowError::CreationFailed("wl_shm not available".into())
-        })?;
+        let _shm = state
+            .shm
+            .as_ref()
+            .ok_or_else(|| WindowError::CreationFailed("wl_shm not available".into()))?;
 
         // Create the surface
         let surface = compositor.create_surface(&qh, ());
@@ -504,9 +503,8 @@ impl WaylandOverlayWindow {
         layer_surface.set_exclusive_zone(-1);
 
         // Request keyboard interactivity for potential input handling
-        layer_surface.set_keyboard_interactivity(
-            zwlr_layer_surface_v1::KeyboardInteractivity::Exclusive,
-        );
+        layer_surface
+            .set_keyboard_interactivity(zwlr_layer_surface_v1::KeyboardInteractivity::Exclusive);
 
         state.layer_surface = Some(layer_surface);
 
@@ -514,13 +512,13 @@ impl WaylandOverlayWindow {
         surface.commit();
 
         // Wait for configure event
-        event_queue.roundtrip(&mut state).map_err(|e| {
-            WindowError::CreationFailed(format!("Failed to configure: {}", e))
-        })?;
+        event_queue
+            .roundtrip(&mut state)
+            .map_err(|e| WindowError::CreationFailed(format!("Failed to configure: {}", e)))?;
 
         if !state.configured {
             return Err(WindowError::CreationFailed(
-                "Did not receive layer surface configure event".into()
+                "Did not receive layer surface configure event".into(),
             ));
         }
 
@@ -545,25 +543,30 @@ impl WaylandOverlayWindow {
 
     /// Creates a shared memory buffer and draws the overlay content.
     fn draw(&mut self) -> Result<(), WindowError> {
-        let state = self.state.as_ref().ok_or_else(|| {
-            WindowError::Platform("State not initialized".into())
-        })?;
+        let state = self
+            .state
+            .as_ref()
+            .ok_or_else(|| WindowError::Platform("State not initialized".into()))?;
 
-        let surface = state.surface.as_ref().ok_or_else(|| {
-            WindowError::Platform("Surface not created".into())
-        })?;
+        let surface = state
+            .surface
+            .as_ref()
+            .ok_or_else(|| WindowError::Platform("Surface not created".into()))?;
 
-        let shm = state.shm.as_ref().ok_or_else(|| {
-            WindowError::Platform("SHM not available".into())
-        })?;
+        let shm = state
+            .shm
+            .as_ref()
+            .ok_or_else(|| WindowError::Platform("SHM not available".into()))?;
 
-        let connection = self.connection.as_ref().ok_or_else(|| {
-            WindowError::Platform("Connection not available".into())
-        })?;
+        let connection = self
+            .connection
+            .as_ref()
+            .ok_or_else(|| WindowError::Platform("Connection not available".into()))?;
 
-        let event_queue = self.event_queue.as_ref().ok_or_else(|| {
-            WindowError::Platform("Event queue not available".into())
-        })?;
+        let event_queue = self
+            .event_queue
+            .as_ref()
+            .ok_or_else(|| WindowError::Platform("Event queue not available".into()))?;
 
         let width = state.configured_width;
         let height = state.configured_height;
@@ -576,9 +579,8 @@ impl WaylandOverlayWindow {
 
         // Memory map the file
         let mut mmap = unsafe {
-            memmap2::MmapMut::map_mut(&file).map_err(|e| {
-                WindowError::Platform(format!("Failed to mmap: {}", e))
-            })?
+            memmap2::MmapMut::map_mut(&file)
+                .map_err(|e| WindowError::Platform(format!("Failed to mmap: {}", e)))?
         };
 
         // Draw the overlay content into the buffer
@@ -607,9 +609,9 @@ impl WaylandOverlayWindow {
         self.buffer_data = Some(mmap);
 
         // Flush to ensure compositor receives it
-        connection.flush().map_err(|e| {
-            WindowError::Platform(format!("Failed to flush: {}", e))
-        })?;
+        connection
+            .flush()
+            .map_err(|e| WindowError::Platform(format!("Failed to flush: {}", e)))?;
 
         Ok(())
     }
@@ -629,8 +631,8 @@ impl WaylandOverlayWindow {
                 let offset = ((y * width + x) * 4) as usize;
                 if offset + 3 < buffer.len() {
                     let color = bg_color;
-                    buffer[offset] = (color & 0xFF) as u8;         // Blue
-                    buffer[offset + 1] = ((color >> 8) & 0xFF) as u8;  // Green
+                    buffer[offset] = (color & 0xFF) as u8; // Blue
+                    buffer[offset + 1] = ((color >> 8) & 0xFF) as u8; // Green
                     buffer[offset + 2] = ((color >> 16) & 0xFF) as u8; // Red
                     buffer[offset + 3] = ((color >> 24) & 0xFF) as u8; // Alpha
                 }
@@ -720,8 +722,13 @@ impl WaylandOverlayWindow {
                             for dx in -2..=2 {
                                 let dot_x = px + dx;
                                 let dot_y = py + dy;
-                                if dot_x >= 0 && dot_x < width as i32 && dot_y >= 0 && dot_y < height as i32 {
-                                    let offset = ((dot_y as u32 * width + dot_x as u32) * 4) as usize;
+                                if dot_x >= 0
+                                    && dot_x < width as i32
+                                    && dot_y >= 0
+                                    && dot_y < height as i32
+                                {
+                                    let offset =
+                                        ((dot_y as u32 * width + dot_x as u32) * 4) as usize;
                                     if offset + 3 < buffer.len() {
                                         buffer[offset] = (TEXT_COLOR & 0xFF) as u8;
                                         buffer[offset + 1] = ((TEXT_COLOR >> 8) & 0xFF) as u8;
@@ -841,22 +848,25 @@ impl WaylandOverlayWindow {
 
     /// Processes pending Wayland events.
     pub fn process_events(&mut self) -> Result<bool, WindowError> {
-        let event_queue = self.event_queue.as_mut().ok_or_else(|| {
-            WindowError::Platform("Event queue not available".into())
-        })?;
+        let event_queue = self
+            .event_queue
+            .as_mut()
+            .ok_or_else(|| WindowError::Platform("Event queue not available".into()))?;
 
-        let state = self.state.as_mut().ok_or_else(|| {
-            WindowError::Platform("State not available".into())
-        })?;
+        let state = self
+            .state
+            .as_mut()
+            .ok_or_else(|| WindowError::Platform("State not available".into()))?;
 
         // Non-blocking dispatch
-        event_queue.dispatch_pending(state).map_err(|e| {
-            WindowError::Platform(format!("Failed to dispatch events: {}", e))
-        })?;
+        event_queue
+            .dispatch_pending(state)
+            .map_err(|e| WindowError::Platform(format!("Failed to dispatch events: {}", e)))?;
 
         // Check if compositor requested close
         if state.should_close {
-            let callback = WAYLAND_CLOSE_CALLBACK.lock()
+            let callback = WAYLAND_CLOSE_CALLBACK
+                .lock()
                 .ok()
                 .and_then(|guard| guard.clone());
             if let Some(cb) = callback {
@@ -884,8 +894,6 @@ impl Drop for WaylandOverlayWindow {
 
 /// Creates a shared memory file for Wayland buffer.
 fn create_shm_file(size: usize) -> Result<std::fs::File, WindowError> {
-    use std::io::Write;
-
     // Try memfd_create first (Linux 3.17+)
     #[cfg(target_os = "linux")]
     {
@@ -893,25 +901,23 @@ fn create_shm_file(size: usize) -> Result<std::fs::File, WindowError> {
         use std::os::unix::io::FromRawFd;
 
         let name = CString::new("catshield-wayland-shm").unwrap();
-        let fd = unsafe {
-            libc::memfd_create(name.as_ptr(), libc::MFD_CLOEXEC)
-        };
+        let fd = unsafe { libc::memfd_create(name.as_ptr(), libc::MFD_CLOEXEC) };
 
         if fd >= 0 {
             let file = unsafe { std::fs::File::from_raw_fd(fd) };
-            file.set_len(size as u64).map_err(|e| {
-                WindowError::Platform(format!("Failed to set shm size: {}", e))
-            })?;
+            file.set_len(size as u64)
+                .map_err(|e| WindowError::Platform(format!("Failed to set shm size: {}", e)))?;
             return Ok(file);
         }
     }
 
     // Fallback to /dev/shm
     let path = format!("/dev/shm/catshield-wayland-{}", std::process::id());
-    let mut file = std::fs::OpenOptions::new()
+    let file = std::fs::OpenOptions::new()
         .read(true)
         .write(true)
         .create(true)
+        .truncate(true)
         .open(&path)
         .map_err(|e| WindowError::Platform(format!("Failed to create shm file: {}", e)))?;
 
@@ -919,9 +925,8 @@ fn create_shm_file(size: usize) -> Result<std::fs::File, WindowError> {
     let _ = std::fs::remove_file(&path);
 
     // Set size
-    file.set_len(size as u64).map_err(|e| {
-        WindowError::Platform(format!("Failed to set shm size: {}", e))
-    })?;
+    file.set_len(size as u64)
+        .map_err(|e| WindowError::Platform(format!("Failed to set shm size: {}", e)))?;
 
     Ok(file)
 }
@@ -984,23 +989,6 @@ mod tests {
         let overlay = WaylandOverlayWindow::new();
         let bounds = overlay.bounds();
         assert!(bounds.is_empty());
-    }
-
-    #[test]
-    fn test_wayland_state_close_button_detection() {
-        let mut state = WaylandState::new();
-        state.configured_width = 1920;
-        state.configured_height = 1080;
-
-        // Point at center of close button should be inside
-        let button_x = 1920.0 - CLOSE_BUTTON_MARGIN as f64 - CLOSE_BUTTON_RADIUS as f64;
-        let button_y = 1080.0 - CLOSE_BUTTON_MARGIN as f64 - CLOSE_BUTTON_RADIUS as f64;
-
-        assert!(state.is_point_in_close_button(button_x, button_y));
-
-        // Point far away should be outside
-        assert!(!state.is_point_in_close_button(0.0, 0.0));
-        assert!(!state.is_point_in_close_button(960.0, 540.0));
     }
 
     #[test]
