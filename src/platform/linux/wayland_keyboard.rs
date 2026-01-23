@@ -5,7 +5,7 @@
 //!
 //! # How It Works
 //!
-//! 1. Binds to `wl_seat` to get the seat (input device collection)
+//! 1. The overlay window binds to `wl_seat` to get the seat (input device collection)
 //! 2. Gets `wl_keyboard` from the seat to receive keyboard events
 //! 3. Uses `zwp_keyboard_shortcuts_inhibit_manager_v1` to request shortcut inhibition
 //! 4. When the overlay surface has focus, all keyboard events are received
@@ -25,16 +25,13 @@
 //!
 //! See [docs/WAYLAND_INPUT_RESEARCH.md](docs/WAYLAND_INPUT_RESEARCH.md) for full research.
 
-use log::{debug, error, info, warn};
+use log::{debug, info, warn};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::RwLock;
-use wayland_client::protocol::{wl_keyboard, wl_seat};
+use wayland_client::protocol::wl_registry;
 use wayland_client::{Connection, Dispatch, QueueHandle};
-use wayland_protocols::wp::keyboard_shortcuts_inhibit::zv1::client::{
-    zwp_keyboard_shortcuts_inhibit_manager_v1, zwp_keyboard_shortcuts_inhibitor_v1,
-};
 
-/// Global exit key configuration (shared with x11_keyboard for consistency)
+/// Global exit key configuration
 static WAYLAND_EXIT_KEY_KEYCODE: AtomicU32 = AtomicU32::new(0);
 static WAYLAND_EXIT_KEY_REQUIRES_SUPER: AtomicBool = AtomicBool::new(false);
 static WAYLAND_EXIT_KEY_REQUIRES_ALT: AtomicBool = AtomicBool::new(false);
@@ -208,205 +205,6 @@ pub fn process_wayland_key_event(
     WaylandKeyboardResult::Blocked
 }
 
-/// Wayland keyboard state for event handling.
-///
-/// This struct is used in the Dispatch implementations to track keyboard state.
-#[derive(Debug, Default)]
-pub struct WaylandKeyboardState {
-    /// The seat object
-    pub seat: Option<wl_seat::WlSeat>,
-    /// The keyboard object
-    pub keyboard: Option<wl_keyboard::WlKeyboard>,
-    /// The shortcuts inhibit manager
-    pub shortcuts_inhibit_manager:
-        Option<zwp_keyboard_shortcuts_inhibit_manager_v1::ZwpKeyboardShortcutsInhibitManagerV1>,
-    /// The current shortcuts inhibitor
-    pub shortcuts_inhibitor:
-        Option<zwp_keyboard_shortcuts_inhibitor_v1::ZwpKeyboardShortcutsInhibitorV1>,
-    /// Whether keyboard shortcuts inhibit protocol is available
-    pub shortcuts_inhibit_available: bool,
-    /// Current modifier state
-    pub modifiers: WaylandModifierState,
-    /// Whether we have keyboard focus
-    pub has_focus: bool,
-    /// Whether the inhibitor is active
-    pub inhibitor_active: bool,
-    /// Callback for exit key detection
-    pub on_exit_requested: Option<Box<dyn Fn() + Send + Sync>>,
-}
-
-impl WaylandKeyboardState {
-    /// Creates a new keyboard state.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Sets the callback for exit key detection.
-    pub fn set_exit_callback<F>(&mut self, callback: F)
-    where
-        F: Fn() + Send + Sync + 'static,
-    {
-        self.on_exit_requested = Some(Box::new(callback));
-    }
-
-    /// Processes a key event and returns the result.
-    pub fn process_key(&self, keycode: u32, pressed: bool) -> WaylandKeyboardResult {
-        if !self.has_focus || !pressed {
-            return WaylandKeyboardResult::NotActive;
-        }
-
-        process_wayland_key_event(keycode, &self.modifiers)
-    }
-}
-
-/// User data for seat dispatch
-pub struct SeatUserData;
-
-// Dispatch implementation for wl_seat
-impl<T> Dispatch<wl_seat::WlSeat, SeatUserData, T> for WaylandKeyboardState
-where
-    T: Dispatch<wl_seat::WlSeat, SeatUserData> + Dispatch<wl_keyboard::WlKeyboard, ()> + 'static,
-{
-    fn event(
-        state: &mut T,
-        seat: &wl_seat::WlSeat,
-        event: wl_seat::Event,
-        _: &SeatUserData,
-        _: &Connection,
-        qh: &QueueHandle<T>,
-    ) {
-        if let wl_seat::Event::Capabilities { capabilities } = event {
-            let caps = wl_seat::Capability::from_bits_truncate(capabilities.into());
-            debug!("Seat capabilities: {:?}", caps);
-
-            if caps.contains(wl_seat::Capability::Keyboard) {
-                // Request the keyboard object
-                let _keyboard = seat.get_keyboard(qh, ());
-                debug!("Requested keyboard from seat");
-            }
-        }
-    }
-}
-
-// Dispatch implementation for wl_keyboard
-impl<T> Dispatch<wl_keyboard::WlKeyboard, (), T> for WaylandKeyboardState
-where
-    T: 'static,
-{
-    fn event(
-        _state: &mut T,
-        _: &wl_keyboard::WlKeyboard,
-        event: wl_keyboard::Event,
-        _: &(),
-        _: &Connection,
-        _: &QueueHandle<T>,
-    ) {
-        match event {
-            wl_keyboard::Event::Keymap { format, fd, size } => {
-                debug!(
-                    "Keyboard keymap: format={:?}, fd={:?}, size={}",
-                    format, fd, size
-                );
-                // We don't need to parse the keymap for our use case
-                // We use raw keycodes which are consistent across keymaps
-            }
-            wl_keyboard::Event::Enter {
-                serial,
-                surface,
-                keys,
-            } => {
-                debug!(
-                    "Keyboard enter: serial={}, surface={:?}, keys={:?}",
-                    serial, surface, keys
-                );
-                // Keyboard focus gained - tracked by higher-level state
-            }
-            wl_keyboard::Event::Leave { serial, surface } => {
-                debug!("Keyboard leave: serial={}, surface={:?}", serial, surface);
-                // Keyboard focus lost - tracked by higher-level state
-            }
-            wl_keyboard::Event::Key {
-                serial,
-                time,
-                key,
-                state,
-            } => {
-                let pressed = matches!(
-                    state,
-                    wayland_client::WEnum::Value(wl_keyboard::KeyState::Pressed)
-                );
-                debug!(
-                    "Keyboard key: serial={}, time={}, key={}, pressed={}",
-                    serial, time, key, pressed
-                );
-                // Key events handled by higher-level state
-            }
-            wl_keyboard::Event::Modifiers {
-                serial,
-                mods_depressed,
-                mods_latched,
-                mods_locked,
-                group,
-            } => {
-                debug!(
-                    "Keyboard modifiers: serial={}, depressed={:#x}, latched={:#x}, locked={:#x}, group={}",
-                    serial, mods_depressed, mods_latched, mods_locked, group
-                );
-                // Modifier state handled by higher-level state
-            }
-            wl_keyboard::Event::RepeatInfo { rate, delay } => {
-                debug!("Keyboard repeat info: rate={}, delay={}", rate, delay);
-            }
-            _ => {}
-        }
-    }
-}
-
-// Dispatch implementation for shortcuts inhibit manager
-impl<T>
-    Dispatch<zwp_keyboard_shortcuts_inhibit_manager_v1::ZwpKeyboardShortcutsInhibitManagerV1, (), T>
-    for WaylandKeyboardState
-where
-    T: 'static,
-{
-    fn event(
-        _state: &mut T,
-        _: &zwp_keyboard_shortcuts_inhibit_manager_v1::ZwpKeyboardShortcutsInhibitManagerV1,
-        _event: zwp_keyboard_shortcuts_inhibit_manager_v1::Event,
-        _: &(),
-        _: &Connection,
-        _: &QueueHandle<T>,
-    ) {
-        // The manager has no events
-    }
-}
-
-// Dispatch implementation for shortcuts inhibitor
-impl<T> Dispatch<zwp_keyboard_shortcuts_inhibitor_v1::ZwpKeyboardShortcutsInhibitorV1, (), T>
-    for WaylandKeyboardState
-where
-    T: 'static,
-{
-    fn event(
-        _state: &mut T,
-        _: &zwp_keyboard_shortcuts_inhibitor_v1::ZwpKeyboardShortcutsInhibitorV1,
-        event: zwp_keyboard_shortcuts_inhibitor_v1::Event,
-        _: &(),
-        _: &Connection,
-        _: &QueueHandle<T>,
-    ) {
-        match event {
-            zwp_keyboard_shortcuts_inhibitor_v1::Event::Active => {
-                info!("Keyboard shortcuts inhibitor is now active");
-            }
-            zwp_keyboard_shortcuts_inhibitor_v1::Event::Inactive => {
-                info!("Keyboard shortcuts inhibitor is now inactive");
-            }
-            _ => {}
-        }
-    }
-}
-
 /// Checks if the keyboard-shortcuts-inhibit protocol is available.
 pub fn is_keyboard_shortcuts_inhibit_available() -> bool {
     // Try to connect and check for the protocol
@@ -443,16 +241,16 @@ impl ProtocolCheckState {
 }
 
 // Registry dispatch for protocol check
-impl Dispatch<wayland_client::protocol::wl_registry::WlRegistry, ()> for ProtocolCheckState {
+impl Dispatch<wl_registry::WlRegistry, ()> for ProtocolCheckState {
     fn event(
         state: &mut Self,
-        _: &wayland_client::protocol::wl_registry::WlRegistry,
-        event: wayland_client::protocol::wl_registry::Event,
+        _: &wl_registry::WlRegistry,
+        event: wl_registry::Event,
         _: &(),
         _: &Connection,
         _: &QueueHandle<Self>,
     ) {
-        if let wayland_client::protocol::wl_registry::Event::Global { interface, .. } = event {
+        if let wl_registry::Event::Global { interface, .. } = event {
             if interface == "zwp_keyboard_shortcuts_inhibit_manager_v1" {
                 state.shortcuts_inhibit_available = true;
                 debug!("Found keyboard-shortcuts-inhibit protocol");
@@ -647,15 +445,5 @@ mod tests {
             WaylandKeyboardResult::Allowed,
             WaylandKeyboardResult::Blocked
         );
-    }
-
-    #[test]
-    fn test_wayland_keyboard_state_new() {
-        let state = WaylandKeyboardState::new();
-        assert!(state.seat.is_none());
-        assert!(state.keyboard.is_none());
-        assert!(!state.shortcuts_inhibit_available);
-        assert!(!state.has_focus);
-        assert!(!state.inhibitor_active);
     }
 }
