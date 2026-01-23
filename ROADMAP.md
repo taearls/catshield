@@ -5,25 +5,24 @@
 <!-- Keep under 150 lines - agents read this first -->
 
 **Current Phase**: 8 - Cross-Platform Support
-**Next Priority**: #131 (Wayland keyboard-shortcuts-inhibit)
+**Next Priority**: #132 (XWayland fallback detection)
 **Blocking Issues**: None
 
 ### Open Issues by Priority
 
 | # | Title | Priority | Effort | Blocked By | Phase |
 |---|-------|----------|--------|------------|-------|
-| 131 | Wayland keyboard-shortcuts-inhibit | 🟢 Medium | ~1 day | None | 8.3 |
-| 132 | XWayland fallback detection | 🟢 Medium | ~0.5 day | #131 | 8.3 |
+| 132 | XWayland fallback detection | 🟢 Medium | ~0.5 day | None | 8.3 |
 | 113 | Platform-specific integration tests | 🟢 Medium | ~2 days | None | 8.4 |
 | 114 | Animated cat companion overlay | 🔵 Low | ~2-3 days | None | 9 |
 
-**Summary**: 4 open issues (0 Critical, 0 High, 3 Medium, 1 Low)
+**Summary**: 3 open issues (0 Critical, 0 High, 2 Medium, 1 Low)
 
 ### Recommended Next Issues
 
-1. **#131** - Wayland keyboard-shortcuts-inhibit
-2. **#132** - XWayland fallback detection
-3. **#113** - Platform-specific integration tests
+1. **#132** - XWayland fallback detection
+2. **#113** - Platform-specific integration tests
+3. **#114** - Animated cat companion overlay
 
 ---
 
@@ -50,8 +49,8 @@
 | ✅ | #111 | Linux keycode mappings | None |
 | ✅ | #109 | Linux system tray | None |
 | ✅ | #110 | Linux overlay window | None |
-| 🔲 | #131 | Wayland shortcuts-inhibit | None |
-| 🔲 | #132 | XWayland fallback | #131 |
+| ✅ | #131 | Wayland shortcuts-inhibit | None |
+| 🔲 | #132 | XWayland fallback | None |
 
 ### Phase 8.4: CI & Testing
 
@@ -71,7 +70,7 @@ Windows: Complete ✅
 
 Linux (remaining):
 #109 (System Tray) ✅
-#110 (Overlay) ✅ ─── #131 (Shortcuts Inhibit) ─── #132 (XWayland) ─── Linux Complete ✅
+#110 (Overlay) ✅ ─── #131 (Shortcuts Inhibit) ✅ ─── #132 (XWayland) ─── Linux Complete ✅
 
 Future:
 #114 (Animated Cat) ─── Phase 9 Complete
@@ -111,6 +110,7 @@ Potential future enhancements (not yet tracked as issues):
 
 | Issue | Title | Date |
 |-------|-------|------|
+| #131 | Wayland keyboard-shortcuts-inhibit protocol support | 2026-01-23 |
 | #110 | Linux overlay window (X11 + Wayland wlr-layer-shell) | 2026-01-23 |
 | #109 | Linux system tray via ksni (StatusNotifierItem) | 2026-01-22 |
 | #105 | Windows entry point and event loop integration | 2026-01-19 |
