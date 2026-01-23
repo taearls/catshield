@@ -25,7 +25,10 @@ use std::sync::{Arc, Mutex};
 
 use log::{debug, info, warn};
 use windows::core::{w, PCWSTR};
-use windows::Win32::Foundation::{COLORREF, HINSTANCE, HWND, LPARAM, LRESULT, RECT, SIZE, WPARAM};
+use windows::Win32::Foundation::{
+    GetLastError, COLORREF, ERROR_CLASS_ALREADY_EXISTS, HINSTANCE, HWND, LPARAM, LRESULT, RECT,
+    SIZE, WPARAM,
+};
 use windows::Win32::Graphics::Gdi::{
     BeginPaint, CreatePen, CreateSolidBrush, DeleteObject, Ellipse, EndPaint, FillRect,
     GetTextExtentPoint32W, InvalidateRect, SelectObject, SetBkMode, SetTextColor, TextOutW,
@@ -43,12 +46,8 @@ use crate::platform::errors::WindowError;
 use crate::platform::traits::OverlayWindow;
 use crate::platform::types::Rect;
 
-/// Window class name for the overlay window
-static OVERLAY_CLASS_NAME: &[u16] = &[
-    'C' as u16, 'a' as u16, 't' as u16, 'S' as u16, 'h' as u16, 'i' as u16, 'e' as u16, 'l' as u16,
-    'd' as u16, 'O' as u16, 'v' as u16, 'e' as u16, 'r' as u16, 'l' as u16, 'a' as u16, 'y' as u16,
-    0,
-];
+/// Window class name for the overlay window (UTF-16 using `w!` macro)
+const OVERLAY_CLASS_NAME: PCWSTR = w!("CatShieldOverlay");
 
 /// Timer ID for animation updates
 const TIMER_ID: usize = 1;
@@ -168,7 +167,13 @@ impl WindowsOverlayWindow {
     ///
     /// * `text` - The text to display, or None to hide the timer
     pub fn set_timer_text(text: Option<&str>) {
-        let mut timer_text = TIMER_TEXT.write().unwrap();
+        let mut timer_text = match TIMER_TEXT.write() {
+            Ok(guard) => guard,
+            Err(poisoned) => {
+                warn!("Timer text lock was poisoned, recovering");
+                poisoned.into_inner()
+            }
+        };
         *timer_text = text.map(|s| {
             let mut utf16: Vec<u16> = s.encode_utf16().collect();
             utf16.push(0); // Null terminate
@@ -195,18 +200,31 @@ impl WindowsOverlayWindow {
             WindowError::CreationFailed(format!("Failed to get module handle: {e}"))
         })?;
 
+        let bg_brush = unsafe { CreateSolidBrush(BG_COLOR) };
+
         let wc = WNDCLASSW {
             lpfnWndProc: Some(overlay_window_proc),
             hInstance: hinstance.into(),
-            lpszClassName: PCWSTR(OVERLAY_CLASS_NAME.as_ptr()),
-            hbrBackground: unsafe { CreateSolidBrush(BG_COLOR) },
+            lpszClassName: OVERLAY_CLASS_NAME,
+            hbrBackground: bg_brush,
             ..Default::default()
         };
 
         let result = unsafe { RegisterClassW(&wc) };
         if result == 0 {
-            // Class might already be registered, which is OK
-            debug!("Overlay window class registration returned 0 (may already be registered)");
+            // Check GetLastError to distinguish "already registered" from actual failure
+            let error = unsafe { GetLastError() };
+            if error != ERROR_CLASS_ALREADY_EXISTS {
+                // Actual error - clean up the brush and return error
+                unsafe {
+                    let _ = DeleteObject(bg_brush);
+                }
+                return Err(WindowError::CreationFailed(format!(
+                    "Failed to register window class: {:?}",
+                    error
+                )));
+            }
+            debug!("Overlay window class already registered");
         }
 
         self.class_registered = true;
@@ -257,7 +275,7 @@ impl OverlayWindow for WindowsOverlayWindow {
         let hwnd = unsafe {
             CreateWindowExW(
                 ex_style,
-                PCWSTR(OVERLAY_CLASS_NAME.as_ptr()),
+                OVERLAY_CLASS_NAME,
                 w!("Cat Shield Overlay"),
                 WS_POPUP, // Borderless popup window
                 0,
