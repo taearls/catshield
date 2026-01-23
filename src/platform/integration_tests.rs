@@ -118,8 +118,12 @@ mod macos_tests {
         );
 
         // Release both
-        manager.allow_sleep(assertion1).expect("Failed to release first assertion");
-        manager.allow_sleep(assertion2).expect("Failed to release second assertion");
+        manager
+            .allow_sleep(assertion1)
+            .expect("Failed to release first assertion");
+        manager
+            .allow_sleep(assertion2)
+            .expect("Failed to release second assertion");
     }
 
     // ========================================================================
@@ -174,10 +178,7 @@ mod macos_tests {
     #[serial]
     fn test_macos_input_blocker_initially_inactive() {
         let blocker = MacOSInputBlocker::new();
-        assert!(
-            !blocker.is_active(),
-            "Blocker should be inactive initially"
-        );
+        assert!(!blocker.is_active(), "Blocker should be inactive initially");
     }
 
     #[test]
@@ -305,10 +306,7 @@ mod windows_tests {
     #[serial]
     fn test_windows_input_blocker_initially_inactive() {
         let blocker = WindowsInputBlocker::new();
-        assert!(
-            !blocker.is_active(),
-            "Blocker should be inactive initially"
-        );
+        assert!(!blocker.is_active(), "Blocker should be inactive initially");
     }
 
     #[test]
@@ -770,9 +768,13 @@ mod cross_platform_tests {
         // This compiles only if InputBlocker: Send + Sync
         struct MockBlocker;
         impl InputBlocker for MockBlocker {
-            fn setup(&mut self) -> Result<(), InputBlockError> { Ok(()) }
+            fn setup(&mut self) -> Result<(), InputBlockError> {
+                Ok(())
+            }
             fn disable(&mut self) {}
-            fn is_active(&self) -> bool { false }
+            fn is_active(&self) -> bool {
+                false
+            }
         }
         unsafe impl Send for MockBlocker {}
         unsafe impl Sync for MockBlocker {}
