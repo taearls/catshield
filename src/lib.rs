@@ -9,6 +9,7 @@
 //! - [`platform`]: Platform-specific bindings (macOS, Windows, Linux)
 //! - [`shield_core`]: Shared shield activation logic (macOS-only)
 //! - [`timer`]: Timer parsing, formatting, and auto-exit state
+//! - [`tracing`]: Event tracing infrastructure with persistent file logging
 //! - [`ui`]: User interface components (views, windows, menu bar)
 //!
 //! # Platform Support

@@ -24,7 +24,7 @@
 
 pub mod events;
 
-use chrono::{Local, Utc};
+use chrono::{Local, NaiveDate, Utc};
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -34,8 +34,16 @@ use std::sync::Mutex;
 /// Global flag indicating whether trace logging is enabled
 static TRACING_ENABLED: AtomicBool = AtomicBool::new(false);
 
-/// Global log file handle (lazily initialized)
-static LOG_FILE: Mutex<Option<File>> = Mutex::new(None);
+/// State for the log file, including the date it was opened
+struct LogFileState {
+    /// The date when this log file was opened
+    date: NaiveDate,
+    /// The file handle
+    file: File,
+}
+
+/// Global log file state (lazily initialized)
+static LOG_FILE: Mutex<Option<LogFileState>> = Mutex::new(None);
 
 /// Number of days to retain log files
 const LOG_RETENTION_DAYS: u64 = 7;
@@ -83,6 +91,7 @@ pub fn init(enabled: bool) -> Result<(), String> {
     cleanup_old_logs(&log_dir)?;
 
     // Open log file for today
+    let today = Local::now().date_naive();
     let log_path = get_log_path(&log_dir);
     let file = OpenOptions::new()
         .create(true)
@@ -90,9 +99,9 @@ pub fn init(enabled: bool) -> Result<(), String> {
         .open(&log_path)
         .map_err(|e| format!("Failed to open log file: {}", e))?;
 
-    // Store file handle
+    // Store file state with date
     if let Ok(mut guard) = LOG_FILE.lock() {
-        *guard = Some(file);
+        *guard = Some(LogFileState { date: today, file });
     }
 
     // Enable tracing
@@ -113,6 +122,9 @@ pub fn is_tracing_enabled() -> bool {
 ///
 /// Writes the event to the trace log file in the format:
 /// `TIMESTAMP TRACE [category] event_name | key=value, key=value`
+///
+/// Automatically rotates the log file if the date has changed since
+/// the file was opened (for long-running sessions spanning midnight).
 ///
 /// # Arguments
 ///
@@ -146,11 +158,41 @@ pub fn trace_event<E: TracedEvent>(event: &E) {
         )
     };
 
-    // Write to log file
+    // Write to log file, rotating if date has changed
     if let Ok(mut guard) = LOG_FILE.lock() {
-        if let Some(ref mut file) = *guard {
-            let _ = file.write_all(line.as_bytes());
-            let _ = file.flush();
+        // Check if we need to rotate the log file
+        let today = Local::now().date_naive();
+        let needs_rotation = guard.as_ref().is_some_and(|state| state.date != today);
+
+        if needs_rotation {
+            // Rotate the log file
+            if let Some(mut old_state) = guard.take() {
+                let _ = old_state.file.flush();
+                // old_state.file is dropped here, closing the file
+            }
+
+            // Perform cleanup and open new file
+            if let Ok(log_dir) = get_log_dir() {
+                let _ = cleanup_old_logs(&log_dir);
+                let log_path = get_log_path(&log_dir);
+                if let Ok(new_file) = OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(&log_path)
+                {
+                    *guard = Some(LogFileState {
+                        date: today,
+                        file: new_file,
+                    });
+                    log::debug!("Rotated trace log to: {}", log_path.display());
+                }
+            }
+        }
+
+        // Write to the current file
+        if let Some(ref mut state) = *guard {
+            let _ = state.file.write_all(line.as_bytes());
+            let _ = state.file.flush();
         }
     }
 
@@ -200,8 +242,8 @@ fn cleanup_old_logs(log_dir: &Path) -> Result<(), String> {
 /// Flushes and closes the log file.
 pub fn shutdown() {
     if let Ok(mut guard) = LOG_FILE.lock() {
-        if let Some(ref mut file) = *guard {
-            let _ = file.flush();
+        if let Some(ref mut state) = *guard {
+            let _ = state.file.flush();
         }
         *guard = None;
     }
