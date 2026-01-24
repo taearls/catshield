@@ -13,7 +13,7 @@
 //! # Modules
 //!
 //! - [`overlay`]: Shield overlay window (fullscreen, semi-transparent)
-//! - [`settings`]: Settings window UI (future)
+//! - [`settings`]: Settings window UI for configuring preferences
 //! - [`theme`]: Custom theming and styling
 //!
 //! # Integration
@@ -31,4 +31,5 @@ pub mod theme;
 
 // Re-export main types for convenience
 pub use overlay::{ExitKeyConfig, OverlayApp, OverlayMessage, TimerConfig};
+pub use settings::{OverlayColor, SettingsMessage, SettingsSection, SettingsWindow, TimerPreset};
 pub use theme::CatShieldTheme;

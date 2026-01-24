@@ -5,7 +5,7 @@
 <!-- Keep under 150 lines - agents read this first -->
 
 **Current Phase**: 9 - iced UI Migration
-**Next Priority**: #157 (Create settings window UI)
+**Next Priority**: #158 (Implement settings persistence)
 **Blocking Issues**: None
 
 ### Open Issues by Priority
@@ -13,23 +13,23 @@
 | # | Title | Priority | Effort | Blocked By | Phase |
 |---|-------|----------|--------|------------|-------|
 | 152 | Epic: Migrate UI Rendering to iced Framework | 🟡 High | ~4-6 weeks | None | 9 |
-| 157 | Create settings window UI | 🟢 Medium | ~2-3 days | None | 9 |
-| 158 | Implement settings persistence | 🟢 Medium | ~1-2 days | #157 | 9 |
+| 158 | Implement settings persistence | 🟢 Medium | ~1-2 days | None | 9 |
 | 159 | Add overlay customization | 🟢 Medium | ~1-2 days | #158 | 9 |
-| 160 | macOS menu bar integration | 🟢 Medium | ~1-2 days | #157 | 9 |
-| 161 | Windows system tray integration | 🟢 Medium | ~1-2 days | #157 | 9 |
-| 162 | Linux tray integration | 🟢 Medium | ~1-2 days | #157 | 9 |
-| 163 | Visual polish and theming | 🔵 Low | ~2-3 days | #157 | 9 |
+| 160 | macOS menu bar integration | 🟢 Medium | ~1-2 days | None | 9 |
+| 161 | Windows system tray integration | 🟢 Medium | ~1-2 days | None | 9 |
+| 162 | Linux tray integration | 🟢 Medium | ~1-2 days | None | 9 |
+| 163 | Visual polish and theming | 🔵 Low | ~2-3 days | None | 9 |
 | 164 | Performance testing | 🔵 Low | ~1-2 days | #156 | 9 |
 | 165 | Animated cat companion overlay | 🔵 Low | ~2-3 days | None | 9 |
 | 166 | Documentation update | 🔵 Low | ~1 day | All others | 9 |
 
-**Summary**: 11 open issues (0 Critical, 1 High, 6 Medium, 4 Low)
+**Summary**: 10 open issues (0 Critical, 1 High, 5 Medium, 4 Low)
 
 ### Completed This Session
 
 | # | Title | Priority | Date |
 |---|-------|----------|------|
+| 157 | Create settings window UI in iced | 🟢 Medium | 2026-01-24 |
 | 156 | Add timer countdown display to iced overlay | 🟢 Medium | 2026-01-24 |
 | 155 | Implement basic overlay window in iced | 🟡 High | 2026-01-24 |
 | 154 | Set up iced dependency and scaffold | 🟡 High | 2026-01-24 |
@@ -46,9 +46,9 @@
 
 ### Recommended Next Issues
 
-1. **#157** - Create settings window UI (unblocked, start here!)
-2. **#165** - Animated cat companion overlay (unblocked)
-3. **#160** - macOS menu bar integration (blocked by #157)
+1. **#158** - Implement settings persistence (unblocked, start here!)
+2. **#160** - macOS menu bar integration (unblocked)
+3. **#165** - Animated cat companion overlay (unblocked)
 
 ---
 
@@ -62,13 +62,13 @@
 | ✅ | #154 | Set up iced dependency and scaffold | None |
 | ✅ | #155 | Implement basic overlay window | None |
 | ✅ | #156 | Add timer countdown display | None |
-| 📋 | #157 | Create settings window UI | None |
-| 📋 | #158 | Implement settings persistence | #157 |
+| ✅ | #157 | Create settings window UI | None |
+| 📋 | #158 | Implement settings persistence | None |
 | 📋 | #159 | Add overlay customization | #158 |
-| 📋 | #160 | macOS menu bar integration | #157 |
-| 📋 | #161 | Windows system tray integration | #157 |
-| 📋 | #162 | Linux tray integration | #157 |
-| 📋 | #163 | Visual polish and theming | #157 |
+| 📋 | #160 | macOS menu bar integration | None |
+| 📋 | #161 | Windows system tray integration | None |
+| 📋 | #162 | Linux tray integration | None |
+| 📋 | #163 | Visual polish and theming | None |
 | 📋 | #164 | Performance testing | #156 |
 | 📋 | #165 | Animated cat companion overlay | None |
 | 📋 | #166 | Documentation update | All |
@@ -126,20 +126,19 @@ Phase 9 (iced Migration):
     ▼
 #156 (Timer) ✅ MM:SS/HH:MM:SS countdown, progress bar, hide-timer support
     │
-    ├─► (Performance) ─────────────────────────────┐
-    │                                               │
-    ├─► #157 (Settings UI) ─┬─► #158 (Persistence)─┤
-    │                       │                       │
-    │                       ├─► #160 (macOS)        │
-    │                       ├─► #161 (Windows)      │
-    │                       └─► #162 (Linux)        │
-    │                                               │
-    ├─► #163 (Polish) ◄─────────────────────────────┤
-    │                                               │
-    ├─► #164 (Performance) ◄────────────────────────┘
+    ▼
+#157 (Settings UI) ✅ Full settings window with 4 sections, controls, live preview
     │
-    ├─► #159 (Customization) ◄── #158
-    │
+    ├─► #158 (Persistence) ─┬─► #159 (Customization)
+    │                       │
+    ├─► #160 (macOS)        │
+    ├─► #161 (Windows)      │
+    └─► #162 (Linux)        │
+                            │
+    ├─► #163 (Polish) ◄─────┤
+    │                       │
+    ├─► #164 (Performance)  │
+    │                       │
     └─► #165 (Cat Animation)
                 │
                 ▼
@@ -180,6 +179,7 @@ Potential future enhancements (not yet tracked as issues):
 
 | Issue | Title | Date |
 |-------|-------|------|
+| #157 | Create settings window UI in iced | 2026-01-24 |
 | #156 | Add timer countdown display to iced overlay | 2026-01-24 |
 | #155 | Implement basic overlay window in iced | 2026-01-24 |
 | #154 | Set up iced dependency and scaffold | 2026-01-24 |
