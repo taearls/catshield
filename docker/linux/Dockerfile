@@ -13,13 +13,21 @@ FROM rust:1.85-slim-bookworm
 
 # Install build dependencies
 # - pkg-config: Required for linking native libraries
-# - libx11-dev, libxcb1-dev: X11 development headers for future Linux GUI support
-# - libdbus-1-dev: DBus for future Linux power management
+# - libx11-dev, libxcb1-dev: X11 development headers for Linux GUI support
+# - libdbus-1-dev: DBus for Linux power management
+# - libwayland-dev: Wayland client library for iced
+# - libxkbcommon-dev: Keyboard handling for iced/winit
+# - libvulkan-dev: Vulkan graphics backend for wgpu
+# - libssl-dev: Required by some iced dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     libx11-dev \
     libxcb1-dev \
     libdbus-1-dev \
+    libwayland-dev \
+    libxkbcommon-dev \
+    libvulkan-dev \
+    libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory

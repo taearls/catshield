@@ -131,9 +131,7 @@ impl OverlayApp {
             text("Cat Shield Active")
                 .size(32)
                 .color(colors::TEXT_PRIMARY),
-            text(timer_label)
-                .size(16)
-                .color(colors::TEXT_SECONDARY),
+            text(timer_label).size(16).color(colors::TEXT_SECONDARY),
             text(timer_text).size(72).color(colors::TEXT_PRIMARY),
         ]
         .spacing(10)
@@ -198,9 +196,9 @@ impl OverlayApp {
         WindowSettings {
             size: Size::new(800.0, 600.0), // Will be overridden to fullscreen
             position: Position::Centered,
-            decorations: false,            // Borderless
-            transparent: true,             // Enable transparency
-            level: Level::AlwaysOnTop,     // Stay above other windows
+            decorations: false,        // Borderless
+            transparent: true,         // Enable transparency
+            level: Level::AlwaysOnTop, // Stay above other windows
             exit_on_close_request: true,
             ..WindowSettings::default()
         }
@@ -210,11 +208,7 @@ impl OverlayApp {
     ///
     /// This is the main entry point for running the iced overlay.
     /// Call this after setting up input blocking.
-    pub fn run(
-        exit_key_display: String,
-        timer_seconds: Option<u64>,
-        opacity: f64,
-    ) -> iced::Result {
+    pub fn run(exit_key_display: String, timer_seconds: Option<u64>, opacity: f64) -> iced::Result {
         iced::application(
             move || Self::new(exit_key_display.clone(), timer_seconds, opacity),
             Self::update,
