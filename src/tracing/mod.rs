@@ -152,9 +152,7 @@ pub fn trace_event<E: TracedEvent>(event: &E) {
     let line = if meta_str.is_empty() {
         format!("{timestamp} TRACE [{category}] {name}\n")
     } else {
-        format!(
-            "{timestamp} TRACE [{category}] {name} | {meta_str}\n"
-        )
+        format!("{timestamp} TRACE [{category}] {name} | {meta_str}\n")
     };
 
     // Write to log file, rotating if date has changed
