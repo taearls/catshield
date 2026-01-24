@@ -593,7 +593,7 @@ impl SettingsWindow {
                     row![
                         text("Transparency").size(14).color(colors::TEXT_SECONDARY),
                         Space::new().width(Length::Fill),
-                        text(format!("{}%", opacity_percent))
+                        text(format!("{opacity_percent}%"))
                             .size(14)
                             .color(colors::TEXT_PRIMARY),
                     ]
