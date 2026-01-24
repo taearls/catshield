@@ -562,7 +562,9 @@ mod tests {
 
     #[test]
     fn test_timer_started_event() {
-        let event = TimerStarted { duration_secs: 1800 };
+        let event = TimerStarted {
+            duration_secs: 1800,
+        };
         assert_eq!(event.category(), "timer");
         assert_eq!(event.name(), "started");
         let meta = event.metadata();

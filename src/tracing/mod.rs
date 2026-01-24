@@ -77,8 +77,7 @@ pub fn init(enabled: bool) -> Result<(), String> {
     let log_dir = get_log_dir()?;
 
     // Create log directory if it doesn't exist
-    fs::create_dir_all(&log_dir)
-        .map_err(|e| format!("Failed to create log directory: {}", e))?;
+    fs::create_dir_all(&log_dir).map_err(|e| format!("Failed to create log directory: {}", e))?;
 
     // Clean up old log files
     cleanup_old_logs(&log_dir)?;
@@ -141,7 +140,10 @@ pub fn trace_event<E: TracedEvent>(event: &E) {
     let line = if meta_str.is_empty() {
         format!("{} TRACE [{}] {}\n", timestamp, category, name)
     } else {
-        format!("{} TRACE [{}] {} | {}\n", timestamp, category, name, meta_str)
+        format!(
+            "{} TRACE [{}] {} | {}\n",
+            timestamp, category, name, meta_str
+        )
     };
 
     // Write to log file
