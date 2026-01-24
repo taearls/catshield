@@ -309,7 +309,7 @@ impl OverlayApp {
             transparent: true,         // Enable transparency
             level: Level::AlwaysOnTop, // Stay above other windows
             exit_on_close_request: true,
-            resizable: false,          // No resizing for overlay
+            resizable: false, // No resizing for overlay
             ..WindowSettings::default()
         }
     }
