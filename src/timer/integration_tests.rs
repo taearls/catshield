@@ -78,6 +78,7 @@ mod tests {
             overlay_opacity: None,
             allowed_keys: None,
             launch_at_login: None,
+            enable_trace_logging: None,
         };
 
         // When no default_timer is set, parsing should fail (empty string)
@@ -97,6 +98,7 @@ mod tests {
             overlay_opacity: None,
             allowed_keys: None,
             launch_at_login: None,
+            enable_trace_logging: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -115,6 +117,7 @@ mod tests {
             overlay_opacity: None,
             allowed_keys: None,
             launch_at_login: None,
+            enable_trace_logging: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -133,6 +136,7 @@ mod tests {
             overlay_opacity: None,
             allowed_keys: None,
             launch_at_login: None,
+            enable_trace_logging: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -151,6 +155,7 @@ mod tests {
             overlay_opacity: None,
             allowed_keys: None,
             launch_at_login: None,
+            enable_trace_logging: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -170,6 +175,7 @@ mod tests {
             overlay_opacity: None,
             allowed_keys: None,
             launch_at_login: None,
+            enable_trace_logging: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -189,6 +195,7 @@ mod tests {
             overlay_opacity: None,
             allowed_keys: None,
             launch_at_login: None,
+            enable_trace_logging: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -209,6 +216,7 @@ mod tests {
             overlay_opacity: None,
             allowed_keys: None,
             launch_at_login: None,
+            enable_trace_logging: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -228,6 +236,7 @@ mod tests {
             overlay_opacity: None,
             allowed_keys: None,
             launch_at_login: None,
+            enable_trace_logging: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -645,6 +654,7 @@ mod tests {
             overlay_opacity: Some(0.6),
             allowed_keys: None,
             launch_at_login: None,
+            enable_trace_logging: None,
         };
 
         original.save_to_path(&config_path).unwrap();
@@ -669,6 +679,7 @@ mod tests {
             overlay_opacity: None,
             allowed_keys: None,
             launch_at_login: None,
+            enable_trace_logging: None,
         };
 
         original.save_to_path(&config_path).unwrap();

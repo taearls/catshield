@@ -26,6 +26,7 @@ pub mod platform;
 #[cfg(target_os = "macos")]
 pub mod shield_core;
 pub mod timer;
+pub mod tracing;
 pub mod ui;
 
 // Re-export commonly used items for convenience

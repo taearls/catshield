@@ -68,6 +68,15 @@ fn main() {
     // Initialize logging with verbosity level from CLI args
     cat_shield::logging::init(args.verbose);
 
+    // Load config file early to check trace logging setting
+    let config = Config::load();
+
+    // Initialize trace logging if enabled via CLI flag or config
+    let trace_enabled = args.trace || config.enable_trace_logging.unwrap_or(false);
+    if let Err(e) = cat_shield::tracing::init(trace_enabled) {
+        log::warn!("Failed to initialize trace logging: {}", e);
+    }
+
     // Check for existing instance (single-instance enforcement)
     match acquire_instance_lock() {
         LockResult::Acquired => {
@@ -99,9 +108,6 @@ fn main() {
     };
 
     log::info!("Using display server: {}", effective_display);
-
-    // Load config file
-    let config = Config::load();
 
     log::info!("🐱 CAT SHIELD 🛡️");
     log::info!("════════════════════════════════════════");
@@ -513,6 +519,15 @@ fn main() {
     // Initialize logger with default verbosity (warn level)
     cat_shield::logging::init(0);
 
+    // Load config file early to check trace logging setting
+    let config = Config::load();
+
+    // Initialize trace logging if enabled via config
+    let trace_enabled = config.enable_trace_logging.unwrap_or(false);
+    if let Err(e) = cat_shield::tracing::init(trace_enabled) {
+        log::warn!("Failed to initialize trace logging: {}", e);
+    }
+
     // Check for existing instance (single-instance enforcement)
     match acquire_instance_lock() {
         LockResult::Acquired => {
@@ -528,9 +543,6 @@ fn main() {
             // Continue anyway - lock check is best-effort
         }
     }
-
-    // Load config file
-    let config = Config::load();
 
     // Determine exit key: config file > default
     let exit_key_str = config
@@ -868,6 +880,15 @@ fn main() {
     // Initialize logging with verbosity level from CLI args
     cat_shield::logging::init(args.verbose);
 
+    // Load config file early to check trace logging setting
+    let config = Config::load();
+
+    // Initialize trace logging if enabled via CLI flag or config
+    let trace_enabled = args.trace || config.enable_trace_logging.unwrap_or(false);
+    if let Err(e) = cat_shield::tracing::init(trace_enabled) {
+        log::warn!("Failed to initialize trace logging: {}", e);
+    }
+
     // Check for existing instance (single-instance enforcement)
     match acquire_instance_lock() {
         LockResult::Acquired => {
@@ -883,9 +904,6 @@ fn main() {
             // Continue anyway - lock check is best-effort
         }
     }
-
-    // Load config file
-    let config = Config::load();
 
     // Determine exit key: CLI arg > config file > default
     let exit_key = if let Some(ref key) = args.exit_key {
@@ -1059,6 +1077,9 @@ fn main() {
 
     // Release single-instance lock before exiting
     release_instance_lock();
+
+    // Shutdown trace logging
+    cat_shield::tracing::shutdown();
 
     log::info!("👋 Cat Shield closed. Goodbye!");
 }

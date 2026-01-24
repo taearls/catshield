@@ -28,6 +28,10 @@ pub struct Config {
 
     /// Whether to launch Cat Shield automatically at login (default: false)
     pub launch_at_login: Option<bool>,
+
+    /// Enable trace logging to file (default: false)
+    /// When enabled, detailed event traces are written to ~/.config/catshield/logs/
+    pub enable_trace_logging: Option<bool>,
 }
 
 impl Config {
@@ -221,6 +225,7 @@ another_unknown = 42
             overlay_opacity: None,
             allowed_keys: None,
             launch_at_login: None,
+            enable_trace_logging: None,
         };
 
         config.save_to_path(&config_path).unwrap();
@@ -239,6 +244,7 @@ another_unknown = 42
             overlay_opacity: None,
             allowed_keys: None,
             launch_at_login: None,
+            enable_trace_logging: None,
         };
 
         config.save_to_path(&config_path).unwrap();
@@ -257,6 +263,7 @@ another_unknown = 42
             overlay_opacity: Some(0.7),
             allowed_keys: None,
             launch_at_login: None,
+            enable_trace_logging: None,
         };
 
         config.save_to_path(&config_path).unwrap();
@@ -279,6 +286,7 @@ another_unknown = 42
             overlay_opacity: None,
             allowed_keys: None,
             launch_at_login: None,
+            enable_trace_logging: None,
         };
         config1.save_to_path(&config_path).unwrap();
 
@@ -289,6 +297,7 @@ another_unknown = 42
             overlay_opacity: Some(0.3),
             allowed_keys: None,
             launch_at_login: None,
+            enable_trace_logging: None,
         };
         config2.save_to_path(&config_path).unwrap();
 
@@ -309,6 +318,7 @@ another_unknown = 42
             overlay_opacity: Some(0.65),
             allowed_keys: None,
             launch_at_login: Some(true),
+            enable_trace_logging: None,
         };
 
         original.save_to_path(&config_path).unwrap();
@@ -331,6 +341,7 @@ another_unknown = 42
             overlay_opacity: Some(0.4),
             allowed_keys: None,
             launch_at_login: None,
+            enable_trace_logging: None,
         };
 
         original.save_to_path(&config_path).unwrap();
@@ -349,6 +360,7 @@ another_unknown = 42
             overlay_opacity: None,
             allowed_keys: None,
             launch_at_login: None,
+            enable_trace_logging: None,
         };
 
         assert_eq!(config.opacity(), DEFAULT_OVERLAY_OPACITY);
@@ -363,6 +375,7 @@ another_unknown = 42
             overlay_opacity: Some(0.1), // Below MIN_OVERLAY_OPACITY (0.2)
             allowed_keys: None,
             launch_at_login: None,
+            enable_trace_logging: None,
         };
 
         assert_eq!(config.opacity(), MIN_OVERLAY_OPACITY);
@@ -377,6 +390,7 @@ another_unknown = 42
             overlay_opacity: Some(0.95), // Above MAX_OVERLAY_OPACITY (0.8)
             allowed_keys: None,
             launch_at_login: None,
+            enable_trace_logging: None,
         };
 
         assert_eq!(config.opacity(), MAX_OVERLAY_OPACITY);
@@ -391,6 +405,7 @@ another_unknown = 42
             overlay_opacity: Some(0.6),
             allowed_keys: None,
             launch_at_login: None,
+            enable_trace_logging: None,
         };
 
         assert_eq!(config.opacity(), 0.6);
@@ -475,6 +490,7 @@ allowed_keys = ["Cmd+Space", "F11", "F12", "Ctrl+Option+A"]
                 "F12".to_string(),
             ]),
             launch_at_login: None,
+            enable_trace_logging: None,
         };
 
         original.save_to_path(&config_path).unwrap();
@@ -530,11 +546,65 @@ allowed_keys = ["Cmd+Space", "F11", "F12", "Ctrl+Option+A"]
             overlay_opacity: None,
             allowed_keys: None,
             launch_at_login: Some(true),
+            enable_trace_logging: None,
         };
 
         original.save_to_path(&config_path).unwrap();
         let loaded = Config::load_from_path(&config_path);
 
         assert_eq!(original.launch_at_login, loaded.launch_at_login);
+    }
+
+    #[test]
+    fn test_config_enable_trace_logging_true() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+        std::fs::write(&config_path, r#"enable_trace_logging = true"#).unwrap();
+
+        let config = Config::load_from_path(&config_path);
+
+        assert_eq!(config.enable_trace_logging, Some(true));
+    }
+
+    #[test]
+    fn test_config_enable_trace_logging_false() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+        std::fs::write(&config_path, r#"enable_trace_logging = false"#).unwrap();
+
+        let config = Config::load_from_path(&config_path);
+
+        assert_eq!(config.enable_trace_logging, Some(false));
+    }
+
+    #[test]
+    fn test_config_enable_trace_logging_none_when_missing() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+        std::fs::write(&config_path, r#"exit_key = "Cmd+Q""#).unwrap();
+
+        let config = Config::load_from_path(&config_path);
+
+        assert!(config.enable_trace_logging.is_none());
+    }
+
+    #[test]
+    fn test_config_enable_trace_logging_round_trip() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+
+        let original = Config {
+            exit_key: None,
+            default_timer: None,
+            overlay_opacity: None,
+            allowed_keys: None,
+            launch_at_login: None,
+            enable_trace_logging: Some(true),
+        };
+
+        original.save_to_path(&config_path).unwrap();
+        let loaded = Config::load_from_path(&config_path);
+
+        assert_eq!(original.enable_trace_logging, loaded.enable_trace_logging);
     }
 }

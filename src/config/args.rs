@@ -48,6 +48,11 @@ pub struct Args {
     /// Enable verbose logging output (use multiple times for more detail: -v, -vv, -vvv)
     #[arg(short, long, action = clap::ArgAction::Count)]
     pub verbose: u8,
+
+    /// Enable trace logging to file (~/.config/catshield/logs/)
+    /// Logs detailed event traces for debugging intermittent issues.
+    #[arg(long)]
+    pub trace: bool,
 }
 
 /// Parse exit key string into ExitKey struct (for clap value_parser)
@@ -72,6 +77,7 @@ mod tests {
             hide_timer: false,
             exit_key: None,
             verbose: 0,
+            trace: false,
         };
         assert!(!has_immediate_start_args(&args));
     }
@@ -83,6 +89,7 @@ mod tests {
             hide_timer: false,
             exit_key: None,
             verbose: 0,
+            trace: false,
         };
         assert!(has_immediate_start_args(&args));
     }
@@ -94,6 +101,7 @@ mod tests {
             hide_timer: false,
             exit_key: Some(ExitKey::default()),
             verbose: 0,
+            trace: false,
         };
         assert!(has_immediate_start_args(&args));
     }
@@ -105,6 +113,7 @@ mod tests {
             hide_timer: true,
             exit_key: Some(ExitKey::default()),
             verbose: 0,
+            trace: false,
         };
         assert!(has_immediate_start_args(&args));
     }
@@ -117,6 +126,7 @@ mod tests {
             hide_timer: true,
             exit_key: None,
             verbose: 0,
+            trace: false,
         };
         assert!(!has_immediate_start_args(&args));
     }

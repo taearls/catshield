@@ -1,5 +1,9 @@
 //! Menu action handlers for Cat Shield
 
+use crate::tracing::{
+    events::{MenuClicked, MenuItemStateChanged},
+    trace_event,
+};
 use crate::ui::shield::activate_shield;
 use crate::ui::state::shield;
 use objc2::rc::Retained;
@@ -23,8 +27,20 @@ define_class!(
         /// Action method called when "Start Protection" is clicked
         #[unsafe(method(startProtection:))]
         unsafe fn start_protection(&self, _sender: Option<&NSMenuItem>) {
+            let is_active = shield::IS_ACTIVE.load(Ordering::Acquire);
+
+            trace_event(&MenuClicked {
+                item: "Start Protection",
+                enabled: !is_active,
+            });
+
             // Prevent double-activation
-            if shield::IS_ACTIVE.load(Ordering::Acquire) {
+            if is_active {
+                trace_event(&MenuItemStateChanged {
+                    item: "Start Protection",
+                    enabled: false,
+                    reason: "shield_already_active",
+                });
                 return;
             }
 
@@ -59,12 +75,20 @@ define_class!(
         /// Action method called when "View Documentation" is clicked
         #[unsafe(method(viewDocumentation:))]
         unsafe fn view_documentation(&self, _sender: Option<&NSMenuItem>) {
+            trace_event(&MenuClicked {
+                item: "View Documentation",
+                enabled: true,
+            });
             open_url("https://github.com/taearls/catshield/blob/main/README.md");
         }
 
         /// Action method called when "Report Issue" is clicked
         #[unsafe(method(reportIssue:))]
         unsafe fn report_issue(&self, _sender: Option<&NSMenuItem>) {
+            trace_event(&MenuClicked {
+                item: "Report Issue",
+                enabled: true,
+            });
             open_url("https://github.com/taearls/catshield/issues/new");
         }
     }
