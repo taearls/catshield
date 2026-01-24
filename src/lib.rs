@@ -10,7 +10,8 @@
 //! - [`shield_core`]: Shared shield activation logic (macOS-only)
 //! - [`timer`]: Timer parsing, formatting, and auto-exit state
 //! - [`tracing`]: Event tracing infrastructure with persistent file logging
-//! - [`ui`]: User interface components (views, windows, menu bar)
+//! - [`ui`]: User interface components (views, windows, menu bar) - legacy platform-specific
+//! - [`ui_iced`]: Cross-platform UI using iced framework (Phase 9 migration)
 //!
 //! # Platform Support
 //!
@@ -29,6 +30,7 @@ pub mod shield_core;
 pub mod timer;
 pub mod tracing;
 pub mod ui;
+pub mod ui_iced;
 
 // Re-export commonly used items for convenience
 #[cfg(target_os = "macos")]

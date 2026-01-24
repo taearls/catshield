@@ -5,7 +5,7 @@
 <!-- Keep under 150 lines - agents read this first -->
 
 **Current Phase**: 9 - iced UI Migration
-**Next Priority**: #154 (Set up iced dependency and scaffold)
+**Next Priority**: #155 (Implement basic overlay window in iced)
 **Blocking Issues**: None
 
 ### Open Issues by Priority
@@ -13,8 +13,7 @@
 | # | Title | Priority | Effort | Blocked By | Phase |
 |---|-------|----------|--------|------------|-------|
 | 152 | Epic: Migrate UI Rendering to iced Framework | 🟡 High | ~4-6 weeks | None | 9 |
-| 154 | Set up iced dependency and scaffold | 🟡 High | ~1-2 days | None | 9 |
-| 155 | Implement basic overlay window in iced | 🟡 High | ~3-5 days | #154 | 9 |
+| 155 | Implement basic overlay window in iced | 🟡 High | ~3-5 days | None | 9 |
 | 156 | Add timer countdown display | 🟢 Medium | ~1 day | #155 | 9 |
 | 157 | Create settings window UI | 🟢 Medium | ~2-3 days | #155 | 9 |
 | 158 | Implement settings persistence | 🟢 Medium | ~1-2 days | #157 | 9 |
@@ -27,12 +26,13 @@
 | 165 | Animated cat companion overlay | 🔵 Low | ~2-3 days | #155 | 9 |
 | 166 | Documentation update | 🔵 Low | ~1 day | All others | 9 |
 
-**Summary**: 14 open issues (0 Critical, 3 High, 7 Medium, 4 Low)
+**Summary**: 13 open issues (0 Critical, 2 High, 7 Medium, 4 Low)
 
 ### Completed This Session
 
 | # | Title | Priority | Date |
 |---|-------|----------|------|
+| 154 | Set up iced dependency and scaffold | 🟡 High | 2026-01-24 |
 | 153 | Research: iced integration feasibility | 🟡 High | 2026-01-24 |
 | 150 | Add trace logging infrastructure with persistent file output | 🟢 Medium | 2026-01-24 |
 | 114 | Animated cat companion overlay (migrated to #165) | 🔵 Low | 2026-01-24 |
@@ -46,9 +46,9 @@
 
 ### Recommended Next Issues
 
-1. **#154** - Set up iced dependency and scaffold (unblocked, start here!)
-2. **#155** - Implement basic overlay window (after #154)
-3. **#156** - Add timer countdown display (after #155)
+1. **#155** - Implement basic overlay window (unblocked, start here!)
+2. **#156** - Add timer countdown display (after #155)
+3. **#157** - Create settings window UI (after #155)
 
 ---
 
@@ -59,8 +59,8 @@
 | Status | Issue | Title | Dependencies |
 |--------|-------|-------|--------------|
 | ✅ | #153 | Research: iced integration feasibility | None |
-| 📋 | #154 | Set up iced dependency and scaffold | None |
-| 📋 | #155 | Implement basic overlay window | #154 |
+| ✅ | #154 | Set up iced dependency and scaffold | None |
+| 📋 | #155 | Implement basic overlay window | None |
 | 📋 | #156 | Add timer countdown display | #155 |
 | 📋 | #157 | Create settings window UI | #155 |
 | 📋 | #158 | Implement settings persistence | #157 |
@@ -118,7 +118,7 @@ Phase 9 (iced Migration):
 #153 (Research) ✅ GO - iced is suitable
     │
     ▼
-#154 (Scaffold)
+#154 (Scaffold) ✅ iced 0.14 added, ui_iced module created
     │
     ▼
 #155 (Basic Overlay) ─────────────────────────────────────────┐
@@ -177,6 +177,7 @@ Potential future enhancements (not yet tracked as issues):
 
 | Issue | Title | Date |
 |-------|-------|------|
+| #154 | Set up iced dependency and scaffold | 2026-01-24 |
 | #153 | Research: iced integration feasibility - **GO** recommendation | 2026-01-24 |
 | #114 | Animated cat companion overlay (migrated to #165 in iced epic) | 2026-01-24 |
 | #150 | Add trace logging infrastructure with persistent file output | 2026-01-24 |

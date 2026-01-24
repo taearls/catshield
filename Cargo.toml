@@ -54,6 +54,11 @@ wayland-protocols-wlr = { version = "0.3", features = ["client"] }
 memmap2 = "0.9"
 libc = "0.2"
 
+# iced UI framework for cross-platform overlay and settings windows
+[dependencies.iced]
+version = "0.14"
+features = ["canvas", "tokio"]
+
 [dev-dependencies]
 tempfile = "3.10"
 serial_test = "3.2"
