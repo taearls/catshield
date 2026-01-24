@@ -61,7 +61,7 @@ impl AllowedKey {
         }
 
         let keycode = keycode_from_name(input)
-            .ok_or_else(|| format!("Unknown key: '{}'. Valid keys include: A-Z, 0-9, F1-F12, Escape, Return, Tab, Space, Delete, Arrow keys", input))?;
+            .ok_or_else(|| format!("Unknown key: '{input}'. Valid keys include: A-Z, 0-9, F1-F12, Escape, Return, Tab, Space, Delete, Arrow keys"))?;
 
         Ok(AllowedKey {
             keycode,
@@ -118,7 +118,7 @@ pub fn parse_and_set_allowed_keys(key_strings: &[String]) -> Result<(), Vec<Stri
     for key_str in key_strings {
         match AllowedKey::parse(key_str) {
             Ok(key) => parsed_keys.push(key),
-            Err(e) => errors.push(format!("'{}': {}", key_str, e)),
+            Err(e) => errors.push(format!("'{key_str}': {e}")),
         }
     }
 

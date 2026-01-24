@@ -29,7 +29,7 @@ pub fn prevent_sleep() -> Option<u32> {
         log::info!("✓ Sleep prevention enabled");
         Some(assertion_id)
     } else {
-        log::error!("Failed to create power assertion: {}", result);
+        log::error!("Failed to create power assertion: {result}");
         None
     }
 }

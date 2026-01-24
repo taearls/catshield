@@ -85,7 +85,7 @@ pub fn init(enabled: bool) -> Result<(), String> {
     let log_dir = get_log_dir()?;
 
     // Create log directory if it doesn't exist
-    fs::create_dir_all(&log_dir).map_err(|e| format!("Failed to create log directory: {}", e))?;
+    fs::create_dir_all(&log_dir).map_err(|e| format!("Failed to create log directory: {e}"))?;
 
     // Clean up old log files
     cleanup_old_logs(&log_dir)?;
@@ -97,7 +97,7 @@ pub fn init(enabled: bool) -> Result<(), String> {
         .create(true)
         .append(true)
         .open(&log_path)
-        .map_err(|e| format!("Failed to open log file: {}", e))?;
+        .map_err(|e| format!("Failed to open log file: {e}"))?;
 
     // Store file state with date
     if let Ok(mut guard) = LOG_FILE.lock() {
@@ -144,18 +144,15 @@ pub fn trace_event<E: TracedEvent>(event: &E) {
     } else {
         metadata
             .iter()
-            .map(|(k, v)| format!("{}={}", k, v))
+            .map(|(k, v)| format!("{k}={v}"))
             .collect::<Vec<_>>()
             .join(", ")
     };
 
     let line = if meta_str.is_empty() {
-        format!("{} TRACE [{}] {}\n", timestamp, category, name)
+        format!("{timestamp} TRACE [{category}] {name}\n")
     } else {
-        format!(
-            "{} TRACE [{}] {} | {}\n",
-            timestamp, category, name, meta_str
-        )
+        format!("{timestamp} TRACE [{category}] {name} | {meta_str}\n")
     };
 
     // Write to log file, rotating if date has changed
@@ -193,7 +190,7 @@ pub fn trace_event<E: TracedEvent>(event: &E) {
     }
 
     // Also log at trace level for console output when verbose
-    log::trace!("[{}] {} | {}", category, name, meta_str);
+    log::trace!("[{category}] {name} | {meta_str}");
 }
 
 /// Get the log directory path
@@ -206,7 +203,7 @@ fn get_log_dir() -> Result<PathBuf, String> {
 /// Get the log file path for today
 fn get_log_path(log_dir: &Path) -> PathBuf {
     let date = Local::now().format("%Y-%m-%d");
-    log_dir.join(format!("catshield-{}.log", date))
+    log_dir.join(format!("catshield-{date}.log"))
 }
 
 /// Clean up log files older than retention period

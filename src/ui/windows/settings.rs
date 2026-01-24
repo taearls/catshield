@@ -366,7 +366,7 @@ fn update_opacity_label(value: f64) {
     unsafe {
         with_ptr_void::<NSTextField, _>(&settings::OPACITY_LABEL, |label| {
             let percentage = (value * 100.0) as i32;
-            label.setStringValue(&NSString::from_str(&format!("{}%", percentage)));
+            label.setStringValue(&NSString::from_str(&format!("{percentage}%")));
         });
     }
 }
@@ -655,7 +655,7 @@ fn save_settings_from_window() {
                         };
 
                         // Construct the duration string
-                        let duration_str = format!("{}{}", num, unit_suffix);
+                        let duration_str = format!("{num}{unit_suffix}");
 
                         // Validate using parse_duration
                         match parse_duration(&duration_str) {
@@ -737,7 +737,7 @@ fn save_settings_from_window() {
             {
                 use crate::platform::set_login_item_enabled;
                 if let Err(e) = set_login_item_enabled(launch_at_login) {
-                    log::error!("Failed to update login item: {}", e);
+                    log::error!("Failed to update login item: {e}");
                 } else {
                     log::info!(
                         "✓ Login item {}",
@@ -753,7 +753,7 @@ fn save_settings_from_window() {
             close_settings_window();
         }
         Err(e) => {
-            log::error!("Failed to save settings: {}", e);
+            log::error!("Failed to save settings: {e}");
         }
     }
 }
@@ -801,7 +801,7 @@ fn update_exit_key_validation_label(result: &ExitKeyValidation) {
             set_validation_label(
                 &settings::EXIT_KEY_VALIDATION,
                 true,
-                &format!("Using default: {}", DEFAULT_EXIT_KEY),
+                &format!("Using default: {DEFAULT_EXIT_KEY}"),
             );
         }
         ExitKeyValidation::Valid(Some(_)) => {

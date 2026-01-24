@@ -68,7 +68,7 @@ fn invoke_callback(action: TrayMenuAction) {
             }
         }
         Err(e) => {
-            warn!("Menu callback mutex poisoned: {}", e);
+            warn!("Menu callback mutex poisoned: {e}");
         }
     }
 }
@@ -296,7 +296,7 @@ impl SystemTray for LinuxSystemTray {
         let join_handle = thread::spawn(move || {
             debug!("Starting tray service thread");
             if let Err(e) = service.run() {
-                warn!("Tray service exited with error: {}", e);
+                warn!("Tray service exited with error: {e}");
             }
             debug!("Tray service thread exited");
         });
@@ -319,7 +319,7 @@ impl SystemTray for LinuxSystemTray {
             });
         }
 
-        debug!("Tray state updated: active={}", active);
+        debug!("Tray state updated: active={active}");
     }
 
     fn remove(&mut self) {
@@ -373,7 +373,7 @@ mod tests {
     #[test]
     fn test_tray_menu_action_debug() {
         let action = TrayMenuAction::StartProtection;
-        let debug_str = format!("{:?}", action);
+        let debug_str = format!("{action:?}");
         assert!(debug_str.contains("StartProtection"));
     }
 

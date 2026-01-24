@@ -499,9 +499,7 @@ mod tests {
                 assert_eq!(
                     roundtrip,
                     Some(key),
-                    "Failed roundtrip for key {:?} with keycode 0x{:04x}",
-                    key,
-                    keycode
+                    "Failed roundtrip for key {key:?} with keycode 0x{keycode:04x}"
                 );
             }
         }
@@ -513,8 +511,7 @@ mod tests {
         for &key in Key::all() {
             assert!(
                 key_to_keycode(key).is_some(),
-                "Key {:?} has no X11 keysym mapping",
-                key
+                "Key {key:?} has no X11 keysym mapping"
             );
         }
     }
@@ -531,16 +528,12 @@ mod tests {
             assert_eq!(
                 keycode_to_key(lower),
                 Some(key),
-                "Lowercase keysym 0x{:02x} should map to {:?}",
-                lower,
-                key
+                "Lowercase keysym 0x{lower:02x} should map to {key:?}"
             );
             assert_eq!(
                 keycode_to_key(upper),
                 Some(key),
-                "Uppercase keysym 0x{:02x} should map to {:?}",
-                upper,
-                key
+                "Uppercase keysym 0x{upper:02x} should map to {key:?}"
             );
         }
     }

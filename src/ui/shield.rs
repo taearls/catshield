@@ -89,7 +89,7 @@ pub unsafe extern "C" fn timer_callback(_timer: *mut c_void, _info: *mut c_void)
 
         // Show warning when approaching exit
         if remaining <= WARNING_SECONDS && !WARNING_SHOWN.swap(true, Ordering::AcqRel) {
-            log::warn!("Auto-exit in {} seconds!", remaining);
+            log::warn!("Auto-exit in {remaining} seconds!");
         }
 
         // Check if timer has expired
@@ -474,7 +474,7 @@ pub fn activate_shield(mtm: MainThreadMarker) {
                 Some(duration_secs)
             }
             Err(e) => {
-                log::warn!("Invalid default_timer in config: {}", e);
+                log::warn!("Invalid default_timer in config: {e}");
                 None
             }
         }
@@ -495,7 +495,7 @@ pub fn activate_shield(mtm: MainThreadMarker) {
             Err(errors) => {
                 log::warn!("Invalid allowed_keys in config:");
                 for error in errors {
-                    log::warn!("  {}", error);
+                    log::warn!("  {error}");
                 }
             }
         }

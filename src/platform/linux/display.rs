@@ -129,8 +129,7 @@ impl std::str::FromStr for WaylandMode {
             "x11" | "xwayland" | "force-x11" => Ok(WaylandMode::ForceX11),
             "native" | "wayland" | "force-native" => Ok(WaylandMode::ForceNative),
             _ => Err(format!(
-                "Invalid wayland-mode '{}'. Valid options: auto, accept, x11, native",
-                s
+                "Invalid wayland-mode '{s}'. Valid options: auto, accept, x11, native"
             )),
         }
     }
@@ -257,17 +256,17 @@ pub fn print_wayland_warning(info: &DisplayServerInfo) {
         DisplayRecommendation::Proceed => {}
         DisplayRecommendation::WaylandLimited { message } => {
             eprintln!();
-            eprintln!("⚠️  {}", message);
+            eprintln!("⚠️  {message}");
             eprintln!();
         }
         DisplayRecommendation::XWaylandFallback { message } => {
             eprintln!();
-            eprintln!("⚠️  {}", message);
+            eprintln!("⚠️  {message}");
             eprintln!();
         }
         DisplayRecommendation::Unsupported { message } => {
             eprintln!();
-            eprintln!("❌ {}", message);
+            eprintln!("❌ {message}");
             eprintln!();
         }
     }
@@ -362,13 +361,12 @@ fn wayland_no_fallback_message(session_type: Option<&str>) -> String {
 
     format!(
         "Running on Wayland without full protocol support or XWayland fallback.\n\n    \
-         {}\n    \
+         {compositor_hint}\n    \
          Cat Shield's input blocking will be limited:\n    \
          • Keyboard capture only works when the overlay is focused\n    \
          • Mouse clicks can bypass the overlay\n\n    \
          For full functionality, use an X11 session or wlroots-based compositor\n    \
-         (Sway, Wayfire, Hyprland).",
-        compositor_hint
+         (Sway, Wayfire, Hyprland)."
     )
 }
 

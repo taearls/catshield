@@ -21,7 +21,7 @@ pub fn parse_duration(s: &str) -> Result<u64, String> {
             }
             let hours: u64 = current_num
                 .parse()
-                .map_err(|_| format!("Invalid number: {}", current_num))?;
+                .map_err(|_| format!("Invalid number: {current_num}"))?;
             total_seconds = total_seconds
                 .checked_add(
                     hours
@@ -36,7 +36,7 @@ pub fn parse_duration(s: &str) -> Result<u64, String> {
             }
             let minutes: u64 = current_num
                 .parse()
-                .map_err(|_| format!("Invalid number: {}", current_num))?;
+                .map_err(|_| format!("Invalid number: {current_num}"))?;
             total_seconds = total_seconds
                 .checked_add(
                     minutes
@@ -51,13 +51,13 @@ pub fn parse_duration(s: &str) -> Result<u64, String> {
             }
             let secs: u64 = current_num
                 .parse()
-                .map_err(|_| format!("Invalid number: {}", current_num))?;
+                .map_err(|_| format!("Invalid number: {current_num}"))?;
             total_seconds = total_seconds
                 .checked_add(secs)
                 .ok_or_else(|| "Duration too large".to_string())?;
             current_num.clear();
         } else if !c.is_whitespace() {
-            return Err(format!("Invalid character in duration: '{}'", c));
+            return Err(format!("Invalid character in duration: '{c}'"));
         }
     }
 
@@ -65,7 +65,7 @@ pub fn parse_duration(s: &str) -> Result<u64, String> {
     if !current_num.is_empty() {
         let minutes: u64 = current_num
             .parse()
-            .map_err(|_| format!("Invalid number: {}", current_num))?;
+            .map_err(|_| format!("Invalid number: {current_num}"))?;
         total_seconds = total_seconds
             .checked_add(
                 minutes
@@ -81,15 +81,13 @@ pub fn parse_duration(s: &str) -> Result<u64, String> {
 
     if total_seconds < MIN_TIMER_SECONDS {
         return Err(format!(
-            "Duration must be at least {} seconds",
-            MIN_TIMER_SECONDS
+            "Duration must be at least {MIN_TIMER_SECONDS} seconds"
         ));
     }
 
     if total_seconds > MAX_TIMER_SECONDS {
         return Err(format!(
-            "Duration must not exceed {} seconds (24 hours)",
-            MAX_TIMER_SECONDS
+            "Duration must not exceed {MAX_TIMER_SECONDS} seconds (24 hours)"
         ));
     }
 

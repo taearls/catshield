@@ -72,7 +72,7 @@ pub fn acquire_instance_lock() -> LockResult {
     // Ensure the config directory exists
     if let Some(parent) = lock_path.parent() {
         if let Err(e) = fs::create_dir_all(parent) {
-            return LockResult::Error(format!("Failed to create config directory: {}", e));
+            return LockResult::Error(format!("Failed to create config directory: {e}"));
         }
     }
 
@@ -88,10 +88,10 @@ pub fn acquire_instance_lock() -> LockResult {
         {
             Ok(mut file) => {
                 // Successfully created new lock file atomically
-                if let Err(e) = write!(file, "{}", current_pid) {
+                if let Err(e) = write!(file, "{current_pid}") {
                     // Write failed - clean up the file we created
                     let _ = fs::remove_file(&lock_path);
-                    return LockResult::Error(format!("Failed to write lock file: {}", e));
+                    return LockResult::Error(format!("Failed to write lock file: {e}"));
                 }
                 return LockResult::Acquired;
             }
@@ -120,7 +120,7 @@ pub fn acquire_instance_lock() -> LockResult {
             }
             Err(e) => {
                 // Other error (permissions, etc.)
-                return LockResult::Error(format!("Failed to create lock file: {}", e));
+                return LockResult::Error(format!("Failed to create lock file: {e}"));
             }
         }
 
@@ -137,8 +137,7 @@ pub fn acquire_instance_lock() -> LockResult {
 
     // Exhausted retries - this shouldn't normally happen
     LockResult::Error(format!(
-        "Failed to acquire lock after {} attempts",
-        LOCK_RETRY_LIMIT
+        "Failed to acquire lock after {LOCK_RETRY_LIMIT} attempts"
     ))
 }
 
@@ -172,7 +171,7 @@ mod tests {
         // Ensure the parent directory exists
         if let Some(parent) = lock_path.parent() {
             if let Err(e) = fs::create_dir_all(parent) {
-                return LockResult::Error(format!("Failed to create directory: {}", e));
+                return LockResult::Error(format!("Failed to create directory: {e}"));
             }
         }
 
@@ -185,9 +184,9 @@ mod tests {
                 .open(lock_path)
             {
                 Ok(mut file) => {
-                    if let Err(e) = write!(file, "{}", current_pid) {
+                    if let Err(e) = write!(file, "{current_pid}") {
                         let _ = fs::remove_file(lock_path);
-                        return LockResult::Error(format!("Failed to write lock file: {}", e));
+                        return LockResult::Error(format!("Failed to write lock file: {e}"));
                     }
                     return LockResult::Acquired;
                 }
@@ -209,7 +208,7 @@ mod tests {
                     }
                 }
                 Err(e) => {
-                    return LockResult::Error(format!("Failed to create lock file: {}", e));
+                    return LockResult::Error(format!("Failed to create lock file: {e}"));
                 }
             }
 
@@ -219,8 +218,7 @@ mod tests {
         }
 
         LockResult::Error(format!(
-            "Failed to acquire lock after {} attempts",
-            LOCK_RETRY_LIMIT
+            "Failed to acquire lock after {LOCK_RETRY_LIMIT} attempts"
         ))
     }
 
@@ -256,13 +254,11 @@ mod tests {
         let path_str = path.to_string_lossy();
         assert!(
             path_str.contains("catshield"),
-            "Path should contain 'catshield': {}",
-            path_str
+            "Path should contain 'catshield': {path_str}"
         );
         assert!(
             path_str.ends_with("catshield.lock"),
-            "Path should end with 'catshield.lock': {}",
-            path_str
+            "Path should end with 'catshield.lock': {path_str}"
         );
     }
 
@@ -279,8 +275,7 @@ mod tests {
         let current_pid = process::id();
         assert!(
             is_process_running(current_pid),
-            "Current process (PID {}) should be detected as running",
-            current_pid
+            "Current process (PID {current_pid}) should be detected as running"
         );
     }
 
@@ -291,8 +286,7 @@ mod tests {
         let nonexistent_pid = 999_999_999;
         assert!(
             !is_process_running(nonexistent_pid),
-            "PID {} should not exist",
-            nonexistent_pid
+            "PID {nonexistent_pid} should not exist"
         );
     }
 
@@ -424,7 +418,7 @@ mod tests {
         // Create a stale lock file with a non-existent PID
         let stale_pid = 999_999_999u32;
         let mut file = fs::File::create(&lock_path).expect("Should create file");
-        write!(file, "{}", stale_pid).expect("Should write stale PID");
+        write!(file, "{stale_pid}").expect("Should write stale PID");
         drop(file);
 
         // Now try to acquire - should clean up stale lock and succeed

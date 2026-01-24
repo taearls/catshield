@@ -321,8 +321,7 @@ impl PowerManager for LinuxPowerManager {
             if let Some(map) = guard.as_mut() {
                 map.remove(&assertion_id).ok_or_else(|| {
                     PowerError::InvalidAssertion(format!(
-                        "Assertion ID {} was not created by this manager or already released",
-                        assertion_id
+                        "Assertion ID {assertion_id} was not created by this manager or already released"
                     ))
                 })?
             } else {
@@ -341,10 +340,7 @@ impl PowerManager for LinuxPowerManager {
             if let Some(set) = guard.as_mut() {
                 if !set.remove(&assertion_id) {
                     // Already removed above, but this is a sanity check
-                    log::warn!(
-                        "Assertion ID {} was not in valid assertions set",
-                        assertion_id
-                    );
+                    log::warn!("Assertion ID {assertion_id} was not in valid assertions set");
                 }
             }
         }
@@ -427,8 +423,7 @@ mod tests {
         assert!(result.is_err());
         assert!(
             matches!(result, Err(PowerError::InvalidAssertion(_))),
-            "Expected InvalidAssertion error, got: {:?}",
-            result
+            "Expected InvalidAssertion error, got: {result:?}"
         );
     }
 

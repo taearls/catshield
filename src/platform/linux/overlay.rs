@@ -557,14 +557,14 @@ impl LinuxOverlayWindow {
                     }
                     Event::ClientMessage(ev) => {
                         // Handle WM_DELETE_WINDOW if needed
-                        debug!("Received client message: {:?}", ev);
+                        debug!("Received client message: {ev:?}");
                     }
                     _ => {}
                 }
             }
             Ok(None) => {}
             Err(e) => {
-                warn!("Error polling for events: {}", e);
+                warn!("Error polling for events: {e}");
             }
         }
 
@@ -625,10 +625,7 @@ impl OverlayWindow for LinuxOverlayWindow {
             ));
         }
 
-        debug!(
-            "Creating overlay window: {}x{}",
-            screen_width, screen_height
-        );
+        debug!("Creating overlay window: {screen_width}x{screen_height}");
 
         let conn = self.connection.as_ref().unwrap();
 
@@ -637,7 +634,7 @@ impl OverlayWindow for LinuxOverlayWindow {
             .find_argb_visual(&screen)
             .unwrap_or((screen.root_visual, screen.root_depth));
 
-        debug!("Using visual {:?} with depth {}", visual_id, depth);
+        debug!("Using visual {visual_id:?} with depth {depth}");
 
         // Generate window ID
         let window_id = conn.generate_id().map_err(|e| {
@@ -704,7 +701,7 @@ impl OverlayWindow for LinuxOverlayWindow {
         OVERLAY_WINDOW_ID.store(window_id, Ordering::SeqCst);
         OVERLAY_OPACITY.store((self.opacity * 255.0) as u8, Ordering::SeqCst);
 
-        info!("Created Linux overlay window: {}", window_id);
+        info!("Created Linux overlay window: {window_id}");
         Ok(())
     }
 
@@ -724,7 +721,7 @@ impl OverlayWindow for LinuxOverlayWindow {
 
         // Map (show) the window
         if let Err(e) = conn.map_window(self.window_id) {
-            warn!("Failed to map window: {}", e);
+            warn!("Failed to map window: {e}");
             return;
         }
 
@@ -732,11 +729,11 @@ impl OverlayWindow for LinuxOverlayWindow {
         let configure_aux =
             ConfigureWindowAux::new().stack_mode(x11rb::protocol::xproto::StackMode::ABOVE);
         if let Err(e) = conn.configure_window(self.window_id, &configure_aux) {
-            warn!("Failed to raise window: {}", e);
+            warn!("Failed to raise window: {e}");
         }
 
         if let Err(e) = conn.flush() {
-            warn!("Failed to flush: {}", e);
+            warn!("Failed to flush: {e}");
             return;
         }
 
@@ -756,7 +753,7 @@ impl OverlayWindow for LinuxOverlayWindow {
         };
 
         if let Err(e) = conn.unmap_window(self.window_id) {
-            warn!("Failed to unmap window: {}", e);
+            warn!("Failed to unmap window: {e}");
         }
 
         let _ = conn.flush();
@@ -788,7 +785,7 @@ impl OverlayWindow for LinuxOverlayWindow {
             }
         }
 
-        debug!("Set overlay opacity to {:.2}", clamped);
+        debug!("Set overlay opacity to {clamped:.2}");
     }
 
     fn bounds(&self) -> Rect {

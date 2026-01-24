@@ -312,8 +312,7 @@ pub fn show_about_window(mtm: MainThreadMarker) {
         version_label.setDrawsBackground(false);
         version_label.setAlignment(NSTextAlignment::Center);
         version_label.setStringValue(&objc2_foundation::NSString::from_str(&format!(
-            "Version {}",
-            version
+            "Version {version}"
         )));
         version_label.setFont(Some(&NSFont::systemFontOfSize(12.0)));
         version_label.setTextColor(Some(&NSColor::secondaryLabelColor()));
