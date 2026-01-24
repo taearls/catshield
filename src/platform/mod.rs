@@ -34,11 +34,12 @@ pub mod windows;
 pub mod linux;
 
 // Re-export platform-specific items for backward compatibility
-// High-level APIs (accessibility, power, event tap)
+// High-level APIs (accessibility, power, event tap, login item)
 #[cfg(target_os = "macos")]
 pub use macos::{
     allow_sleep, check_accessibility, check_accessibility_with_prompt, disable_event_tap,
-    open_accessibility_settings, prevent_sleep, setup_event_tap, EVENT_TAP,
+    is_login_item_enabled, open_accessibility_settings, prevent_sleep, register_login_item,
+    set_login_item_enabled, setup_event_tap, unregister_login_item, EVENT_TAP,
     EVENT_TAP_RUN_LOOP_SOURCE,
 };
 
