@@ -175,11 +175,7 @@ pub fn trace_event<E: TracedEvent>(event: &E) {
             if let Ok(log_dir) = get_log_dir() {
                 let _ = cleanup_old_logs(&log_dir);
                 let log_path = get_log_path(&log_dir);
-                if let Ok(new_file) = OpenOptions::new()
-                    .create(true)
-                    .append(true)
-                    .open(&log_path)
-                {
+                if let Ok(new_file) = OpenOptions::new().create(true).append(true).open(&log_path) {
                     *guard = Some(LogFileState {
                         date: today,
                         file: new_file,
