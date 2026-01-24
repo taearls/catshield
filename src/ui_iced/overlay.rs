@@ -80,8 +80,7 @@ fn progress_bar<'a>(progress: f32, is_warning: bool) -> Element<'a, OverlayMessa
         ..Default::default()
     });
 
-    // Stack fill on top of background using a row with absolute positioning
-    // Since iced doesn't have z-index, we use a container approach
+    // Stack fill on top of background using iced's stack widget
     use iced::widget::stack;
     stack![background, fill].into()
 }
@@ -358,11 +357,7 @@ impl OverlayApp {
                 "Elapsed Time"
             };
 
-            content = content.push(
-                text(timer_label)
-                    .size(18)
-                    .color(colors::TEXT_SECONDARY),
-            );
+            content = content.push(text(timer_label).size(18).color(colors::TEXT_SECONDARY));
 
             // Use warning color when time is running out
             let timer_color = if is_warning && self.remaining_seconds.is_some() {
@@ -371,11 +366,7 @@ impl OverlayApp {
                 colors::TEXT_PRIMARY
             };
 
-            content = content.push(
-                text(timer_text)
-                    .size(96)
-                    .color(timer_color),
-            );
+            content = content.push(text(timer_text).size(96).color(timer_color));
 
             // Add progress bar if we have timer duration and progress is enabled
             if self.show_progress {
@@ -723,25 +714,31 @@ mod tests {
 
     #[test]
     fn test_calculate_progress_full() {
-        let mut app = OverlayApp::default();
-        app.remaining_seconds = Some(100);
-        app.initial_duration = Some(100);
+        let app = OverlayApp {
+            remaining_seconds: Some(100),
+            initial_duration: Some(100),
+            ..Default::default()
+        };
         assert_eq!(app.calculate_progress(), Some(1.0));
     }
 
     #[test]
     fn test_calculate_progress_half() {
-        let mut app = OverlayApp::default();
-        app.remaining_seconds = Some(50);
-        app.initial_duration = Some(100);
+        let app = OverlayApp {
+            remaining_seconds: Some(50),
+            initial_duration: Some(100),
+            ..Default::default()
+        };
         assert_eq!(app.calculate_progress(), Some(0.5));
     }
 
     #[test]
     fn test_calculate_progress_empty() {
-        let mut app = OverlayApp::default();
-        app.remaining_seconds = Some(0);
-        app.initial_duration = Some(100);
+        let app = OverlayApp {
+            remaining_seconds: Some(0),
+            initial_duration: Some(100),
+            ..Default::default()
+        };
         assert_eq!(app.calculate_progress(), Some(0.0));
     }
 
@@ -753,9 +750,11 @@ mod tests {
 
     #[test]
     fn test_calculate_progress_zero_duration() {
-        let mut app = OverlayApp::default();
-        app.remaining_seconds = Some(0);
-        app.initial_duration = Some(0);
+        let app = OverlayApp {
+            remaining_seconds: Some(0),
+            initial_duration: Some(0),
+            ..Default::default()
+        };
         assert!(app.calculate_progress().is_none());
     }
 
