@@ -74,7 +74,7 @@ fn main() {
     // Initialize trace logging if enabled via CLI flag or config
     let trace_enabled = args.trace || config.enable_trace_logging.unwrap_or(false);
     if let Err(e) = cat_shield::tracing::init(trace_enabled) {
-        log::warn!("Failed to initialize trace logging: {}", e);
+        log::warn!("Failed to initialize trace logging: {e}");
     }
 
     // Check for existing instance (single-instance enforcement)
@@ -83,12 +83,12 @@ fn main() {
             // Successfully acquired lock, continue startup
         }
         LockResult::AlreadyRunning(pid) => {
-            log::warn!("Cat Shield is already running (PID: {})", pid);
+            log::warn!("Cat Shield is already running (PID: {pid})");
             log::warn!("Look for the Cat Shield icon in your system tray.");
             process::exit(0);
         }
         LockResult::Error(e) => {
-            log::warn!("Could not check for existing instance: {}", e);
+            log::warn!("Could not check for existing instance: {e}");
             // Continue anyway - lock check is best-effort
         }
     }
@@ -101,13 +101,13 @@ fn main() {
     let effective_display = match should_proceed(&display_info, args.wayland_mode) {
         Ok(server) => server,
         Err(msg) => {
-            log::error!("{}", msg);
+            log::error!("{msg}");
             release_instance_lock();
             process::exit(1);
         }
     };
 
-    log::info!("Using display server: {}", effective_display);
+    log::info!("Using display server: {effective_display}");
 
     log::info!("🐱 CAT SHIELD 🛡️");
     log::info!("════════════════════════════════════════");
@@ -118,7 +118,7 @@ fn main() {
 
     // Set up system tray
     if let Err(e) = tray.setup() {
-        log::error!("Failed to set up system tray: {}", e);
+        log::error!("Failed to set up system tray: {e}");
         release_instance_lock();
         process::exit(1);
     }
@@ -141,7 +141,7 @@ fn main() {
         }
         TrayMenuAction::ShowAbout => {
             log::info!("Cat Shield - A cat-proof screen overlay");
-            log::info!("Display server: {}", effective_display);
+            log::info!("Display server: {effective_display}");
         }
         TrayMenuAction::Quit => {
             log::info!("Quit requested");
@@ -205,7 +205,7 @@ fn run_linux_x11_event_loop(
 
     // Create overlay window (but don't show yet)
     if let Err(e) = overlay.create() {
-        log::error!("Failed to create X11 overlay window: {}", e);
+        log::error!("Failed to create X11 overlay window: {e}");
         return;
     }
     log::info!("✓ X11 overlay window created");
@@ -231,7 +231,7 @@ fn run_linux_x11_event_loop(
                     sleep_assertion = Some(assertion);
                 }
                 Err(e) => {
-                    log::warn!("Failed to prevent sleep: {}", e);
+                    log::warn!("Failed to prevent sleep: {e}");
                 }
             }
 
@@ -257,7 +257,7 @@ fn run_linux_x11_event_loop(
             // Allow sleep
             if let Some(assertion) = sleep_assertion.take() {
                 if let Err(e) = power_manager.allow_sleep(assertion) {
-                    log::warn!("Failed to release sleep assertion: {}", e);
+                    log::warn!("Failed to release sleep assertion: {e}");
                 }
             }
 
@@ -280,7 +280,7 @@ fn run_linux_x11_event_loop(
                 }
             }
             Err(e) => {
-                log::debug!("Error processing X11 events: {}", e);
+                log::debug!("Error processing X11 events: {e}");
             }
         }
 
@@ -291,7 +291,7 @@ fn run_linux_x11_event_loop(
     // Cleanup
     if let Some(assertion) = sleep_assertion.take() {
         if let Err(e) = power_manager.allow_sleep(assertion) {
-            log::warn!("Failed to release sleep assertion: {}", e);
+            log::warn!("Failed to release sleep assertion: {e}");
         }
     }
     overlay.close();
@@ -312,7 +312,7 @@ fn run_linux_wayland_event_loop(
 
     // Create overlay window (but don't show yet)
     if let Err(e) = overlay.create() {
-        log::error!("Failed to create Wayland overlay window: {}", e);
+        log::error!("Failed to create Wayland overlay window: {e}");
         return;
     }
     log::info!("✓ Wayland overlay window created");
@@ -338,7 +338,7 @@ fn run_linux_wayland_event_loop(
                     sleep_assertion = Some(assertion);
                 }
                 Err(e) => {
-                    log::warn!("Failed to prevent sleep: {}", e);
+                    log::warn!("Failed to prevent sleep: {e}");
                 }
             }
 
@@ -365,7 +365,7 @@ fn run_linux_wayland_event_loop(
             // Allow sleep
             if let Some(assertion) = sleep_assertion.take() {
                 if let Err(e) = power_manager.allow_sleep(assertion) {
-                    log::warn!("Failed to release sleep assertion: {}", e);
+                    log::warn!("Failed to release sleep assertion: {e}");
                 }
             }
 
@@ -388,7 +388,7 @@ fn run_linux_wayland_event_loop(
                 }
             }
             Err(e) => {
-                log::debug!("Error processing Wayland events: {}", e);
+                log::debug!("Error processing Wayland events: {e}");
             }
         }
 
@@ -399,7 +399,7 @@ fn run_linux_wayland_event_loop(
     // Cleanup
     if let Some(assertion) = sleep_assertion.take() {
         if let Err(e) = power_manager.allow_sleep(assertion) {
-            log::warn!("Failed to release sleep assertion: {}", e);
+            log::warn!("Failed to release sleep assertion: {e}");
         }
     }
     overlay.close();

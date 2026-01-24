@@ -679,9 +679,7 @@ mod tests {
             assert_eq!(
                 parsed,
                 Some(key),
-                "Failed roundtrip for key {:?} with name '{}'",
-                key,
-                name
+                "Failed roundtrip for key {key:?} with name '{name}'"
             );
         }
     }

@@ -480,9 +480,9 @@ mod linux_tests {
         ];
 
         for server in servers {
-            let display = format!("{}", server);
+            let display = format!("{server}");
             assert!(!display.is_empty());
-            eprintln!("DisplayServer::{:?} => \"{}\"", server, display);
+            eprintln!("DisplayServer::{server:?} => \"{display}\"");
         }
     }
 
@@ -517,10 +517,10 @@ mod linux_tests {
 
         match &result {
             Ok(server) => {
-                eprintln!("should_proceed(Auto) => Ok({:?})", server);
+                eprintln!("should_proceed(Auto) => Ok({server:?})");
             }
             Err(msg) => {
-                eprintln!("should_proceed(Auto) => Err({})", msg);
+                eprintln!("should_proceed(Auto) => Err({msg})");
                 // If we get an error, it should be because no display was found
                 assert!(
                     matches!(
@@ -542,10 +542,10 @@ mod linux_tests {
 
         match &result {
             Ok(server) => {
-                eprintln!("should_proceed(Accept) => Ok({:?})", server);
+                eprintln!("should_proceed(Accept) => Ok({server:?})");
             }
             Err(msg) => {
-                eprintln!("should_proceed(Accept) => Err({})", msg);
+                eprintln!("should_proceed(Accept) => Err({msg})");
             }
         }
     }
@@ -562,7 +562,7 @@ mod linux_tests {
         let x11 = is_x11_session();
 
         // Log which session we detected for debugging
-        eprintln!("Session detection: Wayland={}, X11={}", wayland, x11);
+        eprintln!("Session detection: Wayland={wayland}, X11={x11}");
 
         // This test passes regardless - we're just verifying the functions don't panic
     }
@@ -603,7 +603,7 @@ mod linux_tests {
 
         // Verify we got a valid assertion
         let id = assertion.id();
-        eprintln!("Got D-Bus inhibit cookie: {}", id);
+        eprintln!("Got D-Bus inhibit cookie: {id}");
 
         // Release the assertion
         manager

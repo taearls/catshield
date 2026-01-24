@@ -123,10 +123,7 @@ mod tests {
 
         assert!(
             start >= before && start <= after,
-            "Start time {} should be between {} and {}",
-            start,
-            before,
-            after
+            "Start time {start} should be between {before} and {after}"
         );
     }
 
@@ -195,8 +192,7 @@ mod tests {
         // Allow extra slack for loaded CI / scheduling delays
         assert!(
             (55..=60).contains(&remaining),
-            "Remaining {} should be between 55 and 60",
-            remaining
+            "Remaining {remaining} should be between 55 and 60"
         );
     }
 
@@ -234,8 +230,7 @@ mod tests {
         // Should be around 30 seconds, allow some tolerance
         assert!(
             (28..=32).contains(&remaining),
-            "Remaining {} should be around 30",
-            remaining
+            "Remaining {remaining} should be around 30"
         );
     }
 
@@ -258,8 +253,7 @@ mod tests {
         // Should be around 1 second
         assert!(
             remaining <= 3,
-            "Remaining {} should be 3 or less (near end)",
-            remaining
+            "Remaining {remaining} should be 3 or less (near end)"
         );
     }
 
@@ -401,9 +395,7 @@ mod tests {
         // Allow extra slack for loaded CI / scheduling delays
         assert!(
             remaining >= seconds_in_24_hours - 5 && remaining <= seconds_in_24_hours,
-            "Remaining {} should be close to {}",
-            remaining,
-            seconds_in_24_hours
+            "Remaining {remaining} should be close to {seconds_in_24_hours}"
         );
     }
 
@@ -418,8 +410,7 @@ mod tests {
         // Should be 0 or 1
         assert!(
             remaining <= 1,
-            "1-second timer remaining {} should be 0 or 1",
-            remaining
+            "1-second timer remaining {remaining} should be 0 or 1"
         );
     }
 

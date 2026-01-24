@@ -95,7 +95,7 @@ mod tests {
         for secs in (0..=5).rev() {
             let cached = format_duration_cached(secs);
             let expected = format_duration(secs);
-            assert_eq!(cached, expected, "Mismatch at {} seconds", secs);
+            assert_eq!(cached, expected, "Mismatch at {secs} seconds");
         }
     }
 }

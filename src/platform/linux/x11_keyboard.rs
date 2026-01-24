@@ -255,7 +255,7 @@ impl InputBlocker for X11InputBlocker {
 
         // Connect to the X11 display
         let (conn, screen_num) = RustConnection::connect(None).map_err(|e| {
-            InputBlockError::CreationFailed(format!("Failed to connect to X11 display: {}", e))
+            InputBlockError::CreationFailed(format!("Failed to connect to X11 display: {e}"))
         })?;
 
         // Get the root window
@@ -276,13 +276,12 @@ impl InputBlocker for X11InputBlocker {
             )
             .map_err(|e| {
                 InputBlockError::CreationFailed(format!(
-                    "Failed to send keyboard grab request: {}",
-                    e
+                    "Failed to send keyboard grab request: {e}"
                 ))
             })?
             .reply()
             .map_err(|e| {
-                InputBlockError::CreationFailed(format!("Failed to grab keyboard: {}", e))
+                InputBlockError::CreationFailed(format!("Failed to grab keyboard: {e}"))
             })?;
 
         if grab_result.status != GrabStatus::SUCCESS {
@@ -312,7 +311,7 @@ impl InputBlocker for X11InputBlocker {
                 // SAFETY: We just created this Box and no one else has the pointer
                 let conn = unsafe { Box::from_raw(conn_ptr) };
                 if let Err(e) = conn.ungrab_keyboard(x11rb::CURRENT_TIME) {
-                    log::warn!("Failed to ungrab keyboard during race cleanup: {}", e);
+                    log::warn!("Failed to ungrab keyboard during race cleanup: {e}");
                 }
                 let _ = conn.flush();
                 // conn is dropped here
@@ -339,12 +338,12 @@ impl InputBlocker for X11InputBlocker {
 
             // Ungrab the keyboard
             if let Err(e) = conn.ungrab_keyboard(x11rb::CURRENT_TIME) {
-                log::warn!("Failed to ungrab keyboard: {}", e);
+                log::warn!("Failed to ungrab keyboard: {e}");
             }
 
             // Flush any pending requests
             if let Err(e) = conn.flush() {
-                log::warn!("Failed to flush X11 connection: {}", e);
+                log::warn!("Failed to flush X11 connection: {e}");
             }
 
             // Connection is dropped here, closing it
@@ -390,7 +389,7 @@ pub fn allow_keyboard_event() {
             x11rb::protocol::xproto::Allow::REPLAY_KEYBOARD,
             x11rb::CURRENT_TIME,
         ) {
-            log::warn!("Failed to replay keyboard event: {}", e);
+            log::warn!("Failed to replay keyboard event: {e}");
         }
         let _ = conn.flush();
     });
@@ -419,7 +418,7 @@ pub fn block_keyboard_event() {
             x11rb::protocol::xproto::Allow::SYNC_KEYBOARD,
             x11rb::CURRENT_TIME,
         ) {
-            log::warn!("Failed to block keyboard event: {}", e);
+            log::warn!("Failed to block keyboard event: {e}");
         }
         let _ = conn.flush();
     });

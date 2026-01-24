@@ -326,7 +326,7 @@ impl Dispatch<wl_output::WlOutput, ()> for WaylandState {
         if let wl_output::Event::Mode { width, height, .. } = event {
             state.output_width = width;
             state.output_height = height;
-            debug!("Output mode: {}x{}", width, height);
+            debug!("Output mode: {width}x{height}");
         }
     }
 }
@@ -405,10 +405,7 @@ impl Dispatch<zwlr_layer_surface_v1::ZwlrLayerSurfaceV1, ()> for WaylandState {
                 width,
                 height,
             } => {
-                debug!(
-                    "Layer surface configure: {}x{} (serial {})",
-                    width, height, serial
-                );
+                debug!("Layer surface configure: {width}x{height} (serial {serial})");
                 layer_surface.ack_configure(serial);
 
                 // Use configured dimensions or fallback to output dimensions
@@ -445,7 +442,7 @@ impl Dispatch<wl_seat::WlSeat, ()> for WaylandState {
     ) {
         if let wl_seat::Event::Capabilities { capabilities } = event {
             let caps = wl_seat::Capability::from_bits_truncate(capabilities.into());
-            debug!("Seat capabilities: {:?}", caps);
+            debug!("Seat capabilities: {caps:?}");
 
             // Request keyboard if available and we don't have one yet
             if caps.contains(wl_seat::Capability::Keyboard) && state.keyboard.is_none() {
@@ -469,10 +466,7 @@ impl Dispatch<wl_keyboard::WlKeyboard, ()> for WaylandState {
     ) {
         match event {
             wl_keyboard::Event::Keymap { format, fd, size } => {
-                debug!(
-                    "Keyboard keymap: format={:?}, fd={:?}, size={}",
-                    format, fd, size
-                );
+                debug!("Keyboard keymap: format={format:?}, fd={fd:?}, size={size}");
                 // We don't need to parse the keymap - we use raw evdev keycodes
             }
             wl_keyboard::Event::Enter {
@@ -480,14 +474,11 @@ impl Dispatch<wl_keyboard::WlKeyboard, ()> for WaylandState {
                 surface,
                 keys,
             } => {
-                debug!(
-                    "Keyboard enter: serial={}, surface={:?}, keys={:?}",
-                    serial, surface, keys
-                );
+                debug!("Keyboard enter: serial={serial}, surface={surface:?}, keys={keys:?}");
                 state.has_keyboard_focus = true;
             }
             wl_keyboard::Event::Leave { serial, surface } => {
-                debug!("Keyboard leave: serial={}, surface={:?}", serial, surface);
+                debug!("Keyboard leave: serial={serial}, surface={surface:?}");
                 state.has_keyboard_focus = false;
             }
             wl_keyboard::Event::Key {
@@ -497,10 +488,7 @@ impl Dispatch<wl_keyboard::WlKeyboard, ()> for WaylandState {
                 state: key_state,
             } => {
                 let pressed = matches!(key_state, WEnum::Value(wl_keyboard::KeyState::Pressed));
-                debug!(
-                    "Keyboard key: serial={}, time={}, key={}, pressed={}",
-                    serial, time, key, pressed
-                );
+                debug!("Keyboard key: serial={serial}, time={time}, key={key}, pressed={pressed}");
 
                 // Only process key press events (not releases)
                 if pressed && state.has_keyboard_focus {
@@ -517,12 +505,12 @@ impl Dispatch<wl_keyboard::WlKeyboard, ()> for WaylandState {
                             }
                         }
                         WaylandKeyboardResult::Allowed => {
-                            debug!("Allowed key: {}", key);
+                            debug!("Allowed key: {key}");
                             // In Wayland, we can't forward keys to other apps
                             // The key is simply not blocked (compositor handles it)
                         }
                         WaylandKeyboardResult::Blocked => {
-                            debug!("Blocked key: {}", key);
+                            debug!("Blocked key: {key}");
                             // Key is absorbed by the overlay
                         }
                         WaylandKeyboardResult::NotActive => {
@@ -539,13 +527,12 @@ impl Dispatch<wl_keyboard::WlKeyboard, ()> for WaylandState {
                 group,
             } => {
                 debug!(
-                    "Keyboard modifiers: serial={}, depressed={:#x}, latched={:#x}, locked={:#x}, group={}",
-                    serial, mods_depressed, mods_latched, mods_locked, group
+                    "Keyboard modifiers: serial={serial}, depressed={mods_depressed:#x}, latched={mods_latched:#x}, locked={mods_locked:#x}, group={group}"
                 );
                 state.modifiers = WaylandModifierState::from_depressed(mods_depressed);
             }
             wl_keyboard::Event::RepeatInfo { rate, delay } => {
-                debug!("Keyboard repeat info: rate={}, delay={}", rate, delay);
+                debug!("Keyboard repeat info: rate={rate}, delay={delay}");
             }
             _ => {}
         }
@@ -687,7 +674,7 @@ impl WaylandOverlayWindow {
     pub fn create(&mut self) -> Result<(), WindowError> {
         // Connect to Wayland
         let connection = Connection::connect_to_env().map_err(|e| {
-            WindowError::CreationFailed(format!("Failed to connect to Wayland: {}", e))
+            WindowError::CreationFailed(format!("Failed to connect to Wayland: {e}"))
         })?;
 
         // Create event queue
@@ -702,7 +689,7 @@ impl WaylandOverlayWindow {
         let mut state = WaylandState::new();
         event_queue
             .roundtrip(&mut state)
-            .map_err(|e| WindowError::CreationFailed(format!("Failed to roundtrip: {}", e)))?;
+            .map_err(|e| WindowError::CreationFailed(format!("Failed to roundtrip: {e}")))?;
 
         // Check if layer shell is available
         if !state.layer_shell_available {
@@ -716,9 +703,9 @@ impl WaylandOverlayWindow {
         }
 
         // Do another roundtrip to get output info
-        event_queue.roundtrip(&mut state).map_err(|e| {
-            WindowError::CreationFailed(format!("Failed to get output info: {}", e))
-        })?;
+        event_queue
+            .roundtrip(&mut state)
+            .map_err(|e| WindowError::CreationFailed(format!("Failed to get output info: {e}")))?;
 
         // Verify we have the required globals
         let compositor = state
@@ -773,7 +760,7 @@ impl WaylandOverlayWindow {
         // Wait for configure event
         event_queue
             .roundtrip(&mut state)
-            .map_err(|e| WindowError::CreationFailed(format!("Failed to configure: {}", e)))?;
+            .map_err(|e| WindowError::CreationFailed(format!("Failed to configure: {e}")))?;
 
         if !state.configured {
             return Err(WindowError::CreationFailed(
@@ -786,7 +773,7 @@ impl WaylandOverlayWindow {
         let height = state.configured_height as f64;
         self.bounds = Rect::new(0.0, 0.0, width, height);
 
-        debug!("Created Wayland overlay: {}x{}", width, height);
+        debug!("Created Wayland overlay: {width}x{height}");
 
         // Store state
         self.connection = Some(connection);
@@ -839,7 +826,7 @@ impl WaylandOverlayWindow {
         // Memory map the file
         let mut mmap = unsafe {
             memmap2::MmapMut::map_mut(&file)
-                .map_err(|e| WindowError::Platform(format!("Failed to mmap: {}", e)))?
+                .map_err(|e| WindowError::Platform(format!("Failed to mmap: {e}")))?
         };
 
         // Draw the overlay content into the buffer
@@ -870,7 +857,7 @@ impl WaylandOverlayWindow {
         // Flush to ensure compositor receives it
         connection
             .flush()
-            .map_err(|e| WindowError::Platform(format!("Failed to flush: {}", e)))?;
+            .map_err(|e| WindowError::Platform(format!("Failed to flush: {e}")))?;
 
         Ok(())
     }
@@ -1013,7 +1000,7 @@ impl WaylandOverlayWindow {
 
         // Draw content and make visible
         if let Err(e) = self.draw() {
-            error!("Failed to draw overlay: {}", e);
+            error!("Failed to draw overlay: {e}");
             return;
         }
 
@@ -1148,7 +1135,7 @@ impl WaylandOverlayWindow {
             let _ = self.draw();
         }
 
-        debug!("Set Wayland overlay opacity to {:.2}", clamped);
+        debug!("Set Wayland overlay opacity to {clamped:.2}");
     }
 
     /// Returns the overlay bounds.
@@ -1227,7 +1214,7 @@ impl WaylandOverlayWindow {
         // Non-blocking dispatch
         event_queue
             .dispatch_pending(state)
-            .map_err(|e| WindowError::Platform(format!("Failed to dispatch events: {}", e)))?;
+            .map_err(|e| WindowError::Platform(format!("Failed to dispatch events: {e}")))?;
 
         // Check if exit was requested via keyboard
         if state.exit_requested {
@@ -1303,7 +1290,7 @@ fn create_shm_file(size: usize) -> Result<std::fs::File, WindowError> {
         if fd >= 0 {
             let file = unsafe { std::fs::File::from_raw_fd(fd) };
             file.set_len(size as u64)
-                .map_err(|e| WindowError::Platform(format!("Failed to set shm size: {}", e)))?;
+                .map_err(|e| WindowError::Platform(format!("Failed to set shm size: {e}")))?;
             return Ok(file);
         }
     }
@@ -1316,14 +1303,14 @@ fn create_shm_file(size: usize) -> Result<std::fs::File, WindowError> {
         .create(true)
         .truncate(true)
         .open(&path)
-        .map_err(|e| WindowError::Platform(format!("Failed to create shm file: {}", e)))?;
+        .map_err(|e| WindowError::Platform(format!("Failed to create shm file: {e}")))?;
 
     // Unlink immediately so file is deleted when closed
     let _ = std::fs::remove_file(&path);
 
     // Set size
     file.set_len(size as u64)
-        .map_err(|e| WindowError::Platform(format!("Failed to set shm size: {}", e)))?;
+        .map_err(|e| WindowError::Platform(format!("Failed to set shm size: {e}")))?;
 
     Ok(file)
 }
