@@ -5,7 +5,7 @@
 <!-- Keep under 150 lines - agents read this first -->
 
 **Current Phase**: 9 - iced UI Migration
-**Next Priority**: #155 (Implement basic overlay window in iced)
+**Next Priority**: #156 (Add timer countdown display)
 **Blocking Issues**: None
 
 ### Open Issues by Priority
@@ -13,25 +13,25 @@
 | # | Title | Priority | Effort | Blocked By | Phase |
 |---|-------|----------|--------|------------|-------|
 | 152 | Epic: Migrate UI Rendering to iced Framework | 🟡 High | ~4-6 weeks | None | 9 |
-| 155 | Implement basic overlay window in iced | 🟡 High | ~3-5 days | None | 9 |
-| 156 | Add timer countdown display | 🟢 Medium | ~1 day | #155 | 9 |
-| 157 | Create settings window UI | 🟢 Medium | ~2-3 days | #155 | 9 |
+| 156 | Add timer countdown display | 🟢 Medium | ~1 day | None | 9 |
+| 157 | Create settings window UI | 🟢 Medium | ~2-3 days | None | 9 |
 | 158 | Implement settings persistence | 🟢 Medium | ~1-2 days | #157 | 9 |
-| 159 | Add overlay customization | 🟢 Medium | ~1-2 days | #155, #158 | 9 |
+| 159 | Add overlay customization | 🟢 Medium | ~1-2 days | #158 | 9 |
 | 160 | macOS menu bar integration | 🟢 Medium | ~1-2 days | #157 | 9 |
 | 161 | Windows system tray integration | 🟢 Medium | ~1-2 days | #157 | 9 |
 | 162 | Linux tray integration | 🟢 Medium | ~1-2 days | #157 | 9 |
-| 163 | Visual polish and theming | 🔵 Low | ~2-3 days | #155, #157 | 9 |
-| 164 | Performance testing | 🔵 Low | ~1-2 days | #155, #156 | 9 |
-| 165 | Animated cat companion overlay | 🔵 Low | ~2-3 days | #155 | 9 |
+| 163 | Visual polish and theming | 🔵 Low | ~2-3 days | #157 | 9 |
+| 164 | Performance testing | 🔵 Low | ~1-2 days | #156 | 9 |
+| 165 | Animated cat companion overlay | 🔵 Low | ~2-3 days | None | 9 |
 | 166 | Documentation update | 🔵 Low | ~1 day | All others | 9 |
 
-**Summary**: 13 open issues (0 Critical, 2 High, 7 Medium, 4 Low)
+**Summary**: 12 open issues (0 Critical, 1 High, 7 Medium, 4 Low)
 
 ### Completed This Session
 
 | # | Title | Priority | Date |
 |---|-------|----------|------|
+| 155 | Implement basic overlay window in iced | 🟡 High | 2026-01-24 |
 | 154 | Set up iced dependency and scaffold | 🟡 High | 2026-01-24 |
 | 153 | Research: iced integration feasibility | 🟡 High | 2026-01-24 |
 | 150 | Add trace logging infrastructure with persistent file output | 🟢 Medium | 2026-01-24 |
@@ -46,9 +46,9 @@
 
 ### Recommended Next Issues
 
-1. **#155** - Implement basic overlay window (unblocked, start here!)
-2. **#156** - Add timer countdown display (after #155)
-3. **#157** - Create settings window UI (after #155)
+1. **#156** - Add timer countdown display (unblocked, start here!)
+2. **#157** - Create settings window UI (unblocked)
+3. **#165** - Animated cat companion overlay (unblocked)
 
 ---
 
@@ -60,17 +60,17 @@
 |--------|-------|-------|--------------|
 | ✅ | #153 | Research: iced integration feasibility | None |
 | ✅ | #154 | Set up iced dependency and scaffold | None |
-| 📋 | #155 | Implement basic overlay window | None |
-| 📋 | #156 | Add timer countdown display | #155 |
-| 📋 | #157 | Create settings window UI | #155 |
+| ✅ | #155 | Implement basic overlay window | None |
+| 📋 | #156 | Add timer countdown display | None |
+| 📋 | #157 | Create settings window UI | None |
 | 📋 | #158 | Implement settings persistence | #157 |
-| 📋 | #159 | Add overlay customization | #155, #158 |
+| 📋 | #159 | Add overlay customization | #158 |
 | 📋 | #160 | macOS menu bar integration | #157 |
 | 📋 | #161 | Windows system tray integration | #157 |
 | 📋 | #162 | Linux tray integration | #157 |
-| 📋 | #163 | Visual polish and theming | #155, #157 |
-| 📋 | #164 | Performance testing | #155, #156 |
-| 📋 | #165 | Animated cat companion overlay | #155 |
+| 📋 | #163 | Visual polish and theming | #157 |
+| 📋 | #164 | Performance testing | #156 |
+| 📋 | #165 | Animated cat companion overlay | None |
 | 📋 | #166 | Documentation update | All |
 
 ---
@@ -121,23 +121,23 @@ Phase 9 (iced Migration):
 #154 (Scaffold) ✅ iced 0.14 added, ui_iced module created
     │
     ▼
-#155 (Basic Overlay) ─────────────────────────────────────────┐
-    │                                                         │
-    ├─► #156 (Timer) ──────────────────────────────┐          │
-    │                                               │          │
-    ├─► #157 (Settings UI) ─┬─► #158 (Persistence)─┤          │
-    │                       │                       │          │
-    │                       ├─► #160 (macOS)        │          │
-    │                       ├─► #161 (Windows)      │          │
-    │                       └─► #162 (Linux)        │          │
-    │                                               │          │
-    ├─► #163 (Polish) ◄─────────────────────────────┤          │
-    │                                               │          │
-    ├─► #164 (Performance) ◄────────────────────────┘          │
-    │                                                          │
-    ├─► #159 (Customization) ◄── #158                          │
-    │                                                          │
-    └─► #165 (Cat Animation) ◄─────────────────────────────────┘
+#155 (Basic Overlay) ✅ Fullscreen, transparent, exit key handling
+    │
+    ├─► #156 (Timer) ──────────────────────────────┐
+    │                                               │
+    ├─► #157 (Settings UI) ─┬─► #158 (Persistence)─┤
+    │                       │                       │
+    │                       ├─► #160 (macOS)        │
+    │                       ├─► #161 (Windows)      │
+    │                       └─► #162 (Linux)        │
+    │                                               │
+    ├─► #163 (Polish) ◄─────────────────────────────┤
+    │                                               │
+    ├─► #164 (Performance) ◄────────────────────────┘
+    │
+    ├─► #159 (Customization) ◄── #158
+    │
+    └─► #165 (Cat Animation)
                 │
                 ▼
         #166 (Documentation) ◄── All complete
@@ -177,6 +177,7 @@ Potential future enhancements (not yet tracked as issues):
 
 | Issue | Title | Date |
 |-------|-------|------|
+| #155 | Implement basic overlay window in iced | 2026-01-24 |
 | #154 | Set up iced dependency and scaffold | 2026-01-24 |
 | #153 | Research: iced integration feasibility - **GO** recommendation | 2026-01-24 |
 | #114 | Animated cat companion overlay (migrated to #165 in iced epic) | 2026-01-24 |
