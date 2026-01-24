@@ -1,0 +1,13 @@
+[package]
+name = "iced-feasibility"
+version = "0.1.0"
+edition = "2021"
+description = "Minimal prototype to evaluate iced for catshield overlay"
+
+[dependencies]
+iced = { version = "0.14", features = ["canvas", "tokio"] }
+
+# Wayland layer shell support (Linux only, optional)
+[target.'cfg(target_os = "linux")'.dependencies]
+# Note: iced_layershell may be needed for proper Wayland overlay support
+# iced_layershell = "0.13"
