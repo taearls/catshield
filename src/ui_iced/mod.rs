@@ -30,5 +30,5 @@ pub mod settings;
 pub mod theme;
 
 // Re-export main types for convenience
-pub use overlay::{OverlayApp, OverlayMessage};
+pub use overlay::{ExitKeyConfig, OverlayApp, OverlayMessage};
 pub use theme::CatShieldTheme;
