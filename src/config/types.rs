@@ -25,6 +25,9 @@ pub struct Config {
 
     /// Keys that are allowed to pass through the shield (e.g., ["Cmd+Space", "F11", "F12"])
     pub allowed_keys: Option<Vec<String>>,
+
+    /// Whether to launch Cat Shield automatically at login (default: false)
+    pub launch_at_login: Option<bool>,
 }
 
 impl Config {
@@ -217,6 +220,7 @@ another_unknown = 42
             default_timer: None,
             overlay_opacity: None,
             allowed_keys: None,
+            launch_at_login: None,
         };
 
         config.save_to_path(&config_path).unwrap();
@@ -234,6 +238,7 @@ another_unknown = 42
             default_timer: None,
             overlay_opacity: None,
             allowed_keys: None,
+            launch_at_login: None,
         };
 
         config.save_to_path(&config_path).unwrap();
@@ -251,6 +256,7 @@ another_unknown = 42
             default_timer: Some("1h".to_string()),
             overlay_opacity: Some(0.7),
             allowed_keys: None,
+            launch_at_login: None,
         };
 
         config.save_to_path(&config_path).unwrap();
@@ -272,6 +278,7 @@ another_unknown = 42
             default_timer: None,
             overlay_opacity: None,
             allowed_keys: None,
+            launch_at_login: None,
         };
         config1.save_to_path(&config_path).unwrap();
 
@@ -281,6 +288,7 @@ another_unknown = 42
             default_timer: Some("2h".to_string()),
             overlay_opacity: Some(0.3),
             allowed_keys: None,
+            launch_at_login: None,
         };
         config2.save_to_path(&config_path).unwrap();
 
@@ -300,6 +308,7 @@ another_unknown = 42
             default_timer: Some("45m".to_string()),
             overlay_opacity: Some(0.65),
             allowed_keys: None,
+            launch_at_login: Some(true),
         };
 
         original.save_to_path(&config_path).unwrap();
@@ -308,6 +317,7 @@ another_unknown = 42
         assert_eq!(original.exit_key, loaded.exit_key);
         assert_eq!(original.default_timer, loaded.default_timer);
         assert_eq!(original.overlay_opacity, loaded.overlay_opacity);
+        assert_eq!(original.launch_at_login, loaded.launch_at_login);
     }
 
     #[test]
@@ -320,6 +330,7 @@ another_unknown = 42
             default_timer: None,
             overlay_opacity: Some(0.4),
             allowed_keys: None,
+            launch_at_login: None,
         };
 
         original.save_to_path(&config_path).unwrap();
@@ -337,6 +348,7 @@ another_unknown = 42
             default_timer: None,
             overlay_opacity: None,
             allowed_keys: None,
+            launch_at_login: None,
         };
 
         assert_eq!(config.opacity(), DEFAULT_OVERLAY_OPACITY);
@@ -350,6 +362,7 @@ another_unknown = 42
             default_timer: None,
             overlay_opacity: Some(0.1), // Below MIN_OVERLAY_OPACITY (0.2)
             allowed_keys: None,
+            launch_at_login: None,
         };
 
         assert_eq!(config.opacity(), MIN_OVERLAY_OPACITY);
@@ -363,6 +376,7 @@ another_unknown = 42
             default_timer: None,
             overlay_opacity: Some(0.95), // Above MAX_OVERLAY_OPACITY (0.8)
             allowed_keys: None,
+            launch_at_login: None,
         };
 
         assert_eq!(config.opacity(), MAX_OVERLAY_OPACITY);
@@ -376,6 +390,7 @@ another_unknown = 42
             default_timer: None,
             overlay_opacity: Some(0.6),
             allowed_keys: None,
+            launch_at_login: None,
         };
 
         assert_eq!(config.opacity(), 0.6);
@@ -459,6 +474,7 @@ allowed_keys = ["Cmd+Space", "F11", "F12", "Ctrl+Option+A"]
                 "F11".to_string(),
                 "F12".to_string(),
             ]),
+            launch_at_login: None,
         };
 
         original.save_to_path(&config_path).unwrap();
@@ -468,5 +484,57 @@ allowed_keys = ["Cmd+Space", "F11", "F12", "Ctrl+Option+A"]
         assert_eq!(original.default_timer, loaded.default_timer);
         assert_eq!(original.overlay_opacity, loaded.overlay_opacity);
         assert_eq!(original.allowed_keys, loaded.allowed_keys);
+    }
+
+    #[test]
+    fn test_config_launch_at_login_true() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+        std::fs::write(&config_path, r#"launch_at_login = true"#).unwrap();
+
+        let config = Config::load_from_path(&config_path);
+
+        assert_eq!(config.launch_at_login, Some(true));
+    }
+
+    #[test]
+    fn test_config_launch_at_login_false() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+        std::fs::write(&config_path, r#"launch_at_login = false"#).unwrap();
+
+        let config = Config::load_from_path(&config_path);
+
+        assert_eq!(config.launch_at_login, Some(false));
+    }
+
+    #[test]
+    fn test_config_launch_at_login_none_when_missing() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+        std::fs::write(&config_path, r#"exit_key = "Cmd+Q""#).unwrap();
+
+        let config = Config::load_from_path(&config_path);
+
+        assert!(config.launch_at_login.is_none());
+    }
+
+    #[test]
+    fn test_config_launch_at_login_round_trip() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+
+        let original = Config {
+            exit_key: None,
+            default_timer: None,
+            overlay_opacity: None,
+            allowed_keys: None,
+            launch_at_login: Some(true),
+        };
+
+        original.save_to_path(&config_path).unwrap();
+        let loaded = Config::load_from_path(&config_path);
+
+        assert_eq!(original.launch_at_login, loaded.launch_at_login);
     }
 }

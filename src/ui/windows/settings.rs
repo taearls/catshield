@@ -339,6 +339,17 @@ define_class!(
         unsafe fn undo_change(&self, _sender: Option<&NSButton>) {
             undo_last_change();
         }
+
+        /// Action method called when "Launch at Login" checkbox state changes
+        #[unsafe(method(launchAtLoginChanged:))]
+        unsafe fn launch_at_login_changed(&self, sender: Option<&NSButton>) {
+            if let Some(checkbox) = sender {
+                let is_enabled = checkbox.state() == NSControlStateValueOn;
+                // Push undo for the opposite state (what it was before this change)
+                settings::push_undo(SettingsChange::LaunchAtLoginToggled { old: !is_enabled });
+                update_undo_button_enabled();
+            }
+        }
     }
 );
 
@@ -431,6 +442,13 @@ fn reset_settings_to_defaults() {
 
     let old_allowed_keys = settings::get_pending_allowed_keys().unwrap_or_default();
 
+    let old_launch_at_login = unsafe {
+        with_ptr::<NSButton, _, _>(&settings::LAUNCH_AT_LOGIN_CHECKBOX, |checkbox| {
+            checkbox.state() == NSControlStateValueOn
+        })
+    }
+    .unwrap_or(false);
+
     // Push undo entry before making changes
     settings::push_undo(SettingsChange::ResetToDefaults {
         old_exit_key,
@@ -439,6 +457,7 @@ fn reset_settings_to_defaults() {
         old_timer_unit,
         old_opacity,
         old_allowed_keys,
+        old_launch_at_login,
     });
     update_undo_button_enabled();
 
@@ -500,6 +519,13 @@ fn reset_settings_to_defaults() {
     crate::ui::views::refresh_allowed_keys_list();
     crate::ui::views::update_remove_button_enabled();
 
+    // Reset Launch at Login checkbox to unchecked (default: false)
+    unsafe {
+        with_ptr_void::<NSButton, _>(&settings::LAUNCH_AT_LOGIN_CHECKBOX, |checkbox| {
+            checkbox.setState(NSControlStateValueOff);
+        });
+    }
+
     // Clear validation label (field is empty, revalidation happens on next keystroke)
     set_validation_label(&settings::ADD_KEY_VALIDATION, true, "");
 
@@ -529,6 +555,7 @@ fn cleanup_settings_window_references() {
     settings::REMOVE_KEY_BUTTON.store(std::ptr::null_mut(), Ordering::Release);
     settings::ADD_KEY_BUTTON.store(std::ptr::null_mut(), Ordering::Release);
     settings::UNDO_BUTTON.store(std::ptr::null_mut(), Ordering::Release);
+    settings::LAUNCH_AT_LOGIN_CHECKBOX.store(std::ptr::null_mut(), Ordering::Release);
     // Note: ADD_KEY_FIELD_DELEGATE is NOT cleared here - it's reused across window opens
     // (same pattern as EXIT_KEY_FIELD_DELEGATE and TIMER_FIELD_DELEGATE)
 
@@ -677,6 +704,15 @@ fn save_settings_from_window() {
         config.allowed_keys = Some(pending_keys);
     }
 
+    // Get launch at login checkbox state
+    let launch_at_login = unsafe {
+        with_ptr::<NSButton, _, _>(&settings::LAUNCH_AT_LOGIN_CHECKBOX, |checkbox| {
+            checkbox.state() == NSControlStateValueOn
+        })
+    }
+    .unwrap_or(false);
+    config.launch_at_login = Some(launch_at_login);
+
     if has_errors {
         log::warn!("Settings have validation errors, please fix them");
         return;
@@ -693,6 +729,24 @@ fn save_settings_from_window() {
                 if let Ok(key) = ExitKey::parse(key_str) {
                     set_exit_key(&key);
                     log::info!("✓ Exit key updated to: {}", key.display_name);
+                }
+            }
+
+            // Update login item registration based on checkbox state
+            #[cfg(target_os = "macos")]
+            {
+                use crate::platform::set_login_item_enabled;
+                if let Err(e) = set_login_item_enabled(launch_at_login) {
+                    log::error!("Failed to update login item: {}", e);
+                } else {
+                    log::info!(
+                        "✓ Login item {}",
+                        if launch_at_login {
+                            "registered"
+                        } else {
+                            "unregistered"
+                        }
+                    );
                 }
             }
 
@@ -831,7 +885,7 @@ fn validate_timer_realtime(value: &str) {
 
 /// Window dimensions
 const WINDOW_WIDTH: CGFloat = 480.0; // Increased to fit Undo button in button row
-const WINDOW_HEIGHT: CGFloat = 620.0; // Increased to fit allowed keys section with presets and action feedback
+const WINDOW_HEIGHT: CGFloat = 700.0; // Increased to fit Launch at Login section
 
 /// Layout constants
 const MARGIN: CGFloat = 20.0;
@@ -1522,6 +1576,107 @@ fn setup_opacity_section(
 
     // Account for the slider row height before returning
     y_offset -= FIELD_HEIGHT + ROW_SPACING;
+
+    y_offset
+}
+
+/// Set up the Launch at Login section in the settings window
+/// Returns the new y_offset after adding this section
+fn setup_launch_at_login_section(
+    mtm: MainThreadMarker,
+    content_view: &objc2_app_kit::NSView,
+    config: &crate::config::Config,
+    handler: &SettingsActionHandler,
+    mut y_offset: CGFloat,
+) -> CGFloat {
+    // Add some spacing before this section
+    y_offset -= SECTION_SPACING;
+
+    // Section label
+    y_offset -= LABEL_HEIGHT;
+    let section_label = create_label(
+        mtm,
+        "Startup:",
+        CGRect {
+            origin: CGPoint {
+                x: MARGIN,
+                y: y_offset,
+            },
+            size: CGSize {
+                width: WINDOW_WIDTH - (MARGIN * 2.0),
+                height: LABEL_HEIGHT,
+            },
+        },
+        13.0,
+        &NSColor::labelColor(),
+        true,
+    );
+    content_view.addSubview(&section_label);
+
+    // Launch at Login checkbox
+    y_offset -= FIELD_HEIGHT + ROW_SPACING;
+    let checkbox = unsafe {
+        let button = NSButton::buttonWithTitle_target_action(
+            ns_string!("Launch at Login"),
+            Some(handler),
+            Some(objc2::sel!(launchAtLoginChanged:)),
+            mtm,
+        );
+        button.setFrame(CGRect {
+            origin: CGPoint {
+                x: MARGIN,
+                y: y_offset,
+            },
+            size: CGSize {
+                width: 200.0,
+                height: FIELD_HEIGHT,
+            },
+        });
+        button.setButtonType(NSButtonType::Switch);
+
+        // Set initial state from config
+        let is_enabled = config.launch_at_login.unwrap_or(false);
+        if is_enabled {
+            button.setState(NSControlStateValueOn);
+        } else {
+            button.setState(NSControlStateValueOff);
+        }
+
+        button
+    };
+    content_view.addSubview(&checkbox);
+    settings::LAUNCH_AT_LOGIN_CHECKBOX.store(
+        Retained::as_ptr(&checkbox) as *mut c_void,
+        Ordering::Release,
+    );
+    // SAFETY: Transferring ownership to Objective-C runtime and global AtomicPtr.
+    // Preventing drop here is correct because:
+    // - The view is retained by NSWindow's content view hierarchy (addSubview)
+    // - The pointer is stored in settings::LAUNCH_AT_LOGIN_CHECKBOX for state access
+    // Cleanup: cleanup_settings_window_references() sets the AtomicPtr to null,
+    // and NSWindow releases the view when the window closes.
+    std::mem::forget(checkbox);
+
+    // Description label (dimmed text)
+    y_offset -= LABEL_HEIGHT + 2.0;
+    let description_label = create_label(
+        mtm,
+        "Start Cat Shield when you log in",
+        CGRect {
+            origin: CGPoint {
+                x: MARGIN + 18.0, // Indent to align with checkbox text
+                y: y_offset,
+            },
+            size: CGSize {
+                width: WINDOW_WIDTH - (MARGIN * 2.0) - 18.0,
+                height: LABEL_HEIGHT,
+            },
+        },
+        11.0,
+        &NSColor::secondaryLabelColor(),
+        false,
+    );
+    content_view.addSubview(&description_label);
 
     y_offset
 }
@@ -2449,6 +2604,7 @@ fn undo_last_change() {
             old_timer_unit,
             old_opacity,
             old_allowed_keys,
+            old_launch_at_login,
         } => {
             // Restore exit key
             unsafe {
@@ -2498,6 +2654,17 @@ fn undo_last_change() {
             refresh_allowed_keys_list();
             update_remove_button_enabled();
 
+            // Restore launch at login checkbox
+            unsafe {
+                with_ptr_void::<NSButton, _>(&settings::LAUNCH_AT_LOGIN_CHECKBOX, |checkbox| {
+                    if old_launch_at_login {
+                        checkbox.setState(NSControlStateValueOn);
+                    } else {
+                        checkbox.setState(NSControlStateValueOff);
+                    }
+                });
+            }
+
             // Clear add key field and validation
             unsafe {
                 with_ptr_void::<NSTextField, _>(&settings::ADD_KEY_FIELD, |field| {
@@ -2506,6 +2673,15 @@ fn undo_last_change() {
             }
             set_validation_label(&settings::ADD_KEY_VALIDATION, true, "");
         }
+        SettingsChange::LaunchAtLoginToggled { old } => unsafe {
+            with_ptr_void::<NSButton, _>(&settings::LAUNCH_AT_LOGIN_CHECKBOX, |checkbox| {
+                if old {
+                    checkbox.setState(NSControlStateValueOn);
+                } else {
+                    checkbox.setState(NSControlStateValueOff);
+                }
+            });
+        },
     }
 
     // Update undo button state after the undo
@@ -2654,6 +2830,7 @@ pub fn show_settings_window(mtm: MainThreadMarker) {
         y_offset = setup_exit_key_section(mtm, &content_view, &config, y_offset);
         y_offset = setup_timer_section(mtm, &content_view, &config, handler, y_offset);
         y_offset = setup_opacity_section(mtm, &content_view, &config, handler, y_offset);
+        y_offset = setup_launch_at_login_section(mtm, &content_view, &config, handler, y_offset);
         let _ = setup_allowed_keys_section(mtm, &content_view, &config, handler, y_offset);
         setup_button_section(mtm, &content_view, handler);
     }

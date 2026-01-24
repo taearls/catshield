@@ -20,6 +20,7 @@
 
 | # | Title | Priority | Date |
 |---|-------|----------|------|
+| 148 | Add 'Launch at Login' setting | 🟢 Medium | 2026-01-23 |
 | 139 | Windows overlay code quality improvements | 🔵 Low | 2026-01-23 |
 
 ### Recommended Next Issues
@@ -101,7 +102,6 @@ Future:
 
 Potential future enhancements (not yet tracked as issues):
 - Multi-monitor support improvements
-- Auto-start on login option
 - Activity logging
 - Sound effects/feedback
 - Custom overlay themes
@@ -112,6 +112,7 @@ Potential future enhancements (not yet tracked as issues):
 
 | Issue | Title | Date |
 |-------|-------|------|
+| #148 | Add 'Launch at Login' setting | 2026-01-23 |
 | #139 | Windows overlay code quality improvements | 2026-01-23 |
 | #132 | XWayland fallback detection and recommendation | 2026-01-23 |
 | #113 | Platform-specific integration tests | 2026-01-23 |

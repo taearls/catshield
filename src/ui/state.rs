@@ -199,6 +199,9 @@ pub mod settings {
     /// Undo button (enabled when undo stack is non-empty)
     pub static UNDO_BUTTON: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 
+    /// Launch at Login checkbox
+    pub static LAUNCH_AT_LOGIN_CHECKBOX: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+
     // Thread-local state for pending allowed keys changes.
     // This allows Cancel to discard changes without affecting the global config.
     thread_local! {
@@ -276,7 +279,10 @@ pub mod settings {
             old_timer_unit: isize,
             old_opacity: f64,
             old_allowed_keys: Vec<String>,
+            old_launch_at_login: bool,
         },
+        /// Launch at Login checkbox was toggled
+        LaunchAtLoginToggled { old: bool },
     }
 
     /// Initialize pending allowed keys from current config.
@@ -855,6 +861,7 @@ mod tests {
             old_timer_unit: 0,
             old_opacity: 0.7,
             old_allowed_keys: vec!["Cmd+Space".to_string()],
+            old_launch_at_login: true,
         });
 
         let popped = settings::pop_undo();
@@ -865,6 +872,7 @@ mod tests {
             old_timer_unit,
             old_opacity,
             old_allowed_keys,
+            old_launch_at_login,
         }) = popped
         {
             assert_eq!(old_exit_key, "Cmd+Shift+Q");
@@ -873,9 +881,23 @@ mod tests {
             assert_eq!(old_timer_unit, 0);
             assert!((old_opacity - 0.7).abs() < f64::EPSILON);
             assert_eq!(old_allowed_keys, vec!["Cmd+Space".to_string()]);
+            assert!(old_launch_at_login);
         } else {
             panic!("Expected ResetToDefaults change");
         }
+        settings::clear_undo_stack();
+    }
+
+    #[test]
+    fn test_undo_stack_launch_at_login_toggled_variant() {
+        settings::clear_undo_stack();
+        settings::push_undo(settings::SettingsChange::LaunchAtLoginToggled { old: true });
+
+        let popped = settings::pop_undo();
+        assert!(matches!(
+            popped,
+            Some(settings::SettingsChange::LaunchAtLoginToggled { old: true })
+        ));
         settings::clear_undo_stack();
     }
 
