@@ -41,6 +41,11 @@ pub mod colors {
 #[derive(Debug, Clone, Copy, Default)]
 pub struct CatShieldTheme;
 
+// Allow dead code for theme functions that are scaffolding for future issues.
+// These will be used when implementing:
+// - Issue #155: Basic overlay window
+// - Issue #157: Settings window UI
+#[allow(dead_code)]
 impl CatShieldTheme {
     /// Get the base iced theme (Dark)
     pub fn base() -> Theme {

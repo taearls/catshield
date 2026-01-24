@@ -146,9 +146,10 @@ impl OverlayApp {
             );
         }
 
-        // Add close button
+        // Add close button hint
+        // TODO(#155): Implement hold-to-close behavior, then update this text
         content = content.push(
-            text("or hold close button for 3 seconds")
+            text("or click the close button")
                 .size(12)
                 .color(colors::TEXT_MUTED),
         );
