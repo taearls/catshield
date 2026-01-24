@@ -12,7 +12,7 @@
 //! Exit with: Click close button
 
 use iced::widget::{button, center, column, container, text};
-use iced::window::{self, Level, Position, Settings as WindowSettings};
+use iced::window::{Level, Position, Settings as WindowSettings};
 use iced::{time, Color, Element, Length, Size, Subscription, Task, Theme};
 use std::time::{Duration, Instant};
 
@@ -65,14 +65,8 @@ impl Overlay {
             }
             Message::ToggleFullscreen => {
                 self.is_fullscreen = !self.is_fullscreen;
-                // Toggle fullscreen mode - requires querying for window ID first
-                let mode = if self.is_fullscreen {
-                    window::Mode::Fullscreen
-                } else {
-                    window::Mode::Windowed
-                };
-                // For simplicity, just exit fullscreen demonstration
-                // The actual catshield will start fullscreen
+                // For simplicity, just exit the prototype
+                // The actual catshield will implement proper fullscreen toggling
                 iced::exit()
             }
             Message::Exit => iced::exit(),
