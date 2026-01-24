@@ -61,6 +61,11 @@ pub struct LinuxArgs {
     /// Enable verbose logging output (use multiple times for more detail: -v, -vv, -vvv)
     #[arg(short, long, action = clap::ArgAction::Count)]
     pub verbose: u8,
+
+    /// Enable trace logging to file (~/.config/catshield/logs/)
+    /// Logs detailed event traces for debugging intermittent issues.
+    #[arg(long)]
+    pub trace: bool,
 }
 
 /// Parse wayland mode string into WaylandMode enum (for clap value_parser)
@@ -86,6 +91,7 @@ mod tests {
             hide_timer: false,
             wayland_mode: WaylandMode::Auto,
             verbose: 0,
+            trace: false,
         };
         assert!(!has_immediate_start_args_linux(&args));
     }
@@ -97,6 +103,7 @@ mod tests {
             hide_timer: false,
             wayland_mode: WaylandMode::Auto,
             verbose: 0,
+            trace: false,
         };
         assert!(has_immediate_start_args_linux(&args));
     }
@@ -108,6 +115,7 @@ mod tests {
             hide_timer: false,
             wayland_mode: WaylandMode::Accept,
             verbose: 0,
+            trace: false,
         };
         // wayland_mode alone should NOT trigger immediate mode
         assert!(!has_immediate_start_args_linux(&args));

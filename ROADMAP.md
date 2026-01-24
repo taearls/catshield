@@ -20,6 +20,12 @@
 
 | # | Title | Priority | Date |
 |---|-------|----------|------|
+| 150 | Add trace logging infrastructure with persistent file output | 🟢 Medium | 2026-01-24 |
+
+### Previously Completed
+
+| # | Title | Priority | Date |
+|---|-------|----------|------|
 | 148 | Add 'Launch at Login' setting | 🟢 Medium | 2026-01-23 |
 | 139 | Windows overlay code quality improvements | 🔵 Low | 2026-01-23 |
 
@@ -112,6 +118,7 @@ Potential future enhancements (not yet tracked as issues):
 
 | Issue | Title | Date |
 |-------|-------|------|
+| #150 | Add trace logging infrastructure with persistent file output | 2026-01-24 |
 | #148 | Add 'Launch at Login' setting | 2026-01-23 |
 | #139 | Windows overlay code quality improvements | 2026-01-23 |
 | #132 | XWayland fallback detection and recommendation | 2026-01-23 |

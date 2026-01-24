@@ -14,6 +14,10 @@ use crate::shield_core::{
 use crate::timer::{
     format_duration, get_remaining_seconds, parse_duration, AUTO_EXIT_ENABLED, WARNING_SHOWN,
 };
+use crate::tracing::{
+    events::{MenuItemStateChanged, ShieldActivated, ShieldDeactivated},
+    trace_event,
+};
 use crate::ui::ptr_helper::with_ptr_void;
 use crate::ui::state::{menu_bar, shield, IS_MOUSE_INSIDE, MOUSE_DOWN_TIME};
 use crate::ui::views::{CloseButtonLabelView, CloseButtonView, TimerDisplayView};
@@ -187,8 +191,15 @@ pub fn deactivate_shield() {
     // Only deactivate if shield is active
     // Use AcqRel for swap: acquire to see previous writes, release for new value
     if !shield::IS_ACTIVE.swap(false, Ordering::AcqRel) {
+        trace_event(&ShieldDeactivated {
+            reason: "not_active",
+        });
         return;
     }
+
+    trace_event(&ShieldDeactivated {
+        reason: "user_requested",
+    });
 
     log::info!("🛡️  Deactivating Cat Shield...");
 
@@ -350,6 +361,12 @@ pub fn deactivate_shield() {
         });
     }
 
+    trace_event(&MenuItemStateChanged {
+        item: "Start Protection",
+        enabled: true,
+        reason: "shield_deactivated",
+    });
+
     log::info!("✓ Cat Shield deactivated");
     log::info!("Click the 🐱 icon to activate protection again.");
 }
@@ -363,8 +380,13 @@ pub fn activate_shield(mtm: MainThreadMarker) {
     // Prevent double-activation
     // Use AcqRel for swap to prevent double-activation
     if shield::IS_ACTIVE.swap(true, Ordering::AcqRel) {
+        trace_event(&ShieldActivated {
+            mode: "already_active",
+        });
         return;
     }
+
+    trace_event(&ShieldActivated { mode: "menu_bar" });
 
     // Disable the "Start Protection" menu item while shield is active
     unsafe {
@@ -372,6 +394,12 @@ pub fn activate_shield(mtm: MainThreadMarker) {
             menu_item.setEnabled(false);
         });
     }
+
+    trace_event(&MenuItemStateChanged {
+        item: "Start Protection",
+        enabled: false,
+        reason: "shield_activating",
+    });
 
     // Get the exit key configuration
     let exit_key = get_exit_key();
