@@ -5,7 +5,7 @@
 <!-- Keep under 150 lines - agents read this first -->
 
 **Current Phase**: 9 - iced UI Migration
-**Next Priority**: #156 (Add timer countdown display)
+**Next Priority**: #157 (Create settings window UI)
 **Blocking Issues**: None
 
 ### Open Issues by Priority
@@ -13,7 +13,6 @@
 | # | Title | Priority | Effort | Blocked By | Phase |
 |---|-------|----------|--------|------------|-------|
 | 152 | Epic: Migrate UI Rendering to iced Framework | 🟡 High | ~4-6 weeks | None | 9 |
-| 156 | Add timer countdown display | 🟢 Medium | ~1 day | None | 9 |
 | 157 | Create settings window UI | 🟢 Medium | ~2-3 days | None | 9 |
 | 158 | Implement settings persistence | 🟢 Medium | ~1-2 days | #157 | 9 |
 | 159 | Add overlay customization | 🟢 Medium | ~1-2 days | #158 | 9 |
@@ -25,12 +24,13 @@
 | 165 | Animated cat companion overlay | 🔵 Low | ~2-3 days | None | 9 |
 | 166 | Documentation update | 🔵 Low | ~1 day | All others | 9 |
 
-**Summary**: 12 open issues (0 Critical, 1 High, 7 Medium, 4 Low)
+**Summary**: 11 open issues (0 Critical, 1 High, 6 Medium, 4 Low)
 
 ### Completed This Session
 
 | # | Title | Priority | Date |
 |---|-------|----------|------|
+| 156 | Add timer countdown display to iced overlay | 🟢 Medium | 2026-01-24 |
 | 155 | Implement basic overlay window in iced | 🟡 High | 2026-01-24 |
 | 154 | Set up iced dependency and scaffold | 🟡 High | 2026-01-24 |
 | 153 | Research: iced integration feasibility | 🟡 High | 2026-01-24 |
@@ -46,9 +46,9 @@
 
 ### Recommended Next Issues
 
-1. **#156** - Add timer countdown display (unblocked, start here!)
-2. **#157** - Create settings window UI (unblocked)
-3. **#165** - Animated cat companion overlay (unblocked)
+1. **#157** - Create settings window UI (unblocked, start here!)
+2. **#165** - Animated cat companion overlay (unblocked)
+3. **#160** - macOS menu bar integration (blocked by #157)
 
 ---
 
@@ -61,7 +61,7 @@
 | ✅ | #153 | Research: iced integration feasibility | None |
 | ✅ | #154 | Set up iced dependency and scaffold | None |
 | ✅ | #155 | Implement basic overlay window | None |
-| 📋 | #156 | Add timer countdown display | None |
+| ✅ | #156 | Add timer countdown display | None |
 | 📋 | #157 | Create settings window UI | None |
 | 📋 | #158 | Implement settings persistence | #157 |
 | 📋 | #159 | Add overlay customization | #158 |
@@ -123,7 +123,10 @@ Phase 9 (iced Migration):
     ▼
 #155 (Basic Overlay) ✅ Fullscreen, transparent, exit key handling
     │
-    ├─► #156 (Timer) ──────────────────────────────┐
+    ▼
+#156 (Timer) ✅ MM:SS/HH:MM:SS countdown, progress bar, hide-timer support
+    │
+    ├─► (Performance) ─────────────────────────────┐
     │                                               │
     ├─► #157 (Settings UI) ─┬─► #158 (Persistence)─┤
     │                       │                       │
@@ -177,6 +180,7 @@ Potential future enhancements (not yet tracked as issues):
 
 | Issue | Title | Date |
 |-------|-------|------|
+| #156 | Add timer countdown display to iced overlay | 2026-01-24 |
 | #155 | Implement basic overlay window in iced | 2026-01-24 |
 | #154 | Set up iced dependency and scaffold | 2026-01-24 |
 | #153 | Research: iced integration feasibility - **GO** recommendation | 2026-01-24 |

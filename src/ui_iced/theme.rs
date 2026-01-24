@@ -35,6 +35,18 @@ pub mod colors {
 
     /// Text muted (dim white)
     pub const TEXT_MUTED: Color = Color::from_rgba(1.0, 1.0, 1.0, 0.4);
+
+    /// Timer warning color (orange-red for when time is running out)
+    pub const TIMER_WARNING: Color = Color::from_rgb(1.0, 0.6, 0.2);
+
+    /// Progress bar background (dark gray)
+    pub const PROGRESS_BACKGROUND: Color = Color::from_rgba(1.0, 1.0, 1.0, 0.2);
+
+    /// Progress bar fill (accent color)
+    pub const PROGRESS_FILL: Color = Color::from_rgb(0.4, 0.7, 0.4);
+
+    /// Progress bar fill when in warning state (matches timer warning)
+    pub const PROGRESS_WARNING: Color = Color::from_rgb(1.0, 0.6, 0.2);
 }
 
 /// Custom theme configuration for Cat Shield

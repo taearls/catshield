@@ -1,12 +1,23 @@
 //! Shield overlay window using iced
 //!
 //! Provides a fullscreen, semi-transparent overlay that displays:
-//! - Timer countdown (when active)
+//! - Timer countdown (when active) - large, centered, high contrast
+//! - Optional progress bar showing time remaining
 //! - Close button (hold to exit)
 //! - Exit key hint
 //!
 //! This module handles only the visual rendering. Input blocking is handled
 //! by the platform-specific implementations in `src/platform/`.
+//!
+//! # Timer Display
+//!
+//! When the `--timer` flag is used, the overlay shows a prominent countdown.
+//! The format adapts based on duration:
+//! - Under 1 hour: `MM:SS` (e.g., "05:30")
+//! - 1 hour or more: `HH:MM:SS` (e.g., "01:30:00")
+//!
+//! The timer can be hidden with the `--hide-timer` flag while still maintaining
+//! the auto-exit functionality.
 //!
 //! # Multi-Monitor Support
 //!
@@ -16,12 +27,63 @@
 
 use iced::event::Event;
 use iced::keyboard;
-use iced::widget::{button, center, column, container, text};
+use iced::widget::{button, center, column, container, text, Space};
 use iced::window::{self, Level, Position, Settings as WindowSettings};
 use iced::{time, Color, Element, Length, Size, Subscription, Task, Theme};
 use std::time::{Duration, Instant};
 
 use crate::ui_iced::theme::{colors, CatShieldTheme};
+
+/// Create a horizontal progress bar widget
+///
+/// # Arguments
+/// * `progress` - Value from 0.0 (empty) to 1.0 (full)
+/// * `is_warning` - If true, use warning color for the fill
+fn progress_bar<'a>(progress: f32, is_warning: bool) -> Element<'a, OverlayMessage> {
+    let bar_width: f32 = 300.0;
+    let bar_height: f32 = 8.0;
+
+    let fill_color = if is_warning {
+        colors::PROGRESS_WARNING
+    } else {
+        colors::PROGRESS_FILL
+    };
+
+    // Create the background bar
+    let background = container(
+        Space::new()
+            .width(Length::Fixed(bar_width))
+            .height(Length::Fixed(bar_height)),
+    )
+    .style(move |_theme| container::Style {
+        background: Some(iced::Background::Color(colors::PROGRESS_BACKGROUND)),
+        border: iced::Border {
+            radius: (bar_height / 2.0).into(),
+            ..Default::default()
+        },
+        ..Default::default()
+    });
+
+    // Create the fill bar (overlay on top)
+    let fill_width = bar_width * progress.clamp(0.0, 1.0);
+    let fill = container(
+        Space::new()
+            .width(Length::Fixed(fill_width))
+            .height(Length::Fixed(bar_height)),
+    )
+    .style(move |_theme| container::Style {
+        background: Some(iced::Background::Color(fill_color)),
+        border: iced::Border {
+            radius: (bar_height / 2.0).into(),
+            ..Default::default()
+        },
+        ..Default::default()
+    });
+
+    // Stack fill on top of background using iced's stack widget
+    use iced::widget::stack;
+    stack![background, fill].into()
+}
 
 /// Messages that can be sent to the overlay application
 #[derive(Debug, Clone)]
@@ -71,6 +133,8 @@ pub struct OverlayApp {
     elapsed_seconds: u64,
     /// Remaining seconds (if timer is set), None means no timer
     remaining_seconds: Option<u64>,
+    /// Initial timer duration (for progress bar calculation)
+    initial_duration: Option<u64>,
     /// Whether the shield is currently active
     is_active: bool,
     /// Exit key display string (e.g., "Cmd+Option+U")
@@ -79,6 +143,10 @@ pub struct OverlayApp {
     opacity: f64,
     /// Exit key configuration for detecting unlock shortcut
     exit_key_config: Option<ExitKeyConfig>,
+    /// Whether to hide the timer display (--hide-timer flag)
+    hide_timer: bool,
+    /// Whether to show progress bar
+    show_progress: bool,
 }
 
 impl Default for OverlayApp {
@@ -87,12 +155,26 @@ impl Default for OverlayApp {
             start_time: Instant::now(),
             elapsed_seconds: 0,
             remaining_seconds: None,
+            initial_duration: None,
             is_active: true,
             exit_key_display: String::new(),
             opacity: crate::config::DEFAULT_OVERLAY_OPACITY,
             exit_key_config: None,
+            hide_timer: false,
+            show_progress: true,
         }
     }
+}
+
+/// Configuration for the overlay timer display
+#[derive(Debug, Clone, Default)]
+pub struct TimerConfig {
+    /// Timer duration in seconds (None = no timer, show elapsed time)
+    pub duration: Option<u64>,
+    /// Whether to hide the timer display
+    pub hide_timer: bool,
+    /// Whether to show the progress bar
+    pub show_progress: bool,
 }
 
 impl OverlayApp {
@@ -102,10 +184,13 @@ impl OverlayApp {
             start_time: Instant::now(),
             elapsed_seconds: 0,
             remaining_seconds: timer_seconds,
+            initial_duration: timer_seconds,
             is_active: true,
             exit_key_display,
             opacity,
             exit_key_config: None,
+            hide_timer: false,
+            show_progress: true,
         }
     }
 
@@ -119,10 +204,33 @@ impl OverlayApp {
             start_time: Instant::now(),
             elapsed_seconds: 0,
             remaining_seconds: timer_seconds,
+            initial_duration: timer_seconds,
             is_active: true,
             exit_key_display: exit_key_config.display.clone(),
             opacity,
             exit_key_config: Some(exit_key_config),
+            hide_timer: false,
+            show_progress: true,
+        }
+    }
+
+    /// Create a new overlay app with full timer configuration
+    pub fn with_timer_config(
+        exit_key_config: ExitKeyConfig,
+        timer_config: TimerConfig,
+        opacity: f64,
+    ) -> Self {
+        Self {
+            start_time: Instant::now(),
+            elapsed_seconds: 0,
+            remaining_seconds: timer_config.duration,
+            initial_duration: timer_config.duration,
+            is_active: true,
+            exit_key_display: exit_key_config.display.clone(),
+            opacity,
+            exit_key_config: Some(exit_key_config),
+            hide_timer: timer_config.hide_timer,
+            show_progress: timer_config.show_progress,
         }
     }
 
@@ -194,55 +302,101 @@ impl OverlayApp {
         }
     }
 
+    /// Format duration as MM:SS or HH:MM:SS based on magnitude
+    ///
+    /// Returns (formatted_string, is_warning) where is_warning is true
+    /// when remaining time is <= 60 seconds (for visual feedback)
+    fn format_duration(seconds: u64) -> (String, bool) {
+        let hours = seconds / 3600;
+        let minutes = (seconds % 3600) / 60;
+        let secs = seconds % 60;
+
+        let formatted = if hours > 0 {
+            format!("{hours:02}:{minutes:02}:{secs:02}")
+        } else {
+            format!("{minutes:02}:{secs:02}")
+        };
+
+        let is_warning = seconds <= 60 && seconds > 0;
+        (formatted, is_warning)
+    }
+
+    /// Calculate progress as a fraction (0.0 to 1.0)
+    fn calculate_progress(&self) -> Option<f32> {
+        match (self.remaining_seconds, self.initial_duration) {
+            (Some(remaining), Some(initial)) if initial > 0 => {
+                Some(remaining as f32 / initial as f32)
+            }
+            _ => None,
+        }
+    }
+
     /// Render the overlay view
     pub fn view(&self) -> Element<'_, OverlayMessage> {
-        // Format the timer display
-        let timer_text = if let Some(remaining) = self.remaining_seconds {
-            // Countdown mode
-            format!("{:02}:{:02}", remaining / 60, remaining % 60)
-        } else {
-            // Elapsed time mode
-            format!(
-                "{:02}:{:02}",
-                self.elapsed_seconds / 60,
-                self.elapsed_seconds % 60
-            )
-        };
-
-        // Timer label
-        let timer_label = if self.remaining_seconds.is_some() {
-            "Time Remaining"
-        } else {
-            "Elapsed Time"
-        };
-
         // Build the main content column
-        let mut content = column![
-            text("Cat Shield Active")
-                .size(32)
-                .color(colors::TEXT_PRIMARY),
-            text(timer_label).size(16).color(colors::TEXT_SECONDARY),
-            text(timer_text).size(72).color(colors::TEXT_PRIMARY),
-        ]
-        .spacing(10)
+        let mut content = column![text("Cat Shield Active")
+            .size(32)
+            .color(colors::TEXT_PRIMARY),]
+        .spacing(15)
         .align_x(iced::Alignment::Center);
+
+        // Add timer display unless hidden
+        if !self.hide_timer {
+            // Format the timer display
+            let (timer_text, is_warning) = if let Some(remaining) = self.remaining_seconds {
+                Self::format_duration(remaining)
+            } else {
+                // Elapsed time mode
+                Self::format_duration(self.elapsed_seconds)
+            };
+
+            // Timer label
+            let timer_label = if self.remaining_seconds.is_some() {
+                "Time Remaining"
+            } else {
+                "Elapsed Time"
+            };
+
+            content = content.push(text(timer_label).size(18).color(colors::TEXT_SECONDARY));
+
+            // Use warning color when time is running out
+            let timer_color = if is_warning && self.remaining_seconds.is_some() {
+                colors::TIMER_WARNING
+            } else {
+                colors::TEXT_PRIMARY
+            };
+
+            content = content.push(text(timer_text).size(96).color(timer_color));
+
+            // Add progress bar if we have timer duration and progress is enabled
+            if self.show_progress {
+                if let Some(progress) = self.calculate_progress() {
+                    content = content.push(Space::new().height(Length::Fixed(10.0)));
+                    content = content.push(progress_bar(progress, is_warning));
+                }
+            }
+        }
+
+        // Add some vertical space before hints
+        content = content.push(Space::new().height(Length::Fixed(20.0)));
 
         // Add exit key hint if available
         if !self.exit_key_display.is_empty() {
             content = content.push(
                 text(format!("Press {} to unlock", self.exit_key_display))
-                    .size(14)
+                    .size(16)
                     .color(colors::TEXT_MUTED),
             );
         }
 
         // Add close button hint
-        // TODO(#155): Implement hold-to-close behavior, then update this text
         content = content.push(
             text("or click the close button")
-                .size(12)
+                .size(14)
                 .color(colors::TEXT_MUTED),
         );
+
+        content = content.push(Space::new().height(Length::Fixed(10.0)));
 
         content = content.push(
             button(text("Close").size(16).color(Color::WHITE))
@@ -348,6 +502,35 @@ impl OverlayApp {
     ) -> iced::Result {
         iced::application(
             move || Self::with_exit_key(exit_key_config.clone(), timer_seconds, opacity),
+            Self::update,
+            Self::view,
+        )
+        .title("Cat Shield")
+        .subscription(Self::subscription)
+        .window(Self::window_settings())
+        .theme(Self::theme)
+        .run()
+    }
+
+    /// Run the overlay application with full timer configuration
+    ///
+    /// This variant allows full control over timer display including:
+    /// - Timer duration
+    /// - Whether to hide the timer display (`--hide-timer`)
+    /// - Whether to show the progress bar
+    ///
+    /// # Arguments
+    ///
+    /// * `exit_key_config` - Configuration for the exit key shortcut
+    /// * `timer_config` - Timer display configuration
+    /// * `opacity` - Overlay opacity (0.0 - 1.0)
+    pub fn run_with_timer_config(
+        exit_key_config: ExitKeyConfig,
+        timer_config: TimerConfig,
+        opacity: f64,
+    ) -> iced::Result {
+        iced::application(
+            move || Self::with_timer_config(exit_key_config.clone(), timer_config.clone(), opacity),
             Self::update,
             Self::view,
         )
@@ -470,5 +653,152 @@ mod tests {
         assert_eq!(config.display, "Cmd+Option+U");
         assert!(config.modifiers.contains(keyboard::Modifiers::LOGO));
         assert!(config.modifiers.contains(keyboard::Modifiers::ALT));
+    }
+
+    // ============================================================
+    // Timer display tests
+    // ============================================================
+
+    #[test]
+    fn test_format_duration_seconds_only() {
+        let (formatted, is_warning) = OverlayApp::format_duration(45);
+        assert_eq!(formatted, "00:45");
+        assert!(is_warning); // <= 60 seconds
+    }
+
+    #[test]
+    fn test_format_duration_minutes_and_seconds() {
+        let (formatted, is_warning) = OverlayApp::format_duration(90);
+        assert_eq!(formatted, "01:30");
+        assert!(!is_warning); // > 60 seconds
+    }
+
+    #[test]
+    fn test_format_duration_hours() {
+        let (formatted, is_warning) = OverlayApp::format_duration(3661);
+        assert_eq!(formatted, "01:01:01");
+        assert!(!is_warning);
+    }
+
+    #[test]
+    fn test_format_duration_exactly_one_hour() {
+        let (formatted, is_warning) = OverlayApp::format_duration(3600);
+        assert_eq!(formatted, "01:00:00");
+        assert!(!is_warning);
+    }
+
+    #[test]
+    fn test_format_duration_warning_threshold() {
+        // 60 seconds - should be warning
+        let (_, is_warning) = OverlayApp::format_duration(60);
+        assert!(is_warning);
+
+        // 61 seconds - should not be warning
+        let (_, is_warning) = OverlayApp::format_duration(61);
+        assert!(!is_warning);
+
+        // 0 seconds - should not be warning (expired)
+        let (_, is_warning) = OverlayApp::format_duration(0);
+        assert!(!is_warning);
+    }
+
+    #[test]
+    fn test_format_duration_zero() {
+        let (formatted, _) = OverlayApp::format_duration(0);
+        assert_eq!(formatted, "00:00");
+    }
+
+    // ============================================================
+    // Progress bar tests
+    // ============================================================
+
+    #[test]
+    fn test_calculate_progress_full() {
+        let app = OverlayApp {
+            remaining_seconds: Some(100),
+            initial_duration: Some(100),
+            ..Default::default()
+        };
+        assert_eq!(app.calculate_progress(), Some(1.0));
+    }
+
+    #[test]
+    fn test_calculate_progress_half() {
+        let app = OverlayApp {
+            remaining_seconds: Some(50),
+            initial_duration: Some(100),
+            ..Default::default()
+        };
+        assert_eq!(app.calculate_progress(), Some(0.5));
+    }
+
+    #[test]
+    fn test_calculate_progress_empty() {
+        let app = OverlayApp {
+            remaining_seconds: Some(0),
+            initial_duration: Some(100),
+            ..Default::default()
+        };
+        assert_eq!(app.calculate_progress(), Some(0.0));
+    }
+
+    #[test]
+    fn test_calculate_progress_no_timer() {
+        let app = OverlayApp::default();
+        assert!(app.calculate_progress().is_none());
+    }
+
+    #[test]
+    fn test_calculate_progress_zero_duration() {
+        let app = OverlayApp {
+            remaining_seconds: Some(0),
+            initial_duration: Some(0),
+            ..Default::default()
+        };
+        assert!(app.calculate_progress().is_none());
+    }
+
+    // ============================================================
+    // Timer config tests
+    // ============================================================
+
+    #[test]
+    fn test_overlay_with_timer_config() {
+        let exit_config = ExitKeyConfig::default();
+        let timer_config = TimerConfig {
+            duration: Some(300),
+            hide_timer: true,
+            show_progress: false,
+        };
+        let app = OverlayApp::with_timer_config(exit_config, timer_config, 0.7);
+
+        assert!(app.is_active);
+        assert_eq!(app.remaining_seconds, Some(300));
+        assert_eq!(app.initial_duration, Some(300));
+        assert!(app.hide_timer);
+        assert!(!app.show_progress);
+        assert_eq!(app.opacity, 0.7);
+    }
+
+    #[test]
+    fn test_timer_config_default() {
+        let config = TimerConfig::default();
+        assert!(config.duration.is_none());
+        assert!(!config.hide_timer);
+        assert!(!config.show_progress);
+    }
+
+    #[test]
+    fn test_overlay_stores_initial_duration() {
+        let app = OverlayApp::new("Test".to_string(), Some(600), 0.5);
+        assert_eq!(app.initial_duration, Some(600));
+        assert_eq!(app.remaining_seconds, Some(600));
+    }
+
+    #[test]
+    fn test_overlay_default_shows_timer() {
+        let app = OverlayApp::default();
+        assert!(!app.hide_timer);
+        assert!(app.show_progress);
     }
 }
