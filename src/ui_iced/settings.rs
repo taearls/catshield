@@ -22,9 +22,7 @@ use iced::widget::{
 use iced::window::{Position, Settings as WindowSettings};
 use iced::{Alignment, Color, Element, Length, Size, Task, Theme};
 
-use crate::config::{
-    Config, DEFAULT_OVERLAY_OPACITY, MAX_OVERLAY_OPACITY, MIN_OVERLAY_OPACITY,
-};
+use crate::config::{Config, DEFAULT_OVERLAY_OPACITY, MAX_OVERLAY_OPACITY, MIN_OVERLAY_OPACITY};
 use crate::ui_iced::theme::{colors, CatShieldTheme};
 
 /// Preset overlay colors for quick selection
@@ -445,27 +443,23 @@ impl SettingsWindow {
             }
 
             // Actions
-            SettingsMessage::Save => {
-                match self.save_settings() {
-                    Ok(()) => {
-                        self.success_message = Some("Settings saved".to_string());
-                        return iced::exit();
-                    }
-                    Err(e) => {
-                        self.error_message = Some(format!("Failed to save: {e}"));
-                    }
+            SettingsMessage::Save => match self.save_settings() {
+                Ok(()) => {
+                    self.success_message = Some("Settings saved".to_string());
+                    return iced::exit();
                 }
-            }
-            SettingsMessage::Apply => {
-                match self.save_settings() {
-                    Ok(()) => {
-                        self.success_message = Some("Settings applied".to_string());
-                    }
-                    Err(e) => {
-                        self.error_message = Some(format!("Failed to apply: {e}"));
-                    }
+                Err(e) => {
+                    self.error_message = Some(format!("Failed to save: {e}"));
                 }
-            }
+            },
+            SettingsMessage::Apply => match self.save_settings() {
+                Ok(()) => {
+                    self.success_message = Some("Settings applied".to_string());
+                }
+                Err(e) => {
+                    self.error_message = Some(format!("Failed to apply: {e}"));
+                }
+            },
             SettingsMessage::Cancel | SettingsMessage::CloseRequested => {
                 return iced::exit();
             }
@@ -541,15 +535,11 @@ impl SettingsWindow {
                 CatShieldTheme::secondary_button
             };
 
-            button(
-                text(label)
-                    .size(14)
-                    .color(if is_selected {
-                        colors::TEXT_PRIMARY
-                    } else {
-                        colors::TEXT_SECONDARY
-                    }),
-            )
+            button(text(label).size(14).color(if is_selected {
+                colors::TEXT_PRIMARY
+            } else {
+                colors::TEXT_SECONDARY
+            }))
             .padding([8, 16])
             .style(style)
             .on_press(SettingsMessage::SwitchSection(section))
@@ -592,12 +582,7 @@ impl SettingsWindow {
         let opacity_percent = (self.opacity * 100.0).round() as i32;
 
         // Opacity preview box
-        let preview_color = Color::from_rgba(
-            0.1,
-            0.1,
-            0.1,
-            self.opacity as f32,
-        );
+        let preview_color = Color::from_rgba(0.1, 0.1, 0.1, self.opacity as f32);
 
         column![
             // Opacity setting
@@ -606,9 +591,7 @@ impl SettingsWindow {
                 "How dark the overlay appears",
                 column![
                     row![
-                        text("Transparency")
-                            .size(14)
-                            .color(colors::TEXT_SECONDARY),
+                        text("Transparency").size(14).color(colors::TEXT_SECONDARY),
                         Space::new().width(Length::Fill),
                         text(format!("{}%", opacity_percent))
                             .size(14)
@@ -622,13 +605,9 @@ impl SettingsWindow {
                     )
                     .step(0.05),
                     row![
-                        text("More transparent")
-                            .size(11)
-                            .color(colors::TEXT_MUTED),
+                        text("More transparent").size(11).color(colors::TEXT_MUTED),
                         Space::new().width(Length::Fill),
-                        text("More opaque")
-                            .size(11)
-                            .color(colors::TEXT_MUTED),
+                        text("More opaque").size(11).color(colors::TEXT_MUTED),
                     ],
                     // Preview
                     Space::new().height(Length::Fixed(15.0)),
@@ -727,18 +706,12 @@ impl SettingsWindow {
                             .enumerate()
                             .map(|(i, key)| {
                                 row![
-                                    text(key)
-                                        .size(14)
-                                        .color(colors::TEXT_PRIMARY),
+                                    text(key).size(14).color(colors::TEXT_PRIMARY),
                                     Space::new().width(Length::Fill),
-                                    button(
-                                        text("Remove")
-                                            .size(12)
-                                            .color(colors::CLOSE_BUTTON)
-                                    )
-                                    .padding([4, 8])
-                                    .style(CatShieldTheme::ghost_button)
-                                    .on_press(SettingsMessage::RemoveAllowedKey(i)),
+                                    button(text("Remove").size(12).color(colors::CLOSE_BUTTON))
+                                        .padding([4, 8])
+                                        .style(CatShieldTheme::ghost_button)
+                                        .on_press(SettingsMessage::RemoveAllowedKey(i)),
                                 ]
                                 .spacing(8)
                                 .align_y(Alignment::Center)
@@ -837,9 +810,7 @@ impl SettingsWindow {
             // Version info
             container(
                 column![
-                    text("Cat Shield")
-                        .size(28)
-                        .color(colors::TEXT_PRIMARY),
+                    text("Cat Shield").size(28).color(colors::TEXT_PRIMARY),
                     text(format!("Version {}", env!("CARGO_PKG_VERSION")))
                         .size(14)
                         .color(colors::TEXT_SECONDARY),
@@ -852,11 +823,13 @@ impl SettingsWindow {
             Space::new().height(Length::Fixed(20.0)),
             // Description
             container(
-                text("A cross-platform application that creates a cat-proof \
+                text(
+                    "A cross-platform application that creates a cat-proof \
                       screen overlay to keep your machine awake and block \
-                      all input while protecting your work from curious cats.")
-                    .size(14)
-                    .color(colors::TEXT_SECONDARY)
+                      all input while protecting your work from curious cats."
+                )
+                .size(14)
+                .color(colors::TEXT_SECONDARY)
             )
             .width(Length::Fill)
             .padding([0, 20]),
@@ -866,13 +839,10 @@ impl SettingsWindow {
                 "Links",
                 "Get help and contribute",
                 column![
-                    text("GitHub: github.com/your-username/catshield")
+                    text("GitHub: github.com/taearls/catshield")
                         .size(13)
                         .color(colors::ACCENT),
-                    text("Documentation: catshield.dev")
-                        .size(13)
-                        .color(colors::ACCENT),
-                    text("Report Issues: github.com/your-username/catshield/issues")
+                    text("Report Issues: github.com/taearls/catshield/issues")
                         .size(13)
                         .color(colors::ACCENT),
                 ]
@@ -887,9 +857,7 @@ impl SettingsWindow {
                     text("Rust + iced framework")
                         .size(13)
                         .color(colors::TEXT_SECONDARY),
-                    text("MIT License")
-                        .size(13)
-                        .color(colors::TEXT_SECONDARY),
+                    text("MIT License").size(13).color(colors::TEXT_SECONDARY),
                 ]
                 .spacing(4),
             ),
@@ -917,7 +885,9 @@ impl SettingsWindow {
         .width(Length::Fill)
         .padding([15, 20])
         .style(|_theme| container::Style {
-            background: Some(iced::Background::Color(Color::from_rgba(1.0, 1.0, 1.0, 0.03))),
+            background: Some(iced::Background::Color(Color::from_rgba(
+                1.0, 1.0, 1.0, 0.03,
+            ))),
             border: iced::Border {
                 radius: 8.0.into(),
                 ..Default::default()
@@ -933,17 +903,9 @@ impl SettingsWindow {
 
         // Error/success message
         if let Some(ref error) = self.error_message {
-            footer_row = footer_row.push(
-                text(error)
-                    .size(13)
-                    .color(colors::CLOSE_BUTTON),
-            );
+            footer_row = footer_row.push(text(error).size(13).color(colors::CLOSE_BUTTON));
         } else if let Some(ref success) = self.success_message {
-            footer_row = footer_row.push(
-                text(success)
-                    .size(13)
-                    .color(colors::PROGRESS_FILL),
-            );
+            footer_row = footer_row.push(text(success).size(13).color(colors::PROGRESS_FILL));
         }
 
         footer_row = footer_row.push(Space::new().width(Length::Fill));
@@ -1020,6 +982,11 @@ mod tests {
     /// Create a blank settings window for testing (doesn't load real config)
     fn blank_settings() -> SettingsWindow {
         SettingsWindow::from_config(Config::default())
+    }
+
+    /// Helper to apply a message in tests (discards the Task result)
+    fn apply(window: &mut SettingsWindow, message: SettingsMessage) {
+        let _ = window.update(message);
     }
 
     // ============================================================
@@ -1102,24 +1069,60 @@ mod tests {
 
     #[test]
     fn test_timer_preset_to_duration_string() {
-        assert_eq!(TimerPreset::FiveMinutes.to_duration_string(), Some("5m".to_string()));
-        assert_eq!(TimerPreset::FifteenMinutes.to_duration_string(), Some("15m".to_string()));
-        assert_eq!(TimerPreset::ThirtyMinutes.to_duration_string(), Some("30m".to_string()));
-        assert_eq!(TimerPreset::OneHour.to_duration_string(), Some("1h".to_string()));
-        assert_eq!(TimerPreset::TwoHours.to_duration_string(), Some("2h".to_string()));
+        assert_eq!(
+            TimerPreset::FiveMinutes.to_duration_string(),
+            Some("5m".to_string())
+        );
+        assert_eq!(
+            TimerPreset::FifteenMinutes.to_duration_string(),
+            Some("15m".to_string())
+        );
+        assert_eq!(
+            TimerPreset::ThirtyMinutes.to_duration_string(),
+            Some("30m".to_string())
+        );
+        assert_eq!(
+            TimerPreset::OneHour.to_duration_string(),
+            Some("1h".to_string())
+        );
+        assert_eq!(
+            TimerPreset::TwoHours.to_duration_string(),
+            Some("2h".to_string())
+        );
         assert_eq!(TimerPreset::Custom.to_duration_string(), None);
         assert_eq!(TimerPreset::None.to_duration_string(), None);
     }
 
     #[test]
     fn test_timer_preset_from_duration_string() {
-        assert_eq!(TimerPreset::from_duration_string("5m"), TimerPreset::FiveMinutes);
-        assert_eq!(TimerPreset::from_duration_string("15m"), TimerPreset::FifteenMinutes);
-        assert_eq!(TimerPreset::from_duration_string("30m"), TimerPreset::ThirtyMinutes);
-        assert_eq!(TimerPreset::from_duration_string("1h"), TimerPreset::OneHour);
-        assert_eq!(TimerPreset::from_duration_string("2h"), TimerPreset::TwoHours);
-        assert_eq!(TimerPreset::from_duration_string("45m"), TimerPreset::Custom);
-        assert_eq!(TimerPreset::from_duration_string("weird"), TimerPreset::Custom);
+        assert_eq!(
+            TimerPreset::from_duration_string("5m"),
+            TimerPreset::FiveMinutes
+        );
+        assert_eq!(
+            TimerPreset::from_duration_string("15m"),
+            TimerPreset::FifteenMinutes
+        );
+        assert_eq!(
+            TimerPreset::from_duration_string("30m"),
+            TimerPreset::ThirtyMinutes
+        );
+        assert_eq!(
+            TimerPreset::from_duration_string("1h"),
+            TimerPreset::OneHour
+        );
+        assert_eq!(
+            TimerPreset::from_duration_string("2h"),
+            TimerPreset::TwoHours
+        );
+        assert_eq!(
+            TimerPreset::from_duration_string("45m"),
+            TimerPreset::Custom
+        );
+        assert_eq!(
+            TimerPreset::from_duration_string("weird"),
+            TimerPreset::Custom
+        );
     }
 
     #[test]
@@ -1199,7 +1202,7 @@ mod tests {
     #[test]
     fn test_update_opacity_changed() {
         let mut window = blank_settings();
-        window.update(SettingsMessage::OpacityChanged(0.7));
+        apply(&mut window, SettingsMessage::OpacityChanged(0.7));
 
         assert_eq!(window.opacity, 0.7);
         assert!(window.has_changes);
@@ -1210,18 +1213,21 @@ mod tests {
         let mut window = blank_settings();
 
         // Below minimum
-        window.update(SettingsMessage::OpacityChanged(0.1));
+        apply(&mut window, SettingsMessage::OpacityChanged(0.1));
         assert_eq!(window.opacity, MIN_OVERLAY_OPACITY);
 
         // Above maximum
-        window.update(SettingsMessage::OpacityChanged(0.95));
+        apply(&mut window, SettingsMessage::OpacityChanged(0.95));
         assert_eq!(window.opacity, MAX_OVERLAY_OPACITY);
     }
 
     #[test]
     fn test_update_color_preset_selected() {
         let mut window = blank_settings();
-        window.update(SettingsMessage::ColorPresetSelected(OverlayColor::Blue));
+        apply(
+            &mut window,
+            SettingsMessage::ColorPresetSelected(OverlayColor::Blue),
+        );
 
         assert_eq!(window.color_preset, OverlayColor::Blue);
     }
@@ -1229,7 +1235,10 @@ mod tests {
     #[test]
     fn test_update_timer_preset_selected() {
         let mut window = blank_settings();
-        window.update(SettingsMessage::TimerPresetSelected(TimerPreset::OneHour));
+        apply(
+            &mut window,
+            SettingsMessage::TimerPresetSelected(TimerPreset::OneHour),
+        );
 
         assert_eq!(window.timer_preset, TimerPreset::OneHour);
         assert_eq!(window.custom_timer, "1h");
@@ -1239,7 +1248,10 @@ mod tests {
     #[test]
     fn test_update_custom_timer_changed() {
         let mut window = blank_settings();
-        window.update(SettingsMessage::CustomTimerChanged("45m".to_string()));
+        apply(
+            &mut window,
+            SettingsMessage::CustomTimerChanged("45m".to_string()),
+        );
 
         assert_eq!(window.custom_timer, "45m");
         assert_eq!(window.timer_preset, TimerPreset::Custom);
@@ -1249,7 +1261,10 @@ mod tests {
     #[test]
     fn test_update_exit_key_changed() {
         let mut window = blank_settings();
-        window.update(SettingsMessage::ExitKeyChanged("Cmd+Shift+Q".to_string()));
+        apply(
+            &mut window,
+            SettingsMessage::ExitKeyChanged("Cmd+Shift+Q".to_string()),
+        );
 
         assert_eq!(window.exit_key, "Cmd+Shift+Q");
         assert!(window.has_changes);
@@ -1259,7 +1274,7 @@ mod tests {
     fn test_update_add_allowed_key() {
         let mut window = blank_settings();
         window.new_allowed_key_input = "F11".to_string();
-        window.update(SettingsMessage::AddAllowedKey);
+        apply(&mut window, SettingsMessage::AddAllowedKey);
 
         assert_eq!(window.allowed_keys, vec!["F11".to_string()]);
         assert!(window.new_allowed_key_input.is_empty());
@@ -1271,7 +1286,7 @@ mod tests {
         let mut window = blank_settings();
         window.allowed_keys = vec!["F11".to_string()];
         window.new_allowed_key_input = "F11".to_string();
-        window.update(SettingsMessage::AddAllowedKey);
+        apply(&mut window, SettingsMessage::AddAllowedKey);
 
         // Should not add duplicate
         assert_eq!(window.allowed_keys.len(), 1);
@@ -1281,7 +1296,7 @@ mod tests {
     fn test_update_add_allowed_key_empty() {
         let mut window = blank_settings();
         window.new_allowed_key_input = "   ".to_string();
-        window.update(SettingsMessage::AddAllowedKey);
+        apply(&mut window, SettingsMessage::AddAllowedKey);
 
         // Should not add empty/whitespace-only key
         assert!(window.allowed_keys.is_empty());
@@ -1291,7 +1306,7 @@ mod tests {
     fn test_update_remove_allowed_key() {
         let mut window = blank_settings();
         window.allowed_keys = vec!["F11".to_string(), "F12".to_string()];
-        window.update(SettingsMessage::RemoveAllowedKey(0));
+        apply(&mut window, SettingsMessage::RemoveAllowedKey(0));
 
         assert_eq!(window.allowed_keys, vec!["F12".to_string()]);
         assert!(window.has_changes);
@@ -1301,7 +1316,7 @@ mod tests {
     fn test_update_remove_allowed_key_invalid_index() {
         let mut window = blank_settings();
         window.allowed_keys = vec!["F11".to_string()];
-        window.update(SettingsMessage::RemoveAllowedKey(5));
+        apply(&mut window, SettingsMessage::RemoveAllowedKey(5));
 
         // Should not panic, list unchanged
         assert_eq!(window.allowed_keys.len(), 1);
@@ -1310,7 +1325,7 @@ mod tests {
     #[test]
     fn test_update_add_media_keys_preset() {
         let mut window = blank_settings();
-        window.update(SettingsMessage::AddMediaKeysPreset);
+        apply(&mut window, SettingsMessage::AddMediaKeysPreset);
 
         assert!(window.allowed_keys.contains(&"F11".to_string()));
         assert!(window.allowed_keys.contains(&"F12".to_string()));
@@ -1320,7 +1335,7 @@ mod tests {
     #[test]
     fn test_update_add_spotlight_preset() {
         let mut window = blank_settings();
-        window.update(SettingsMessage::AddSpotlightPreset);
+        apply(&mut window, SettingsMessage::AddSpotlightPreset);
 
         assert!(window.allowed_keys.contains(&"Cmd+Space".to_string()));
         assert!(window.has_changes);
@@ -1329,7 +1344,7 @@ mod tests {
     #[test]
     fn test_update_launch_at_login_toggled() {
         let mut window = blank_settings();
-        window.update(SettingsMessage::LaunchAtLoginToggled(true));
+        apply(&mut window, SettingsMessage::LaunchAtLoginToggled(true));
 
         assert!(window.launch_at_login);
         assert!(window.has_changes);
@@ -1338,7 +1353,7 @@ mod tests {
     #[test]
     fn test_update_trace_logging_toggled() {
         let mut window = blank_settings();
-        window.update(SettingsMessage::TraceLoggingToggled(true));
+        apply(&mut window, SettingsMessage::TraceLoggingToggled(true));
 
         assert!(window.trace_logging);
         assert!(window.has_changes);
@@ -1347,7 +1362,10 @@ mod tests {
     #[test]
     fn test_update_switch_section() {
         let mut window = blank_settings();
-        window.update(SettingsMessage::SwitchSection(SettingsSection::Behavior));
+        apply(
+            &mut window,
+            SettingsMessage::SwitchSection(SettingsSection::Behavior),
+        );
 
         assert_eq!(window.current_section, SettingsSection::Behavior);
         // Section switch doesn't create changes
@@ -1362,7 +1380,7 @@ mod tests {
         window.allowed_keys = vec!["F11".to_string()];
         window.launch_at_login = true;
 
-        window.update(SettingsMessage::ResetDefaults);
+        apply(&mut window, SettingsMessage::ResetDefaults);
 
         assert_eq!(window.opacity, DEFAULT_OVERLAY_OPACITY);
         assert!(window.exit_key.is_empty());
@@ -1419,7 +1437,7 @@ mod tests {
         window.error_message = Some("Old error".to_string());
         window.success_message = Some("Old success".to_string());
 
-        window.update(SettingsMessage::OpacityChanged(0.6));
+        apply(&mut window, SettingsMessage::OpacityChanged(0.6));
 
         assert!(window.error_message.is_none());
         assert!(window.success_message.is_none());
