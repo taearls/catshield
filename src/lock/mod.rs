@@ -72,7 +72,7 @@ pub fn acquire_instance_lock() -> LockResult {
     // Ensure the config directory exists
     if let Some(parent) = lock_path.parent() {
         if let Err(e) = fs::create_dir_all(parent) {
-            return LockResult::Error(format!("Failed to create config directory: {}", e));
+            return LockResult::Error(format!("Failed to create config directory: {e}"));
         }
     }
 
@@ -88,10 +88,10 @@ pub fn acquire_instance_lock() -> LockResult {
         {
             Ok(mut file) => {
                 // Successfully created new lock file atomically
-                if let Err(e) = write!(file, "{}", current_pid) {
+                if let Err(e) = write!(file, "{current_pid}") {
                     // Write failed - clean up the file we created
                     let _ = fs::remove_file(&lock_path);
-                    return LockResult::Error(format!("Failed to write lock file: {}", e));
+                    return LockResult::Error(format!("Failed to write lock file: {e}"));
                 }
                 return LockResult::Acquired;
             }
@@ -120,7 +120,7 @@ pub fn acquire_instance_lock() -> LockResult {
             }
             Err(e) => {
                 // Other error (permissions, etc.)
-                return LockResult::Error(format!("Failed to create lock file: {}", e));
+                return LockResult::Error(format!("Failed to create lock file: {e}"));
             }
         }
 
@@ -137,8 +137,7 @@ pub fn acquire_instance_lock() -> LockResult {
 
     // Exhausted retries - this shouldn't normally happen
     LockResult::Error(format!(
-        "Failed to acquire lock after {} attempts",
-        LOCK_RETRY_LIMIT
+        "Failed to acquire lock after {LOCK_RETRY_LIMIT} attempts"
     ))
 }
 

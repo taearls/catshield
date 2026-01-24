@@ -67,8 +67,7 @@ impl ExitKey {
                 _ => {
                     if let Some(existing) = key_name {
                         return Err(format!(
-                            "Multiple keys specified: '{}' and '{}'",
-                            existing, part
+                            "Multiple keys specified: '{existing}' and '{part}'"
                         ));
                     }
                     key_name = Some(part);
@@ -78,13 +77,12 @@ impl ExitKey {
 
         let key_name = key_name.ok_or("No key specified in combination")?;
         let keycode = keycode_from_name(key_name)
-            .ok_or_else(|| format!("Unknown key: '{}'. Valid keys include: A-Z, 0-9, F1-F12, Escape, Return, Tab, Space, Delete, Arrow keys", key_name))?;
+            .ok_or_else(|| format!("Unknown key: '{key_name}'. Valid keys include: A-Z, 0-9, F1-F12, Escape, Return, Tab, Space, Delete, Arrow keys"))?;
 
         // Require at least one modifier
         if !requires_cmd && !requires_option && !requires_shift && !requires_ctrl {
             return Err(format!(
-                "{} (Cmd/Command, Option/Alt, Shift, or Ctrl)",
-                ERR_NO_MODIFIER
+                "{ERR_NO_MODIFIER} (Cmd/Command, Option/Alt, Shift, or Ctrl)"
             ));
         }
 

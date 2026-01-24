@@ -886,7 +886,7 @@ fn main() {
     // Initialize trace logging if enabled via CLI flag or config
     let trace_enabled = args.trace || config.enable_trace_logging.unwrap_or(false);
     if let Err(e) = cat_shield::tracing::init(trace_enabled) {
-        log::warn!("Failed to initialize trace logging: {}", e);
+        log::warn!("Failed to initialize trace logging: {e}");
     }
 
     // Check for existing instance (single-instance enforcement)
@@ -895,12 +895,12 @@ fn main() {
             // Successfully acquired lock, continue startup
         }
         LockResult::AlreadyRunning(pid) => {
-            log::warn!("Cat Shield is already running (PID: {})", pid);
+            log::warn!("Cat Shield is already running (PID: {pid})");
             log::warn!("Look for the 🐱 icon in your menu bar.");
             process::exit(0);
         }
         LockResult::Error(e) => {
-            log::warn!("Could not check for existing instance: {}", e);
+            log::warn!("Could not check for existing instance: {e}");
             // Continue anyway - lock check is best-effort
         }
     }
@@ -912,8 +912,8 @@ fn main() {
         match ExitKey::parse(key_str) {
             Ok(key) => key,
             Err(e) => {
-                log::warn!("Invalid exit_key in config file: {}", e);
-                log::warn!("Using default: {}", DEFAULT_EXIT_KEY);
+                log::warn!("Invalid exit_key in config file: {e}");
+                log::warn!("Using default: {DEFAULT_EXIT_KEY}");
                 ExitKey::default()
             }
         }

@@ -41,7 +41,7 @@ pub fn is_login_item_enabled() -> bool {
         //   2 = requiresApproval
         //   3 = notFound
         let status: isize = msg_send![service, status];
-        log::debug!("Login item status: {}", status);
+        log::debug!("Login item status: {status}");
 
         // Status 1 means enabled
         status == 1
@@ -95,7 +95,7 @@ pub fn register_login_item() -> Result<(), String> {
                 "Unknown error".to_string()
             };
 
-            log::error!("Failed to register as login item: {}", error_msg);
+            log::error!("Failed to register as login item: {error_msg}");
             Err(error_msg)
         }
     }
@@ -147,7 +147,7 @@ pub fn unregister_login_item() -> Result<(), String> {
                 "Unknown error".to_string()
             };
 
-            log::error!("Failed to unregister as login item: {}", error_msg);
+            log::error!("Failed to unregister as login item: {error_msg}");
             Err(error_msg)
         }
     }

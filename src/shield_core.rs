@@ -310,7 +310,7 @@ pub fn print_shield_active(exit_key: &ExitKey, timer_info: Option<&str>) {
     log::info!("Exit: Hold X button (top-right) for 3 seconds");
     log::info!("      Or press {}", exit_key.display_name);
     if let Some(info) = timer_info {
-        log::info!("      Or wait for timer ({})", info);
+        log::info!("      Or wait for timer ({info})");
     }
 }
 

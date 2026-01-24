@@ -105,7 +105,7 @@ fn draw_close_button_label(view: &NSView) {
     // Determine text and color based on state
     let (text, color, font_size): (String, &NSColor, CGFloat) = if is_holding {
         let remaining_secs = ((1.0 - progress) * close_button::HOLD_DURATION_SECS).ceil() as u32;
-        (format!("{}s...", remaining_secs), &progress_color, 16.0)
+        (format!("{remaining_secs}s..."), &progress_color, 16.0)
     } else {
         ("Hold 3s to exit".to_string(), &hint_color, 12.0)
     };

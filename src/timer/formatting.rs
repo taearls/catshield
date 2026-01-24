@@ -34,11 +34,11 @@ pub fn format_duration(total_secs: u64) -> String {
     let secs = total_secs % 60;
 
     if hours > 0 {
-        format!("{}h {:02}m {:02}s", hours, minutes, secs)
+        format!("{hours}h {minutes:02}m {secs:02}s")
     } else if minutes > 0 {
-        format!("{}m {:02}s", minutes, secs)
+        format!("{minutes}m {secs:02}s")
     } else {
-        format!("{}s", secs)
+        format!("{secs}s")
     }
 }
 
