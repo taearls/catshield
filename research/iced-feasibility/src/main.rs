@@ -21,7 +21,7 @@ fn main() -> iced::Result {
         .title("CatShield Overlay Prototype")
         .subscription(Overlay::subscription)
         .window(WindowSettings {
-            size: Size::new(800.0, 600.0), // Will be resized to fullscreen
+            size: Size::new(800.0, 600.0), // Windowed for easy testing; catshield will use fullscreen
             position: Position::Centered,
             decorations: false, // Borderless
             transparent: true,  // Enable transparency
@@ -36,14 +36,12 @@ fn main() -> iced::Result {
 #[derive(Debug, Clone)]
 enum Message {
     Tick(Instant),
-    ToggleFullscreen,
     Exit,
 }
 
 struct Overlay {
     start_time: Instant,
     elapsed_seconds: u64,
-    is_fullscreen: bool,
 }
 
 impl Default for Overlay {
@@ -51,7 +49,6 @@ impl Default for Overlay {
         Self {
             start_time: Instant::now(),
             elapsed_seconds: 0,
-            is_fullscreen: false,
         }
     }
 }
@@ -62,12 +59,6 @@ impl Overlay {
             Message::Tick(now) => {
                 self.elapsed_seconds = now.duration_since(self.start_time).as_secs();
                 Task::none()
-            }
-            Message::ToggleFullscreen => {
-                self.is_fullscreen = !self.is_fullscreen;
-                // For simplicity, just exit the prototype
-                // The actual catshield will implement proper fullscreen toggling
-                iced::exit()
             }
             Message::Exit => iced::exit(),
         }
@@ -86,12 +77,9 @@ impl Overlay {
                 .size(40)
                 .color(Color::WHITE),
             text(timer_text).size(80).color(Color::WHITE),
-            text("Click buttons below to control")
+            text("Click button below to close")
                 .size(16)
                 .color(Color::from_rgba(1.0, 1.0, 1.0, 0.7)),
-            button(text("Toggle Fullscreen").color(Color::WHITE))
-                .padding(10)
-                .on_press(Message::ToggleFullscreen),
             button(text("Close").color(Color::WHITE))
                 .padding(10)
                 .style(|theme, status| {
