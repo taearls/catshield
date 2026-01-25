@@ -5,7 +5,7 @@
 <!-- Keep under 150 lines - agents read this first -->
 
 **Current Phase**: 9 - iced UI Migration
-**Next Priority**: #160 (macOS menu bar integration)
+**Next Priority**: #161 (Windows system tray integration)
 **Blocking Issues**: None
 
 ### Open Issues by Priority
@@ -13,7 +13,6 @@
 | # | Title | Priority | Effort | Blocked By | Phase |
 |---|-------|----------|--------|------------|-------|
 | 152 | Epic: Migrate UI Rendering to iced Framework | 🟡 High | ~4-6 weeks | None | 9 |
-| 160 | macOS menu bar integration | 🟢 Medium | ~1-2 days | None | 9 |
 | 161 | Windows system tray integration | 🟢 Medium | ~1-2 days | None | 9 |
 | 162 | Linux tray integration | 🟢 Medium | ~1-2 days | None | 9 |
 | 163 | Visual polish and theming | 🔵 Low | ~2-3 days | None | 9 |
@@ -21,12 +20,13 @@
 | 165 | Animated cat companion overlay | 🔵 Low | ~2-3 days | None | 9 |
 | 166 | Documentation update | 🔵 Low | ~1 day | All others | 9 |
 
-**Summary**: 8 open issues (0 Critical, 1 High, 3 Medium, 4 Low)
+**Summary**: 7 open issues (0 Critical, 1 High, 2 Medium, 4 Low)
 
 ### Completed This Session
 
 | # | Title | Priority | Date |
 |---|-------|----------|------|
+| 160 | macOS menu bar integration | 🟢 Medium | 2026-01-25 |
 | 159 | Add overlay customization (opacity, color) | 🟢 Medium | 2026-01-25 |
 | 158 | Implement settings persistence to disk | 🟢 Medium | 2026-01-25 |
 | 157 | Create settings window UI in iced | 🟢 Medium | 2026-01-24 |
@@ -46,8 +46,8 @@
 
 ### Recommended Next Issues
 
-1. **#160** - macOS menu bar integration (unblocked, start here!)
-2. **#161** - Windows system tray integration (unblocked)
+1. **#161** - Windows system tray integration (unblocked, start here!)
+2. **#162** - Linux tray integration (unblocked)
 3. **#165** - Animated cat companion overlay (unblocked)
 
 ---
@@ -65,7 +65,7 @@
 | ✅ | #157 | Create settings window UI | None |
 | ✅ | #158 | Implement settings persistence | None |
 | ✅ | #159 | Add overlay customization | None |
-| 📋 | #160 | macOS menu bar integration | None |
+| ✅ | #160 | macOS menu bar integration | None |
 | 📋 | #161 | Windows system tray integration | None |
 | 📋 | #162 | Linux tray integration | None |
 | 📋 | #163 | Visual polish and theming | None |
@@ -135,7 +135,7 @@ Phase 9 (iced Migration):
     ▼
 #159 (Customization) ✅ Opacity 10-90%, color presets, hex colors, CLI flags
     │
-    ├─► #160 (macOS)
+    ├─► #160 (macOS) ✅ AppKit NSStatusItem + iced windows via thread spawn
     ├─► #161 (Windows)
     └─► #162 (Linux)
                             │
@@ -183,6 +183,7 @@ Potential future enhancements (not yet tracked as issues):
 
 | Issue | Title | Date |
 |-------|-------|------|
+| #160 | macOS menu bar integration | 2026-01-25 |
 | #159 | Add overlay customization (opacity, color) | 2026-01-25 |
 | #158 | Implement settings persistence to disk | 2026-01-25 |
 | #157 | Create settings window UI in iced | 2026-01-24 |

@@ -262,6 +262,7 @@ impl Dispatch<wl_registry::WlRegistry, ()> for ProtocolCheckState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
 
     #[test]
     fn test_wayland_modifier_state_from_depressed() {
@@ -309,6 +310,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_set_wayland_exit_key_config() {
         set_wayland_exit_key_config(16, true, false, false, false); // Super+Q (Q is keycode 16)
         assert_eq!(WAYLAND_EXIT_KEY_KEYCODE.load(Ordering::Acquire), 16);
@@ -319,6 +321,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_check_wayland_exit_key() {
         // Set up exit key as Super+Q (keycode 16)
         set_wayland_exit_key_config(16, true, false, false, false);
@@ -346,6 +349,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_set_and_clear_wayland_allowed_keys() {
         let keys = vec![
             WaylandAllowedKeyConfig {
@@ -378,6 +382,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_is_wayland_key_allowed() {
         let keys = vec![WaylandAllowedKeyConfig {
             keycode: 59, // F1
@@ -396,6 +401,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_process_wayland_key_event() {
         // Set up exit key as Super+Q
         set_wayland_exit_key_config(16, true, false, false, false);

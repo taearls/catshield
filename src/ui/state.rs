@@ -123,6 +123,12 @@ pub mod menu_bar {
 
     /// Reference to the help action handler (keeps it alive)
     pub static HELP_HANDLER: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+
+    /// Reference to the iced settings handler (keeps it alive)
+    pub static ICED_SETTINGS_HANDLER: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+
+    /// Reference to the iced about handler (keeps it alive)
+    pub static ICED_ABOUT_HANDLER: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 }
 
 // ============================================================================

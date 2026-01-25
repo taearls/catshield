@@ -1,8 +1,8 @@
 //! Menu bar setup for Cat Shield
 
 use super::handlers::{HelpActionHandler, MenuActionHandler};
-use crate::ui::state::{about, menu_bar, settings};
-use crate::ui::windows::{AboutActionHandler, SettingsActionHandler};
+use crate::ui::iced_handlers::{IcedAboutHandler, IcedSettingsHandler};
+use crate::ui::state::menu_bar;
 use objc2::rc::Retained;
 use objc2_app_kit::{NSMenu, NSMenuItem, NSStatusBar, NSStatusItem};
 use objc2_foundation::{ns_string, MainThreadMarker};
@@ -118,16 +118,17 @@ pub fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
     // CONFIGURATION SECTION
     // ============================================
 
-    // Add "Settings..." item - opens settings window for configuring preferences
+    // Add "Settings..." item - opens iced settings window for configuring preferences
     let settings_item = NSMenuItem::new(mtm);
-    settings_item.setTitle(ns_string!("Settings..."));
+    settings_item.setTitle(ns_string!("Preferences..."));
     settings_item.setToolTip(Some(ns_string!(
-        "Configure exit key, timer, and overlay opacity"
+        "Configure exit key, timer, and overlay settings"
     )));
-    settings_item.setKeyEquivalent(ns_string!(",")); // Standard Cmd+, for settings
+    settings_item.setKeyEquivalent(ns_string!(",")); // Standard Cmd+, for preferences
 
-    // Create settings action handler and wire it to the Settings item
-    let settings_handler = SettingsActionHandler::new(mtm);
+    // Create iced settings action handler and wire it to the Settings item
+    // This handler spawns the iced settings window in a separate thread
+    let settings_handler = IcedSettingsHandler::new(mtm);
 
     // Set the target and action for the settings menu item
     unsafe {
@@ -142,7 +143,7 @@ pub fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
     );
 
     // Store handler globally to keep it alive
-    settings::ACTION_HANDLER.store(
+    menu_bar::ICED_SETTINGS_HANDLER.store(
         Retained::as_ptr(&settings_handler) as *mut c_void,
         Ordering::Release,
     );
@@ -152,7 +153,7 @@ pub fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
     // SAFETY: Transferring ownership to global AtomicPtr storage.
     // The handler must outlive all settings menu interactions for the app lifetime.
     // Preventing drop here is correct because:
-    // - The pointer is stored in settings::ACTION_HANDLER (a 'static AtomicPtr)
+    // - The pointer is stored in menu_bar::ICED_SETTINGS_HANDLER (a 'static AtomicPtr)
     // - The handler is target for the Settings menu item (setTarget())
     // Cleanup: Never explicitly released; lives for app duration.
     std::mem::forget(settings_handler);
@@ -169,11 +170,12 @@ pub fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
     // INFORMATION SECTION
     // ============================================
 
-    // Create about action handler and wire it to the About item
-    let about_handler = AboutActionHandler::new(mtm);
+    // Create iced about action handler and wire it to the About item
+    // This handler spawns the iced about window in a separate thread
+    let about_handler = IcedAboutHandler::new(mtm);
 
     // Add "About Cat Shield" item
-    // Shows version, credits, and app information
+    // Shows version, credits, and app information in iced window
     let about_item = NSMenuItem::new(mtm);
     about_item.setTitle(ns_string!("About Cat Shield"));
     about_item.setToolTip(Some(ns_string!("View application information and version")));
@@ -191,7 +193,7 @@ pub fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
     );
 
     // Store handler globally to keep it alive
-    about::ACTION_HANDLER.store(
+    menu_bar::ICED_ABOUT_HANDLER.store(
         Retained::as_ptr(&about_handler) as *mut c_void,
         Ordering::Release,
     );
@@ -201,7 +203,7 @@ pub fn setup_menu_bar(mtm: MainThreadMarker) -> Retained<NSStatusItem> {
     // SAFETY: Transferring ownership to global AtomicPtr storage.
     // The handler must outlive all about menu interactions for the app lifetime.
     // Preventing drop here is correct because:
-    // - The pointer is stored in about::ACTION_HANDLER (a 'static AtomicPtr)
+    // - The pointer is stored in menu_bar::ICED_ABOUT_HANDLER (a 'static AtomicPtr)
     // - The handler is target for the About menu item (setTarget())
     // Cleanup: Never explicitly released; lives for app duration.
     std::mem::forget(about_handler);
