@@ -657,7 +657,10 @@ allowed_keys = ["Cmd+Space", "F11", "F12", "Ctrl+Option+A"]
 
         // Verify temp file doesn't exist after successful save
         let temp_path = config_path.with_extension("toml.tmp");
-        assert!(!temp_path.exists(), "Temp file should be removed after save");
+        assert!(
+            !temp_path.exists(),
+            "Temp file should be removed after save"
+        );
         assert!(config_path.exists(), "Config file should exist");
     }
 
@@ -742,7 +745,10 @@ allowed_keys = ["Cmd+Space", "F11", "F12", "Ctrl+Option+A"]
     #[test]
     fn test_missing_file_handled_gracefully() {
         let temp_dir = tempfile::tempdir().unwrap();
-        let config_path = temp_dir.path().join("nonexistent_subdir").join("config.toml");
+        let config_path = temp_dir
+            .path()
+            .join("nonexistent_subdir")
+            .join("config.toml");
 
         // Loading from nonexistent path should return defaults, not panic
         let config = Config::load_from_path(&config_path);
