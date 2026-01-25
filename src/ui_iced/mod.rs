@@ -16,7 +16,7 @@
 //! - [`settings`]: Settings window UI for configuring preferences
 //! - [`about`]: About window showing version and credits
 //! - [`theme`]: Custom theming and styling
-//! - [`integration`]: Platform integration for macOS menu bar (macOS only)
+//! - [`integration`]: Platform integration for native menus/trays (macOS, Windows, Linux)
 //!
 //! # Integration
 //!

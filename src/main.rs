@@ -137,12 +137,18 @@ fn main() {
             LINUX_SHIELD_ACTIVE.store(false, Ordering::SeqCst);
         }
         TrayMenuAction::OpenSettings => {
-            log::info!("Opening settings window...");
-            cat_shield::ui_iced::open_settings_window();
+            if cat_shield::ui_iced::open_settings_window() {
+                log::info!("Opened settings window");
+            } else {
+                log::debug!("Settings window already open");
+            }
         }
         TrayMenuAction::ShowAbout => {
-            log::info!("Opening about window...");
-            cat_shield::ui_iced::open_about_window();
+            if cat_shield::ui_iced::open_about_window() {
+                log::info!("Opened about window");
+            } else {
+                log::debug!("About window already open");
+            }
         }
         TrayMenuAction::Quit => {
             log::info!("Quit requested");
