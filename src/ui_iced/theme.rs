@@ -144,4 +144,69 @@ impl CatShieldTheme {
             color: Some(colors::TEXT_MUTED),
         }
     }
+
+    /// Style for secondary/cancel button
+    pub fn secondary_button(theme: &Theme, status: button::Status) -> button::Style {
+        let base = button::secondary(theme, status);
+
+        let background_color = match status {
+            button::Status::Active => Color::from_rgba(1.0, 1.0, 1.0, 0.1),
+            button::Status::Hovered => Color::from_rgba(1.0, 1.0, 1.0, 0.15),
+            button::Status::Pressed => Color::from_rgba(1.0, 1.0, 1.0, 0.05),
+            button::Status::Disabled => Color::from_rgba(0.5, 0.5, 0.5, 0.1),
+        };
+
+        button::Style {
+            background: Some(Background::Color(background_color)),
+            text_color: colors::TEXT_SECONDARY,
+            border: Border {
+                radius: 6.0.into(),
+                ..base.border
+            },
+            ..base
+        }
+    }
+
+    /// Style for ghost/text-only button
+    pub fn ghost_button(_theme: &Theme, status: button::Status) -> button::Style {
+        let background_color = match status {
+            button::Status::Active => Color::TRANSPARENT,
+            button::Status::Hovered => Color::from_rgba(1.0, 1.0, 1.0, 0.1),
+            button::Status::Pressed => Color::from_rgba(1.0, 1.0, 1.0, 0.05),
+            button::Status::Disabled => Color::TRANSPARENT,
+        };
+
+        button::Style {
+            background: Some(Background::Color(background_color)),
+            text_color: colors::TEXT_SECONDARY,
+            border: Border {
+                radius: 4.0.into(),
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+    }
+
+    /// Style for danger/destructive button
+    pub fn danger_button(theme: &Theme, status: button::Status) -> button::Style {
+        let base = button::primary(theme, status);
+
+        let background_color = match status {
+            button::Status::Active => Color::from_rgba(0.9, 0.3, 0.3, 0.2),
+            button::Status::Hovered => Color::from_rgba(0.9, 0.3, 0.3, 0.3),
+            button::Status::Pressed => Color::from_rgba(0.9, 0.3, 0.3, 0.15),
+            button::Status::Disabled => Color::from_rgba(0.5, 0.5, 0.5, 0.2),
+        };
+
+        button::Style {
+            background: Some(Background::Color(background_color)),
+            text_color: colors::CLOSE_BUTTON,
+            border: Border {
+                radius: 6.0.into(),
+                width: 1.0,
+                color: colors::CLOSE_BUTTON,
+            },
+            ..base
+        }
+    }
 }
