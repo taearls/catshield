@@ -578,7 +578,6 @@ fn main() {
     log::info!("✓ System tray active");
 
     // Set up tray menu callback
-    let exit_key_for_callback = exit_key_display.clone();
     let menu_callback: MenuCallback = Box::new(move |action| {
         match action {
             TrayMenuAction::StartProtection => {
