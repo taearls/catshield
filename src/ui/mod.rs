@@ -30,10 +30,7 @@ pub mod windows;
 #[cfg(target_os = "macos")]
 pub use helpers::create_label;
 #[cfg(target_os = "macos")]
-pub use iced_handlers::{
-    check_menu_item_reenable, IcedAboutHandler, IcedSettingsHandler, ABOUT_NEEDS_REENABLE,
-    SETTINGS_NEEDS_REENABLE,
-};
+pub use iced_handlers::{IcedAboutHandler, IcedSettingsHandler};
 #[cfg(target_os = "macos")]
 pub use ptr_helper::{with_ptr, with_ptr_mut, with_ptr_void, with_raw_ptr};
 #[cfg(target_os = "macos")]

@@ -8,6 +8,12 @@
 //! These handlers are set as targets for menu items in the NSStatusItem menu.
 //! When the menu item is clicked, the handler's action method is called,
 //! which spawns the corresponding iced window.
+//!
+//! # Menu Item Re-enabling
+//!
+//! When a window is opened, its corresponding menu item is disabled to prevent
+//! multiple instances. When the window closes, the menu item is re-enabled
+//! using `dispatch_async` to safely execute on the main thread.
 
 use crate::ui::ptr_helper::with_ptr_void;
 use crate::ui::state::menu_bar;
@@ -16,7 +22,6 @@ use objc2::rc::Retained;
 use objc2::{define_class, msg_send};
 use objc2_app_kit::NSMenuItem;
 use objc2_foundation::{MainThreadMarker, NSObject};
-use std::sync::atomic::Ordering;
 
 /// Empty ivars for the IcedSettingsHandler
 pub struct IcedSettingsHandlerIvars {}
@@ -54,12 +59,9 @@ define_class!(
                         std::thread::sleep(std::time::Duration::from_millis(100));
                     }
 
-                    // Re-enable menu item on main thread
-                    // Note: We need to dispatch back to main thread for AppKit operations
+                    // Re-enable menu item on main thread using dispatch_async
                     log::debug!("Settings window closed, re-enabling menu item");
-                    // The menu item will be re-enabled on next menu access
-                    // This is a limitation - proper solution would use dispatch_async
-                    SETTINGS_NEEDS_REENABLE.store(true, Ordering::SeqCst);
+                    dispatch_to_main_thread(reenable_settings_menu_item);
                 });
             } else {
                 // Window was already open, re-enable menu item
@@ -110,9 +112,9 @@ define_class!(
                         std::thread::sleep(std::time::Duration::from_millis(100));
                     }
 
-                    // Mark that menu item needs re-enabling
+                    // Re-enable menu item on main thread using dispatch_async
                     log::debug!("About window closed, re-enabling menu item");
-                    ABOUT_NEEDS_REENABLE.store(true, Ordering::SeqCst);
+                    dispatch_to_main_thread(reenable_about_menu_item);
                 });
             } else {
                 // Window was already open, re-enable menu item
@@ -134,50 +136,33 @@ impl IcedAboutHandler {
     }
 }
 
-/// Flag indicating the settings menu item needs re-enabling
-/// This is set by the background thread when the iced window closes
-pub static SETTINGS_NEEDS_REENABLE: std::sync::atomic::AtomicBool =
-    std::sync::atomic::AtomicBool::new(false);
-
-/// Flag indicating the about menu item needs re-enabling
-pub static ABOUT_NEEDS_REENABLE: std::sync::atomic::AtomicBool =
-    std::sync::atomic::AtomicBool::new(false);
-
-/// Check and re-enable menu items if needed
+/// Dispatch a closure to run on the main thread
 ///
-/// This should be called periodically from the main thread (e.g., in a timer
-/// or event handler) to re-enable menu items after iced windows close.
-pub fn check_menu_item_reenable() {
-    if SETTINGS_NEEDS_REENABLE.swap(false, Ordering::SeqCst) {
-        unsafe {
-            with_ptr_void::<NSMenuItem, _>(&menu_bar::SETTINGS_ITEM, |menu_item| {
-                menu_item.setEnabled(true);
-            });
-        }
-        log::debug!("Re-enabled settings menu item");
-    }
-
-    if ABOUT_NEEDS_REENABLE.swap(false, Ordering::SeqCst) {
-        unsafe {
-            with_ptr_void::<NSMenuItem, _>(&menu_bar::ABOUT_ITEM, |menu_item| {
-                menu_item.setEnabled(true);
-            });
-        }
-        log::debug!("Re-enabled about menu item");
-    }
+/// This uses Grand Central Dispatch to safely execute AppKit operations
+/// from background threads.
+fn dispatch_to_main_thread<F>(f: F)
+where
+    F: FnOnce() + Send + 'static,
+{
+    dispatch2::DispatchQueue::main().exec_async(f);
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_reenable_flags_initially_false() {
-        // Reset for test
-        SETTINGS_NEEDS_REENABLE.store(false, Ordering::SeqCst);
-        ABOUT_NEEDS_REENABLE.store(false, Ordering::SeqCst);
-
-        assert!(!SETTINGS_NEEDS_REENABLE.load(Ordering::SeqCst));
-        assert!(!ABOUT_NEEDS_REENABLE.load(Ordering::SeqCst));
+/// Re-enable the settings menu item (called on main thread via dispatch)
+fn reenable_settings_menu_item() {
+    unsafe {
+        with_ptr_void::<NSMenuItem, _>(&menu_bar::SETTINGS_ITEM, |menu_item| {
+            menu_item.setEnabled(true);
+        });
     }
+    log::debug!("Re-enabled settings menu item");
+}
+
+/// Re-enable the about menu item (called on main thread via dispatch)
+fn reenable_about_menu_item() {
+    unsafe {
+        with_ptr_void::<NSMenuItem, _>(&menu_bar::ABOUT_ITEM, |menu_item| {
+            menu_item.setEnabled(true);
+        });
+    }
+    log::debug!("Re-enabled about menu item");
 }

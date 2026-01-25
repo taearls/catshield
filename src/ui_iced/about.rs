@@ -12,10 +12,8 @@ use crate::ui_iced::theme::{colors, CatShieldTheme};
 /// Messages for the about window
 #[derive(Debug, Clone)]
 pub enum AboutMessage {
-    /// Close the about window
+    /// Close the about window (via Close button)
     Close,
-    /// Window close requested (via title bar X button)
-    CloseRequested,
 }
 
 /// State for the about window
@@ -41,7 +39,7 @@ impl AboutWindow {
     /// Update about window state
     pub fn update(&mut self, message: AboutMessage) -> Task<AboutMessage> {
         match message {
-            AboutMessage::Close | AboutMessage::CloseRequested => iced::exit(),
+            AboutMessage::Close => iced::exit(),
         }
     }
 
