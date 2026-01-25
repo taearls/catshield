@@ -180,7 +180,7 @@ impl AboutWindow {
 
     /// Get the theme for the about window
     pub fn theme(&self) -> Theme {
-        CatShieldTheme::base()
+        CatShieldTheme::system()
     }
 
     /// Get window settings for the about window

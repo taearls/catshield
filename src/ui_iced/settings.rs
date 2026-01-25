@@ -457,7 +457,7 @@ impl SettingsWindow {
             || current.allowed_keys != self.original_config.allowed_keys
             || current.launch_at_login != self.original_config.launch_at_login
             || current.enable_trace_logging != self.original_config.enable_trace_logging
-            || current.color_scheme != self.original_config.color_scheme;
+            || current.color_scheme() != self.original_config.color_scheme();
     }
 
     /// Save settings to config file
@@ -1426,7 +1426,7 @@ impl SettingsWindow {
 
     /// Get the theme for the settings window
     pub fn theme(&self) -> Theme {
-        CatShieldTheme::base()
+        CatShieldTheme::for_scheme(self.color_scheme.to_color_scheme())
     }
 
     /// Get window settings for the settings window

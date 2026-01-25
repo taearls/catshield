@@ -89,8 +89,14 @@ impl Config {
     }
 
     /// Get the color scheme setting (dark, light, or system)
-    pub fn color_scheme(&self) -> &str {
-        self.color_scheme.as_deref().unwrap_or("system")
+    /// Values are normalized to lowercase. Invalid values default to "system".
+    pub fn color_scheme(&self) -> &'static str {
+        match self.color_scheme.as_deref() {
+            Some(v) if v.eq_ignore_ascii_case("dark") => "dark",
+            Some(v) if v.eq_ignore_ascii_case("light") => "light",
+            Some(v) if v.eq_ignore_ascii_case("system") => "system",
+            _ => "system",
+        }
     }
 
     /// Save configuration to the config file atomically.

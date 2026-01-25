@@ -596,7 +596,7 @@ impl OverlayApp {
 
     /// Get the theme for the overlay
     pub fn theme(&self) -> Theme {
-        CatShieldTheme::base()
+        CatShieldTheme::system()
     }
 
     /// Get window settings for the overlay
