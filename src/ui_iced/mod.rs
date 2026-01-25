@@ -34,7 +34,7 @@
 //! the corresponding iced window in a separate thread.
 
 pub mod about;
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 pub mod integration;
 pub mod overlay;
 pub mod settings;
@@ -42,7 +42,7 @@ pub mod theme;
 
 // Re-export main types for convenience
 pub use about::{AboutMessage, AboutWindow};
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 pub use integration::{
     close_all_windows, is_about_window_open, is_settings_window_open, open_about_window,
     open_settings_window,
