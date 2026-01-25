@@ -54,9 +54,7 @@ impl AboutWindow {
                 .padding(Padding::from([30.0, 0.0]).bottom(10.0))
                 .align_x(iced::alignment::Horizontal::Center),
             // App name
-            text("Cat Shield")
-                .size(28)
-                .color(colors::TEXT_PRIMARY),
+            text("Cat Shield").size(28).color(colors::TEXT_PRIMARY),
             // Version
             text(format!("Version {}", self.version))
                 .size(14)
@@ -80,9 +78,7 @@ impl AboutWindow {
             // Credits section
             container(
                 column![
-                    text("Built with")
-                        .size(12)
-                        .color(colors::TEXT_MUTED),
+                    text("Built with").size(12).color(colors::TEXT_MUTED),
                     text("Rust + iced framework")
                         .size(13)
                         .color(colors::TEXT_SECONDARY),
@@ -100,9 +96,7 @@ impl AboutWindow {
                     text("github.com/taearls/catshield")
                         .size(12)
                         .color(colors::ACCENT),
-                    text("MIT License")
-                        .size(11)
-                        .color(colors::TEXT_MUTED),
+                    text("MIT License").size(11).color(colors::TEXT_MUTED),
                 ]
                 .spacing(4)
                 .align_x(Alignment::Center)
@@ -113,12 +107,10 @@ impl AboutWindow {
             Space::new().height(Length::Fill),
             // Close button
             container(
-                row![
-                    button(text("Close").size(14).color(colors::TEXT_PRIMARY))
-                        .padding([10, 24])
-                        .style(CatShieldTheme::primary_button)
-                        .on_press(AboutMessage::Close),
-                ]
+                row![button(text("Close").size(14).color(colors::TEXT_PRIMARY))
+                    .padding([10, 24])
+                    .style(CatShieldTheme::primary_button)
+                    .on_press(AboutMessage::Close),]
                 .align_y(Alignment::Center)
             )
             .width(Length::Fill)
