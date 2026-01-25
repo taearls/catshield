@@ -23,7 +23,7 @@ use iced::window::{Position, Settings as WindowSettings};
 use iced::{Alignment, Color, Element, Length, Size, Task, Theme};
 
 use crate::config::{Config, DEFAULT_OVERLAY_OPACITY, MAX_OVERLAY_OPACITY, MIN_OVERLAY_OPACITY};
-use crate::ui_iced::theme::{colors, CatShieldTheme};
+use crate::ui_iced::theme::{borders, colors, spacing, typography, CatShieldTheme, ColorScheme};
 
 /// Preset overlay colors for quick selection
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -175,6 +175,64 @@ impl std::fmt::Display for TimerPreset {
     }
 }
 
+/// Color scheme preference for the application
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ColorSchemePreference {
+    /// Follow system dark/light mode
+    #[default]
+    System,
+    /// Always use dark mode
+    Dark,
+    /// Always use light mode
+    Light,
+}
+
+impl ColorSchemePreference {
+    /// Convert to config string
+    pub fn to_config_string(&self) -> String {
+        match self {
+            ColorSchemePreference::System => "system".to_string(),
+            ColorSchemePreference::Dark => "dark".to_string(),
+            ColorSchemePreference::Light => "light".to_string(),
+        }
+    }
+
+    /// Parse from config string
+    pub fn from_config_string(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "dark" => ColorSchemePreference::Dark,
+            "light" => ColorSchemePreference::Light,
+            _ => ColorSchemePreference::System,
+        }
+    }
+
+    /// All available preferences
+    pub const ALL: [ColorSchemePreference; 3] = [
+        ColorSchemePreference::System,
+        ColorSchemePreference::Dark,
+        ColorSchemePreference::Light,
+    ];
+
+    /// Convert to ColorScheme for the theme system
+    pub fn to_color_scheme(&self) -> ColorScheme {
+        match self {
+            ColorSchemePreference::System => ColorScheme::System,
+            ColorSchemePreference::Dark => ColorScheme::Dark,
+            ColorSchemePreference::Light => ColorScheme::Light,
+        }
+    }
+}
+
+impl std::fmt::Display for ColorSchemePreference {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ColorSchemePreference::System => write!(f, "Follow System"),
+            ColorSchemePreference::Dark => write!(f, "Dark Mode"),
+            ColorSchemePreference::Light => write!(f, "Light Mode"),
+        }
+    }
+}
+
 /// Which section of settings is currently expanded/focused
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SettingsSection {
@@ -221,6 +279,8 @@ pub enum SettingsMessage {
     LaunchAtLoginToggled(bool),
     /// Trace logging toggled
     TraceLoggingToggled(bool),
+    /// Color scheme preference changed
+    ColorSchemeChanged(ColorSchemePreference),
 
     // Navigation
     /// Switch to a different section
@@ -267,6 +327,8 @@ pub struct SettingsWindow {
     launch_at_login: bool,
     /// Trace logging enabled
     trace_logging: bool,
+    /// Color scheme preference
+    color_scheme: ColorSchemePreference,
 
     // UI state
     /// Currently selected section
@@ -327,6 +389,7 @@ impl SettingsWindow {
 
             launch_at_login: config.launch_at_login.unwrap_or(false),
             trace_logging: config.enable_trace_logging.unwrap_or(false),
+            color_scheme: ColorSchemePreference::from_config_string(config.color_scheme()),
 
             current_section: SettingsSection::Overlay,
             has_changes: false,
@@ -378,6 +441,7 @@ impl SettingsWindow {
             },
             launch_at_login: Some(self.launch_at_login),
             enable_trace_logging: Some(self.trace_logging),
+            color_scheme: Some(self.color_scheme.to_config_string()),
         }
     }
 
@@ -392,7 +456,8 @@ impl SettingsWindow {
             || current.color() != self.original_config.color()
             || current.allowed_keys != self.original_config.allowed_keys
             || current.launch_at_login != self.original_config.launch_at_login
-            || current.enable_trace_logging != self.original_config.enable_trace_logging;
+            || current.enable_trace_logging != self.original_config.enable_trace_logging
+            || current.color_scheme != self.original_config.color_scheme;
     }
 
     /// Save settings to config file
@@ -416,6 +481,7 @@ impl SettingsWindow {
         self.new_allowed_key_input = String::new();
         self.launch_at_login = false;
         self.trace_logging = false;
+        self.color_scheme = ColorSchemePreference::System;
         self.check_for_changes();
     }
 
@@ -506,6 +572,10 @@ impl SettingsWindow {
                 self.trace_logging = enabled;
                 self.check_for_changes();
             }
+            SettingsMessage::ColorSchemeChanged(scheme) => {
+                self.color_scheme = scheme;
+                self.check_for_changes();
+            }
 
             // Navigation
             SettingsMessage::SwitchSection(section) => {
@@ -541,21 +611,21 @@ impl SettingsWindow {
         Task::none()
     }
 
-    /// Render the settings view
+    /// Render the settings view with polished layout
     pub fn view(&self) -> Element<'_, SettingsMessage> {
         let content = column![
             // Header
             self.view_header(),
-            rule::horizontal(1),
+            rule::horizontal(1).style(CatShieldTheme::rule_style),
             // Navigation tabs
             self.view_tabs(),
-            rule::horizontal(1),
+            rule::horizontal(1).style(CatShieldTheme::rule_style),
             // Main content area (scrollable)
             scrollable(self.view_current_section())
                 .height(Length::Fill)
                 .width(Length::Fill),
             // Footer with action buttons
-            rule::horizontal(1),
+            rule::horizontal(1).style(CatShieldTheme::rule_style),
             self.view_footer(),
         ]
         .spacing(0)
@@ -569,66 +639,81 @@ impl SettingsWindow {
             .into()
     }
 
-    /// Render the header
+    /// Render the header with polished styling
     fn view_header(&self) -> Element<'_, SettingsMessage> {
-        let title = text("Cat Shield Settings")
-            .size(24)
-            .color(colors::TEXT_PRIMARY);
+        let title = row![
+            text("🐱").size(typography::SIZE_HEADER),
+            Space::new().width(Length::Fixed(spacing::SM)),
+            text("Cat Shield Settings")
+                .size(typography::SIZE_HEADER)
+                .color(colors::TEXT_PRIMARY),
+        ]
+        .align_y(Alignment::Center);
 
         let subtitle = if self.has_changes {
-            text("Unsaved changes")
-                .size(12)
-                .color(colors::TIMER_WARNING)
+            row![
+                text("●").size(typography::SIZE_CAPTION).color(colors::WARNING),
+                Space::new().width(Length::Fixed(spacing::XS)),
+                text("Unsaved changes")
+                    .size(typography::SIZE_CAPTION)
+                    .color(colors::WARNING),
+            ]
+            .align_y(Alignment::Center)
         } else {
-            text("Configure your protection settings")
-                .size(12)
-                .color(colors::TEXT_SECONDARY)
+            row![
+                text("Configure your protection settings")
+                    .size(typography::SIZE_CAPTION)
+                    .color(colors::TEXT_SECONDARY),
+            ]
         };
 
         container(
             column![title, subtitle]
-                .spacing(4)
+                .spacing(spacing::SM )
                 .align_x(Alignment::Center),
         )
         .width(Length::Fill)
-        .padding([20, 30])
+        .padding([spacing::SECTION_PADDING, spacing::WINDOW_PADDING])
         .into()
     }
 
-    /// Render the navigation tabs
+    /// Render the navigation tabs with polished styling
     fn view_tabs(&self) -> Element<'_, SettingsMessage> {
-        let make_tab = |section: SettingsSection, label: &'static str, current: SettingsSection| {
-            let is_selected = current == section;
-            let style = if is_selected {
-                CatShieldTheme::primary_button
-            } else {
-                CatShieldTheme::secondary_button
-            };
+        let make_tab =
+            |section: SettingsSection, label: &'static str, icon: &'static str, current: SettingsSection| {
+                let is_selected = current == section;
 
-            button(text(label).size(14).color(if is_selected {
-                colors::TEXT_PRIMARY
-            } else {
-                colors::TEXT_SECONDARY
-            }))
-            .padding([8, 16])
-            .style(style)
-            .on_press(SettingsMessage::SwitchSection(section))
-        };
+                button(
+                    row![
+                        text(icon).size(typography::SIZE_BODY),
+                        Space::new().width(Length::Fixed(spacing::XS)),
+                        text(label).size(typography::SIZE_BODY).color(if is_selected {
+                            colors::TEXT_ON_ACCENT
+                        } else {
+                            colors::TEXT_SECONDARY
+                        }),
+                    ]
+                    .align_y(Alignment::Center),
+                )
+                .padding([spacing::SM, spacing::LG])
+                .style(move |theme, status| CatShieldTheme::tab_button(theme, status, is_selected))
+                .on_press(SettingsMessage::SwitchSection(section))
+            };
 
         let current = self.current_section;
 
         container(
             row![
-                make_tab(SettingsSection::Overlay, "Overlay", current),
-                make_tab(SettingsSection::Behavior, "Behavior", current),
-                make_tab(SettingsSection::Advanced, "Advanced", current),
-                make_tab(SettingsSection::About, "About", current),
+                make_tab(SettingsSection::Overlay, "Overlay", "🎨", current),
+                make_tab(SettingsSection::Behavior, "Behavior", "⚙️", current),
+                make_tab(SettingsSection::Advanced, "Advanced", "🔧", current),
+                make_tab(SettingsSection::About, "About", "ℹ️", current),
             ]
-            .spacing(8)
+            .spacing(spacing::SM )
             .align_y(Alignment::Center),
         )
         .width(Length::Fill)
-        .padding([12, 30])
+        .padding([spacing::MD, spacing::WINDOW_PADDING])
         .into()
     }
 
@@ -643,7 +728,7 @@ impl SettingsWindow {
 
         container(content)
             .width(Length::Fill)
-            .padding([20, 30])
+            .padding([spacing::SECTION_PADDING, spacing::WINDOW_PADDING])
             .into()
     }
 
@@ -657,7 +742,7 @@ impl SettingsWindow {
         }
     }
 
-    /// Render the overlay settings section
+    /// Render the overlay settings section with polished styling
     fn view_overlay_section(&self) -> Element<'_, SettingsMessage> {
         let opacity_percent = (self.opacity * 100.0).round() as i32;
 
@@ -676,11 +761,24 @@ impl SettingsWindow {
                 "How dark the overlay appears (10% - 90%)",
                 column![
                     row![
-                        text("Transparency").size(14).color(colors::TEXT_SECONDARY),
+                        text("Transparency")
+                            .size(typography::SIZE_BODY)
+                            .color(colors::TEXT_SECONDARY),
                         Space::new().width(Length::Fill),
-                        text(format!("{opacity_percent}%"))
-                            .size(14)
-                            .color(colors::TEXT_PRIMARY),
+                        container(
+                            text(format!("{opacity_percent}%"))
+                                .size(typography::SIZE_BODY)
+                                .color(colors::TEXT_PRIMARY)
+                        )
+                        .padding([spacing::XS, spacing::SM])
+                        .style(|_theme| container::Style {
+                            background: Some(iced::Background::Color(colors::BACKGROUND_ELEVATED)),
+                            border: iced::Border {
+                                radius: borders::RADIUS_SM.into(),
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        }),
                     ]
                     .align_y(Alignment::Center),
                     slider(
@@ -688,39 +786,51 @@ impl SettingsWindow {
                         self.opacity,
                         SettingsMessage::OpacityChanged
                     )
-                    .step(0.05),
+                    .step(0.05)
+                    .style(CatShieldTheme::slider_style),
                     row![
-                        text("More transparent").size(11).color(colors::TEXT_MUTED),
+                        text("More transparent")
+                            .size(typography::SIZE_MICRO)
+                            .color(colors::TEXT_MUTED),
                         Space::new().width(Length::Fill),
-                        text("More opaque").size(11).color(colors::TEXT_MUTED),
+                        text("More opaque")
+                            .size(typography::SIZE_MICRO)
+                            .color(colors::TEXT_MUTED),
                     ],
-                    // Preview
-                    Space::new().height(Length::Fixed(15.0)),
-                    text("Preview").size(12).color(colors::TEXT_SECONDARY),
+                    // Preview section
+                    Space::new().height(Length::Fixed(spacing::LG)),
+                    text("Preview").size(typography::SIZE_CAPTION).color(colors::TEXT_SECONDARY),
                     container(
-                        text("Cat Shield Active")
-                            .size(16)
-                            .color(colors::TEXT_PRIMARY)
+                        column![
+                            text("🐱").size(32.0),
+                            text("Cat Shield Active")
+                                .size(typography::SIZE_TITLE)
+                                .color(colors::TEXT_PRIMARY),
+                        ]
+                        .align_x(Alignment::Center)
+                        .spacing(spacing::SM )
                     )
                     .width(Length::Fill)
-                    .height(Length::Fixed(80.0))
-                    .padding(20)
+                    .height(Length::Fixed(100.0))
+                    .padding(spacing::SECTION_PADDING)
+                    .align_x(iced::alignment::Horizontal::Center)
+                    .align_y(iced::alignment::Vertical::Center)
                     .style(move |_theme| container::Style {
                         background: Some(iced::Background::Color(preview_color)),
                         border: iced::Border {
-                            radius: 8.0.into(),
-                            width: 1.0,
-                            color: colors::TEXT_MUTED,
+                            radius: borders::RADIUS_MD.into(),
+                            width: borders::WIDTH_DEFAULT,
+                            color: colors::BORDER_SUBTLE,
                         },
                         ..Default::default()
                     }),
                 ]
-                .spacing(8),
+                .spacing(spacing::SM ),
             ),
-            Space::new().height(Length::Fixed(20.0)),
+            Space::new().height(Length::Fixed(spacing::XL)),
             // Color preset setting
             self.view_setting_group(
-                "Color Theme",
+                "Overlay Color",
                 "Choose a color for the overlay background",
                 column![
                     pick_list(
@@ -729,41 +839,143 @@ impl SettingsWindow {
                         SettingsMessage::ColorPresetSelected
                     )
                     .width(Length::Fixed(200.0))
-                    .padding([8, 12]),
+                    .padding([spacing::SM, spacing::MD])
+                    .style(CatShieldTheme::pick_list_style),
                     // Show hex color input when Custom is selected
                     if self.color_preset == OverlayColor::Custom {
                         column![
-                            Space::new().height(Length::Fixed(10.0)),
+                            Space::new().height(Length::Fixed(spacing::MD)),
                             row![
-                                text("Hex color:").size(13).color(colors::TEXT_SECONDARY),
+                                text("Hex color:")
+                                    .size(typography::SIZE_BODY_SMALL)
+                                    .color(colors::TEXT_SECONDARY),
                                 text_input("#RRGGBB", &self.hex_color_input)
                                     .on_input(SettingsMessage::HexColorChanged)
-                                    .padding([8, 10])
-                                    .width(Length::Fixed(120.0)),
+                                    .padding([spacing::SM, spacing::MD])
+                                    .width(Length::Fixed(120.0))
+                                    .style(CatShieldTheme::text_input_style),
                             ]
-                            .spacing(10)
+                            .spacing(spacing::MD )
                             .align_y(Alignment::Center),
                             if !hex_is_valid {
                                 text("Invalid hex color format")
-                                    .size(11)
-                                    .color(colors::TIMER_WARNING)
+                                    .size(typography::SIZE_MICRO)
+                                    .color(colors::WARNING)
                             } else {
-                                text("").size(11)
+                                text("").size(typography::SIZE_MICRO)
                             },
                         ]
-                        .spacing(4)
+                        .spacing(spacing::XS )
                     } else {
                         column![]
                     },
                 ]
-                .spacing(4),
+                .spacing(spacing::XS ),
+            ),
+            Space::new().height(Length::Fixed(spacing::XL)),
+            // Color scheme / dark mode setting
+            self.view_setting_group(
+                "Appearance",
+                "Choose dark mode, light mode, or follow system preference",
+                column![
+                    pick_list(
+                        ColorSchemePreference::ALL.as_slice(),
+                        Some(self.color_scheme),
+                        SettingsMessage::ColorSchemeChanged
+                    )
+                    .width(Length::Fixed(200.0))
+                    .padding([spacing::SM, spacing::MD])
+                    .style(CatShieldTheme::pick_list_style),
+                    Space::new().height(Length::Fixed(spacing::SM)),
+                    self.view_current_scheme_indicator(),
+                ]
+                .spacing(spacing::XS ),
             ),
         ]
-        .spacing(10)
+        .spacing(spacing::MD )
         .into()
     }
 
-    /// Render the behavior settings section
+    /// Show indicator of current effective color scheme
+    fn view_current_scheme_indicator(&self) -> Element<'_, SettingsMessage> {
+        let (icon, label) = if self.color_scheme.to_color_scheme().is_dark() {
+            ("🌙", "Dark mode active")
+        } else {
+            ("☀️", "Light mode active")
+        };
+
+        container(
+            row![
+                text(icon).size(typography::SIZE_BODY),
+                Space::new().width(Length::Fixed(spacing::XS)),
+                text(label)
+                    .size(typography::SIZE_CAPTION)
+                    .color(colors::TEXT_MUTED),
+            ]
+            .align_y(Alignment::Center)
+        )
+        .padding([spacing::XS, spacing::SM])
+        .style(|_theme| container::Style {
+            background: Some(iced::Background::Color(colors::BACKGROUND_ELEVATED)),
+            border: iced::Border {
+                radius: borders::RADIUS_SM.into(),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .into()
+    }
+
+    /// Helper to render the allowed keys list
+    fn view_allowed_keys_list(&self) -> Element<'_, SettingsMessage> {
+        if self.allowed_keys.is_empty() {
+            return container(
+                text("No allowed keys configured")
+                    .size(typography::SIZE_BODY_SMALL)
+                    .color(colors::TEXT_MUTED),
+            )
+            .padding(spacing::SM)
+            .into();
+        }
+
+        let items: Vec<Element<'_, SettingsMessage>> = self
+            .allowed_keys
+            .iter()
+            .enumerate()
+            .map(|(i, key)| {
+                container(
+                    row![
+                        container(
+                            text(key)
+                                .size(typography::SIZE_BODY)
+                                .color(colors::TEXT_PRIMARY)
+                        )
+                        .padding([spacing::XS, spacing::SM])
+                        .style(|_theme| container::Style {
+                            background: Some(iced::Background::Color(colors::BACKGROUND_ELEVATED)),
+                            border: iced::Border {
+                                radius: borders::RADIUS_SM.into(),
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        }),
+                        Space::new().width(Length::Fill),
+                        button(text("×").size(typography::SIZE_TITLE).color(colors::DANGER))
+                            .padding([spacing::XS, spacing::SM])
+                            .style(CatShieldTheme::ghost_button)
+                            .on_press(SettingsMessage::RemoveAllowedKey(i)),
+                    ]
+                    .align_y(Alignment::Center),
+                )
+                .padding([spacing::XS, 0.0])
+                .into()
+            })
+            .collect();
+
+        container(column(items).spacing(spacing::XS)).into()
+    }
+
+    /// Render the behavior settings section with polished styling
     fn view_behavior_section(&self) -> Element<'_, SettingsMessage> {
         column![
             // Exit key setting
@@ -772,10 +984,11 @@ impl SettingsWindow {
                 "Key combination to unlock the screen (e.g., Cmd+Option+U)",
                 text_input("Cmd+Option+U", &self.exit_key)
                     .on_input(SettingsMessage::ExitKeyChanged)
-                    .padding([10, 12])
-                    .width(Length::Fixed(250.0)),
+                    .padding([spacing::SM, spacing::MD])
+                    .width(Length::Fixed(250.0))
+                    .style(CatShieldTheme::text_input_style),
             ),
-            Space::new().height(Length::Fixed(20.0)),
+            Space::new().height(Length::Fixed(spacing::XL)),
             // Default timer setting
             self.view_setting_group(
                 "Default Timer",
@@ -787,90 +1000,89 @@ impl SettingsWindow {
                         SettingsMessage::TimerPresetSelected
                     )
                     .width(Length::Fixed(200.0))
-                    .padding([8, 12]),
+                    .padding([spacing::SM, spacing::MD])
+                    .style(CatShieldTheme::pick_list_style),
                     if self.timer_preset == TimerPreset::Custom {
                         row![
                             text("Custom duration:")
-                                .size(13)
+                                .size(typography::SIZE_BODY_SMALL)
                                 .color(colors::TEXT_SECONDARY),
                             text_input("e.g., 45m or 1h30m", &self.custom_timer)
                                 .on_input(SettingsMessage::CustomTimerChanged)
-                                .padding([8, 10])
-                                .width(Length::Fixed(150.0)),
+                                .padding([spacing::SM, spacing::MD])
+                                .width(Length::Fixed(150.0))
+                                .style(CatShieldTheme::text_input_style),
                         ]
-                        .spacing(10)
+                        .spacing(spacing::MD )
                         .align_y(Alignment::Center)
                     } else {
                         row![]
                     },
                 ]
-                .spacing(10),
+                .spacing(spacing::MD ),
             ),
-            Space::new().height(Length::Fixed(20.0)),
+            Space::new().height(Length::Fixed(spacing::XL)),
             // Allowed keys setting
             self.view_setting_group(
                 "Allowed Keys",
                 "Keyboard shortcuts that bypass the shield (e.g., for volume control)",
                 column![
-                    // List of current allowed keys
-                    column(
-                        self.allowed_keys
-                            .iter()
-                            .enumerate()
-                            .map(|(i, key)| {
-                                row![
-                                    text(key).size(14).color(colors::TEXT_PRIMARY),
-                                    Space::new().width(Length::Fill),
-                                    button(text("Remove").size(12).color(colors::CLOSE_BUTTON))
-                                        .padding([4, 8])
-                                        .style(CatShieldTheme::ghost_button)
-                                        .on_press(SettingsMessage::RemoveAllowedKey(i)),
-                                ]
-                                .spacing(8)
-                                .align_y(Alignment::Center)
-                                .padding([4, 8])
-                                .into()
-                            })
-                            .collect::<Vec<_>>()
-                    )
-                    .spacing(4),
+                    // List of current allowed keys with improved styling
+                    self.view_allowed_keys_list(),
+                    Space::new().height(Length::Fixed(spacing::SM)),
                     // Add new key input
                     row![
                         text_input("Add key (e.g., Cmd+Space)", &self.new_allowed_key_input)
                             .on_input(SettingsMessage::AllowedKeyInputChanged)
                             .on_submit(SettingsMessage::AddAllowedKey)
-                            .padding([8, 10])
-                            .width(Length::Fixed(200.0)),
-                        button(text("Add").size(13).color(colors::TEXT_PRIMARY))
-                            .padding([8, 12])
-                            .style(CatShieldTheme::primary_button)
-                            .on_press(SettingsMessage::AddAllowedKey),
+                            .padding([spacing::SM, spacing::MD])
+                            .width(Length::Fixed(200.0))
+                            .style(CatShieldTheme::text_input_style),
+                        button(
+                            text("Add")
+                                .size(typography::SIZE_BODY_SMALL)
+                                .color(colors::TEXT_ON_ACCENT)
+                        )
+                        .padding([spacing::SM, spacing::MD])
+                        .style(CatShieldTheme::primary_button)
+                        .on_press(SettingsMessage::AddAllowedKey),
                     ]
-                    .spacing(8)
+                    .spacing(spacing::SM )
                     .align_y(Alignment::Center),
-                    // Preset buttons
+                    // Preset buttons with improved styling
+                    Space::new().height(Length::Fixed(spacing::SM)),
                     row![
-                        text("Presets:").size(12).color(colors::TEXT_MUTED),
-                        button(text("Media Keys").size(12).color(colors::ACCENT))
-                            .padding([4, 8])
-                            .style(CatShieldTheme::ghost_button)
-                            .on_press(SettingsMessage::AddMediaKeysPreset),
-                        button(text("Spotlight").size(12).color(colors::ACCENT))
-                            .padding([4, 8])
-                            .style(CatShieldTheme::ghost_button)
-                            .on_press(SettingsMessage::AddSpotlightPreset),
+                        text("Quick add:")
+                            .size(typography::SIZE_CAPTION)
+                            .color(colors::TEXT_MUTED),
+                        button(
+                            text("🔊 Media Keys")
+                                .size(typography::SIZE_CAPTION)
+                                .color(colors::ACCENT)
+                        )
+                        .padding([spacing::XS, spacing::SM])
+                        .style(CatShieldTheme::ghost_button)
+                        .on_press(SettingsMessage::AddMediaKeysPreset),
+                        button(
+                            text("🔍 Spotlight")
+                                .size(typography::SIZE_CAPTION)
+                                .color(colors::ACCENT)
+                        )
+                        .padding([spacing::XS, spacing::SM])
+                        .style(CatShieldTheme::ghost_button)
+                        .on_press(SettingsMessage::AddSpotlightPreset),
                     ]
-                    .spacing(8)
+                    .spacing(spacing::SM )
                     .align_y(Alignment::Center),
                 ]
-                .spacing(12),
+                .spacing(spacing::SM ),
             ),
         ]
-        .spacing(10)
+        .spacing(spacing::MD )
         .into()
     }
 
-    /// Render the advanced settings section
+    /// Render the advanced settings section with polished styling
     fn view_advanced_section(&self) -> Element<'_, SettingsMessage> {
         column![
             // Launch at login
@@ -880,9 +1092,10 @@ impl SettingsWindow {
                 checkbox(self.launch_at_login)
                     .label("Launch Cat Shield at login")
                     .on_toggle(SettingsMessage::LaunchAtLoginToggled)
-                    .text_size(14),
+                    .text_size(typography::SIZE_BODY)
+                    .style(CatShieldTheme::checkbox_style),
             ),
-            Space::new().height(Length::Fixed(20.0)),
+            Space::new().height(Length::Fixed(spacing::XL)),
             // Trace logging
             self.view_setting_group(
                 "Debug Logging",
@@ -891,95 +1104,185 @@ impl SettingsWindow {
                     checkbox(self.trace_logging)
                         .label("Enable trace logging")
                         .on_toggle(SettingsMessage::TraceLoggingToggled)
-                        .text_size(14),
-                    text("Warning: Logs may contain sensitive information")
-                        .size(11)
-                        .color(colors::TIMER_WARNING),
+                        .text_size(typography::SIZE_BODY)
+                        .style(CatShieldTheme::checkbox_style),
+                    Space::new().height(Length::Fixed(spacing::SM)),
+                    container(
+                        row![
+                            text("⚠️").size(typography::SIZE_CAPTION),
+                            Space::new().width(Length::Fixed(spacing::XS)),
+                            text("Logs may contain sensitive information")
+                                .size(typography::SIZE_MICRO)
+                                .color(colors::WARNING),
+                        ]
+                        .align_y(Alignment::Center)
+                    )
+                    .padding([spacing::XS, spacing::SM])
+                    .style(|_theme| container::Style {
+                        background: Some(iced::Background::Color(Color::from_rgba(
+                            1.0, 0.62, 0.22, 0.1,
+                        ))),
+                        border: iced::Border {
+                            radius: borders::RADIUS_SM.into(),
+                            width: borders::WIDTH_DEFAULT,
+                            color: Color::from_rgba(1.0, 0.62, 0.22, 0.3),
+                        },
+                        ..Default::default()
+                    }),
                 ]
-                .spacing(6),
+                .spacing(spacing::XS ),
             ),
-            Space::new().height(Length::Fixed(20.0)),
+            Space::new().height(Length::Fixed(spacing::XL)),
             // Reset to defaults
             self.view_setting_group(
                 "Reset",
                 "Restore all settings to their defaults",
                 button(
-                    text("Reset to Defaults")
-                        .size(14)
-                        .color(colors::CLOSE_BUTTON)
+                    row![
+                        text("↺").size(typography::SIZE_BODY),
+                        Space::new().width(Length::Fixed(spacing::XS)),
+                        text("Reset to Defaults")
+                            .size(typography::SIZE_BODY)
+                            .color(colors::DANGER),
+                    ]
+                    .align_y(Alignment::Center),
                 )
-                .padding([10, 16])
+                .padding([spacing::SM, spacing::LG])
                 .style(CatShieldTheme::danger_button)
                 .on_press(SettingsMessage::ResetDefaults),
             ),
         ]
-        .spacing(10)
+        .spacing(spacing::MD )
         .into()
     }
 
-    /// Render the about section
+    /// Render the about section with polished styling
     fn view_about_section(&self) -> Element<'_, SettingsMessage> {
         column![
-            // Version info
+            // Version info with cat icon
             container(
                 column![
-                    text("Cat Shield").size(28).color(colors::TEXT_PRIMARY),
-                    text(format!("Version {}", env!("CARGO_PKG_VERSION")))
-                        .size(14)
-                        .color(colors::TEXT_SECONDARY),
+                    text("🐱").size(48.0),
+                    Space::new().height(Length::Fixed(spacing::SM)),
+                    text("Cat Shield")
+                        .size(typography::SIZE_HEADER)
+                        .color(colors::TEXT_PRIMARY),
+                    container(
+                        text(format!("Version {}", env!("CARGO_PKG_VERSION")))
+                            .size(typography::SIZE_CAPTION)
+                            .color(colors::TEXT_SECONDARY)
+                    )
+                    .padding([spacing::XS, spacing::MD])
+                    .style(|_theme| container::Style {
+                        background: Some(iced::Background::Color(colors::BACKGROUND_ELEVATED)),
+                        border: iced::Border {
+                            radius: borders::RADIUS_PILL.into(),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    }),
                 ]
-                .spacing(4)
+                .spacing(spacing::XS )
                 .align_x(Alignment::Center)
             )
             .width(Length::Fill)
-            .padding([20, 0]),
-            Space::new().height(Length::Fixed(20.0)),
-            // Description
+            .padding([spacing::SECTION_PADDING, 0.0]),
+            Space::new().height(Length::Fixed(spacing::LG)),
+            // Description in a subtle card
             container(
                 text(
                     "A cross-platform application that creates a cat-proof \
                       screen overlay to keep your machine awake and block \
                       all input while protecting your work from curious cats."
                 )
-                .size(14)
+                .size(typography::SIZE_BODY)
                 .color(colors::TEXT_SECONDARY)
             )
             .width(Length::Fill)
-            .padding([0, 20]),
-            Space::new().height(Length::Fixed(30.0)),
-            // Links section
+            .padding(spacing::SECTION_PADDING)
+            .style(CatShieldTheme::card_container),
+            Space::new().height(Length::Fixed(spacing::XL)),
+            // Links section with icons
             self.view_setting_group(
                 "Links",
                 "Get help and contribute",
                 column![
-                    text("GitHub: github.com/taearls/catshield")
-                        .size(13)
-                        .color(colors::ACCENT),
-                    text("Report Issues: github.com/taearls/catshield/issues")
-                        .size(13)
-                        .color(colors::ACCENT),
+                    row![
+                        text("📦").size(typography::SIZE_BODY),
+                        Space::new().width(Length::Fixed(spacing::SM)),
+                        text("github.com/taearls/catshield")
+                            .size(typography::SIZE_BODY_SMALL)
+                            .color(colors::ACCENT),
+                    ]
+                    .align_y(Alignment::Center),
+                    row![
+                        text("🐛").size(typography::SIZE_BODY),
+                        Space::new().width(Length::Fixed(spacing::SM)),
+                        text("github.com/taearls/catshield/issues")
+                            .size(typography::SIZE_BODY_SMALL)
+                            .color(colors::ACCENT),
+                    ]
+                    .align_y(Alignment::Center),
                 ]
-                .spacing(8),
+                .spacing(spacing::SM ),
             ),
-            Space::new().height(Length::Fixed(20.0)),
-            // Credits
+            Space::new().height(Length::Fixed(spacing::XL)),
+            // Credits with tech stack badges
             self.view_setting_group(
                 "Credits",
                 "Built with",
-                column![
-                    text("Rust + iced framework")
-                        .size(13)
-                        .color(colors::TEXT_SECONDARY),
-                    text("MIT License").size(13).color(colors::TEXT_SECONDARY),
+                row![
+                    container(
+                        text("🦀 Rust")
+                            .size(typography::SIZE_CAPTION)
+                            .color(colors::TEXT_SECONDARY)
+                    )
+                    .padding([spacing::XS, spacing::SM])
+                    .style(|_theme| container::Style {
+                        background: Some(iced::Background::Color(colors::BACKGROUND_ELEVATED)),
+                        border: iced::Border {
+                            radius: borders::RADIUS_SM.into(),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    }),
+                    container(
+                        text("❄️ iced")
+                            .size(typography::SIZE_CAPTION)
+                            .color(colors::TEXT_SECONDARY)
+                    )
+                    .padding([spacing::XS, spacing::SM])
+                    .style(|_theme| container::Style {
+                        background: Some(iced::Background::Color(colors::BACKGROUND_ELEVATED)),
+                        border: iced::Border {
+                            radius: borders::RADIUS_SM.into(),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    }),
+                    container(
+                        text("📜 MIT")
+                            .size(typography::SIZE_CAPTION)
+                            .color(colors::TEXT_SECONDARY)
+                    )
+                    .padding([spacing::XS, spacing::SM])
+                    .style(|_theme| container::Style {
+                        background: Some(iced::Background::Color(colors::BACKGROUND_ELEVATED)),
+                        border: iced::Border {
+                            radius: borders::RADIUS_SM.into(),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    }),
                 ]
-                .spacing(4),
+                .spacing(spacing::SM ),
             ),
         ]
-        .spacing(10)
+        .spacing(spacing::MD )
         .into()
     }
 
-    /// Helper to create a consistent setting group layout
+    /// Helper to create a consistent setting group layout with polished styling
     fn view_setting_group<'a>(
         &self,
         title: &'a str,
@@ -988,74 +1291,132 @@ impl SettingsWindow {
     ) -> Element<'a, SettingsMessage> {
         container(
             column![
-                text(title).size(16).color(colors::TEXT_PRIMARY),
-                text(description).size(12).color(colors::TEXT_MUTED),
-                Space::new().height(Length::Fixed(10.0)),
+                text(title)
+                    .size(typography::SIZE_TITLE)
+                    .color(colors::TEXT_PRIMARY),
+                text(description)
+                    .size(typography::SIZE_CAPTION)
+                    .color(colors::TEXT_MUTED),
+                Space::new().height(Length::Fixed(spacing::MD)),
                 content.into(),
             ]
-            .spacing(4),
+            .spacing(spacing::XS ),
         )
         .width(Length::Fill)
-        .padding([15, 20])
+        .padding([spacing::CARD_PADDING, spacing::SECTION_PADDING])
         .style(|_theme| container::Style {
-            background: Some(iced::Background::Color(Color::from_rgba(
-                1.0, 1.0, 1.0, 0.03,
-            ))),
+            background: Some(iced::Background::Color(colors::BACKGROUND_SECONDARY)),
             border: iced::Border {
-                radius: 8.0.into(),
-                ..Default::default()
+                radius: borders::RADIUS_MD.into(),
+                width: borders::WIDTH_DEFAULT,
+                color: colors::BORDER_SUBTLE,
             },
             ..Default::default()
         })
         .into()
     }
 
-    /// Render the footer with action buttons
+    /// Render the footer with action buttons and polished styling
     fn view_footer(&self) -> Element<'_, SettingsMessage> {
-        let mut footer_row = row![].spacing(12).align_y(Alignment::Center);
+        let mut footer_row = row![]
+            .spacing(spacing::MD )
+            .align_y(Alignment::Center);
 
-        // Error/success message
+        // Error/success message with improved styling
         if let Some(ref error) = self.error_message {
-            footer_row = footer_row.push(text(error).size(13).color(colors::CLOSE_BUTTON));
+            footer_row = footer_row.push(
+                container(
+                    row![
+                        text("✕").size(typography::SIZE_BODY).color(colors::DANGER),
+                        Space::new().width(Length::Fixed(spacing::XS)),
+                        text(error)
+                            .size(typography::SIZE_BODY_SMALL)
+                            .color(colors::DANGER),
+                    ]
+                    .align_y(Alignment::Center),
+                )
+                .padding([spacing::XS, spacing::SM])
+                .style(|_theme| container::Style {
+                    background: Some(iced::Background::Color(Color::from_rgba(
+                        0.92, 0.28, 0.28, 0.1,
+                    ))),
+                    border: iced::Border {
+                        radius: borders::RADIUS_SM.into(),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                }),
+            );
         } else if let Some(ref success) = self.success_message {
-            footer_row = footer_row.push(text(success).size(13).color(colors::PROGRESS_FILL));
+            footer_row = footer_row.push(
+                container(
+                    row![
+                        text("✓").size(typography::SIZE_BODY).color(colors::SUCCESS),
+                        Space::new().width(Length::Fixed(spacing::XS)),
+                        text(success)
+                            .size(typography::SIZE_BODY_SMALL)
+                            .color(colors::SUCCESS),
+                    ]
+                    .align_y(Alignment::Center),
+                )
+                .padding([spacing::XS, spacing::SM])
+                .style(|_theme| container::Style {
+                    background: Some(iced::Background::Color(Color::from_rgba(
+                        0.30, 0.72, 0.40, 0.1,
+                    ))),
+                    border: iced::Border {
+                        radius: borders::RADIUS_SM.into(),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                }),
+            );
         }
 
         footer_row = footer_row.push(Space::new().width(Length::Fill));
 
         // Cancel button
         footer_row = footer_row.push(
-            button(text("Cancel").size(14).color(colors::TEXT_SECONDARY))
-                .padding([10, 20])
-                .style(CatShieldTheme::secondary_button)
-                .on_press(SettingsMessage::Cancel),
+            button(
+                text("Cancel")
+                    .size(typography::SIZE_BODY)
+                    .color(colors::TEXT_SECONDARY),
+            )
+            .padding([spacing::SM, spacing::XL])
+            .style(CatShieldTheme::secondary_button)
+            .on_press(SettingsMessage::Cancel),
         );
 
         // Apply button (only if there are changes)
         if self.has_changes {
             footer_row = footer_row.push(
-                button(text("Apply").size(14).color(colors::TEXT_PRIMARY))
-                    .padding([10, 20])
-                    .style(CatShieldTheme::primary_button)
-                    .on_press(SettingsMessage::Apply),
+                button(
+                    text("Apply")
+                        .size(typography::SIZE_BODY)
+                        .color(colors::TEXT_ON_ACCENT),
+                )
+                .padding([spacing::SM, spacing::XL])
+                .style(CatShieldTheme::secondary_button)
+                .on_press(SettingsMessage::Apply),
             );
         }
 
-        // Save button
+        // Save button with appropriate label
+        let save_label = if self.has_changes { "Save" } else { "OK" };
         footer_row = footer_row.push(
             button(
-                text(if self.has_changes { "Save" } else { "OK" })
-                    .size(14)
-                    .color(colors::TEXT_PRIMARY),
+                text(save_label)
+                    .size(typography::SIZE_BODY)
+                    .color(colors::TEXT_ON_ACCENT),
             )
-            .padding([10, 20])
+            .padding([spacing::SM, spacing::XL])
             .style(CatShieldTheme::primary_button)
             .on_press(SettingsMessage::Save),
         );
 
         container(footer_row)
             .width(Length::Fill)
-            .padding([15, 30])
+            .padding([spacing::CARD_PADDING, spacing::WINDOW_PADDING])
             .into()
     }
 
@@ -1127,6 +1488,7 @@ mod tests {
             allowed_keys: Some(vec!["F11".to_string(), "F12".to_string()]),
             launch_at_login: Some(true),
             enable_trace_logging: Some(false),
+            color_scheme: None,
         };
 
         let window = SettingsWindow::from_config(config);

@@ -37,6 +37,10 @@ pub struct Config {
     /// Enable trace logging to file (default: false)
     /// When enabled, detailed event traces are written to ~/.config/catshield/logs/
     pub enable_trace_logging: Option<bool>,
+
+    /// Color scheme preference ("dark", "light", or "system")
+    /// Default: "system" - follows system preference
+    pub color_scheme: Option<String>,
 }
 
 impl Config {
@@ -82,6 +86,11 @@ impl Config {
         self.overlay_color
             .as_deref()
             .unwrap_or(DEFAULT_OVERLAY_COLOR)
+    }
+
+    /// Get the color scheme setting (dark, light, or system)
+    pub fn color_scheme(&self) -> &str {
+        self.color_scheme.as_deref().unwrap_or("system")
     }
 
     /// Save configuration to the config file atomically.
@@ -313,6 +322,7 @@ another_unknown = 42
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
+            color_scheme: None,
         };
 
         config.save_to_path(&config_path).unwrap();
@@ -333,6 +343,7 @@ another_unknown = 42
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
+            color_scheme: None,
         };
 
         config.save_to_path(&config_path).unwrap();
@@ -353,6 +364,7 @@ another_unknown = 42
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
+            color_scheme: None,
         };
 
         config.save_to_path(&config_path).unwrap();
@@ -377,6 +389,7 @@ another_unknown = 42
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
+            color_scheme: None,
         };
         config1.save_to_path(&config_path).unwrap();
 
@@ -389,6 +402,7 @@ another_unknown = 42
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
+            color_scheme: None,
         };
         config2.save_to_path(&config_path).unwrap();
 
@@ -411,6 +425,7 @@ another_unknown = 42
             allowed_keys: None,
             launch_at_login: Some(true),
             enable_trace_logging: None,
+            color_scheme: None,
         };
 
         original.save_to_path(&config_path).unwrap();
@@ -435,6 +450,7 @@ another_unknown = 42
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
+            color_scheme: None,
         };
 
         original.save_to_path(&config_path).unwrap();
@@ -455,6 +471,7 @@ another_unknown = 42
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
+            color_scheme: None,
         };
 
         assert_eq!(config.opacity(), DEFAULT_OVERLAY_OPACITY);
@@ -471,6 +488,7 @@ another_unknown = 42
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
+            color_scheme: None,
         };
 
         assert_eq!(config.opacity(), MIN_OVERLAY_OPACITY);
@@ -487,6 +505,7 @@ another_unknown = 42
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
+            color_scheme: None,
         };
 
         assert_eq!(config.opacity(), MAX_OVERLAY_OPACITY);
@@ -503,6 +522,7 @@ another_unknown = 42
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
+            color_scheme: None,
         };
 
         assert_eq!(config.opacity(), 0.6);
@@ -589,6 +609,7 @@ allowed_keys = ["Cmd+Space", "F11", "F12", "Ctrl+Option+A"]
             ]),
             launch_at_login: None,
             enable_trace_logging: None,
+            color_scheme: None,
         };
 
         original.save_to_path(&config_path).unwrap();
@@ -646,6 +667,7 @@ allowed_keys = ["Cmd+Space", "F11", "F12", "Ctrl+Option+A"]
             allowed_keys: None,
             launch_at_login: Some(true),
             enable_trace_logging: None,
+            color_scheme: None,
         };
 
         original.save_to_path(&config_path).unwrap();
@@ -700,6 +722,7 @@ allowed_keys = ["Cmd+Space", "F11", "F12", "Ctrl+Option+A"]
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: Some(true),
+            color_scheme: None,
         };
 
         original.save_to_path(&config_path).unwrap();
@@ -725,6 +748,7 @@ allowed_keys = ["Cmd+Space", "F11", "F12", "Ctrl+Option+A"]
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
+            color_scheme: None,
         };
 
         config.save_to_path(&config_path).unwrap();
@@ -752,6 +776,7 @@ allowed_keys = ["Cmd+Space", "F11", "F12", "Ctrl+Option+A"]
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
+            color_scheme: None,
         };
         config1.save_to_path(&config_path).unwrap();
 
@@ -764,6 +789,7 @@ allowed_keys = ["Cmd+Space", "F11", "F12", "Ctrl+Option+A"]
             allowed_keys: Some(vec!["F11".to_string()]),
             launch_at_login: Some(true),
             enable_trace_logging: Some(false),
+            color_scheme: None,
         };
         config2.save_to_path(&config_path).unwrap();
 
@@ -797,6 +823,7 @@ allowed_keys = ["Cmd+Space", "F11", "F12", "Ctrl+Option+A"]
                 allowed_keys: Some(vec!["Cmd+Space".to_string(), "F12".to_string()]),
                 launch_at_login: Some(true),
                 enable_trace_logging: Some(false),
+                color_scheme: None,
             };
             config.save_to_path(&config_path).unwrap();
         }
@@ -917,6 +944,7 @@ overlay_opacity = "not a number"
             ]),
             launch_at_login: Some(true),
             enable_trace_logging: Some(true),
+            color_scheme: None,
         };
 
         original.save_to_path(&config_path).unwrap();
@@ -1059,6 +1087,7 @@ overlay_opacity = "not a number"
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
+            color_scheme: None,
         };
 
         original.save_to_path(&config_path).unwrap();
@@ -1080,6 +1109,7 @@ overlay_opacity = "not a number"
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
+            color_scheme: None,
         };
 
         original.save_to_path(&config_path).unwrap();

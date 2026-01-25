@@ -7,7 +7,7 @@ use iced::widget::{button, column, container, row, text, Space};
 use iced::window::{Position, Settings as WindowSettings};
 use iced::{Alignment, Element, Length, Padding, Size, Task, Theme};
 
-use crate::ui_iced::theme::{colors, CatShieldTheme};
+use crate::ui_iced::theme::{borders, colors, spacing, typography, CatShieldTheme};
 
 /// Messages for the about window
 #[derive(Debug, Clone)]
@@ -43,60 +43,108 @@ impl AboutWindow {
         }
     }
 
-    /// Render the about view
+    /// Render the about view with polished styling
     pub fn view(&self) -> Element<'_, AboutMessage> {
         let content = column![
-            // Cat emoji
-            container(text("🐱").size(64))
+            // Cat emoji with subtle background
+            container(text("🐱").size(64.0))
                 .width(Length::Fill)
-                .padding(Padding::from([30.0, 0.0]).bottom(10.0))
+                .padding(Padding::from([spacing::WINDOW_PADDING, 0.0]).bottom(spacing::MD))
                 .align_x(iced::alignment::Horizontal::Center),
             // App name
-            text("Cat Shield").size(28).color(colors::TEXT_PRIMARY),
-            // Version
-            text(format!("Version {}", self.version))
-                .size(14)
-                .color(colors::TEXT_SECONDARY),
+            text("Cat Shield")
+                .size(typography::SIZE_HEADER)
+                .color(colors::TEXT_PRIMARY),
+            // Version badge
+            container(
+                text(format!("Version {}", self.version))
+                    .size(typography::SIZE_CAPTION)
+                    .color(colors::TEXT_SECONDARY)
+            )
+            .padding([spacing::XS, spacing::SM])
+            .style(|_theme| container::Style {
+                background: Some(iced::Background::Color(colors::BACKGROUND_ELEVATED)),
+                border: iced::Border {
+                    radius: borders::RADIUS_PILL.into(),
+                    ..Default::default()
+                },
+                ..Default::default()
+            }),
             // Spacer
-            Space::new().height(Length::Fixed(20.0)),
-            // Description
+            Space::new().height(Length::Fixed(spacing::XL)),
+            // Description card
             container(
                 text(
                     "A cross-platform application that creates a\n\
                      cat-proof screen overlay to keep your machine\n\
                      awake and protect your work from curious cats."
                 )
-                .size(14)
+                .size(typography::SIZE_BODY)
                 .color(colors::TEXT_SECONDARY)
             )
             .width(Length::Fill)
-            .align_x(iced::alignment::Horizontal::Center),
+            .padding(spacing::MD)
+            .align_x(iced::alignment::Horizontal::Center)
+            .style(CatShieldTheme::card_container),
             // Spacer
-            Space::new().height(Length::Fixed(20.0)),
-            // Credits section
+            Space::new().height(Length::Fixed(spacing::XL)),
+            // Credits section with badges
             container(
                 column![
-                    text("Built with").size(12).color(colors::TEXT_MUTED),
-                    text("Rust + iced framework")
-                        .size(13)
-                        .color(colors::TEXT_SECONDARY),
+                    text("Built with")
+                        .size(typography::SIZE_CAPTION)
+                        .color(colors::TEXT_MUTED),
+                    Space::new().height(Length::Fixed(spacing::SM)),
+                    row![
+                        container(
+                            text("🦀 Rust")
+                                .size(typography::SIZE_CAPTION)
+                                .color(colors::TEXT_SECONDARY)
+                        )
+                        .padding([spacing::XS, spacing::SM])
+                        .style(|_theme| container::Style {
+                            background: Some(iced::Background::Color(colors::BACKGROUND_ELEVATED)),
+                            border: iced::Border {
+                                radius: borders::RADIUS_SM.into(),
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        }),
+                        container(
+                            text("❄️ iced")
+                                .size(typography::SIZE_CAPTION)
+                                .color(colors::TEXT_SECONDARY)
+                        )
+                        .padding([spacing::XS, spacing::SM])
+                        .style(|_theme| container::Style {
+                            background: Some(iced::Background::Color(colors::BACKGROUND_ELEVATED)),
+                            border: iced::Border {
+                                radius: borders::RADIUS_SM.into(),
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        }),
+                    ]
+                    .spacing(spacing::SM ),
                 ]
-                .spacing(4)
+                .spacing(spacing::XS )
                 .align_x(Alignment::Center)
             )
             .width(Length::Fill)
             .align_x(iced::alignment::Horizontal::Center),
             // Spacer
-            Space::new().height(Length::Fixed(10.0)),
+            Space::new().height(Length::Fixed(spacing::MD)),
             // Links
             container(
                 column![
                     text("github.com/taearls/catshield")
-                        .size(12)
+                        .size(typography::SIZE_CAPTION)
                         .color(colors::ACCENT),
-                    text("MIT License").size(11).color(colors::TEXT_MUTED),
+                    text("MIT License")
+                        .size(typography::SIZE_MICRO)
+                        .color(colors::TEXT_MUTED),
                 ]
-                .spacing(4)
+                .spacing(spacing::XS )
                 .align_x(Alignment::Center)
             )
             .width(Length::Fill)
@@ -105,17 +153,20 @@ impl AboutWindow {
             Space::new().height(Length::Fill),
             // Close button
             container(
-                row![button(text("Close").size(14).color(colors::TEXT_PRIMARY))
-                    .padding([10, 24])
-                    .style(CatShieldTheme::primary_button)
-                    .on_press(AboutMessage::Close),]
-                .align_y(Alignment::Center)
+                button(
+                    text("Close")
+                        .size(typography::SIZE_BODY)
+                        .color(colors::TEXT_ON_ACCENT)
+                )
+                .padding([spacing::SM, spacing::XL])
+                .style(CatShieldTheme::primary_button)
+                .on_press(AboutMessage::Close)
             )
             .width(Length::Fill)
             .align_x(iced::alignment::Horizontal::Center)
-            .padding(Padding::from([0.0, 0.0]).bottom(20.0)),
+            .padding(Padding::from([0.0, 0.0]).bottom(spacing::SECTION_PADDING)),
         ]
-        .spacing(6)
+        .spacing(spacing::SM )
         .align_x(Alignment::Center)
         .width(Length::Fill)
         .height(Length::Fill);
