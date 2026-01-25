@@ -6,10 +6,12 @@ use std::path::PathBuf;
 
 /// Default overlay opacity when not specified
 pub const DEFAULT_OVERLAY_OPACITY: f64 = 0.5;
-/// Minimum allowed overlay opacity
-pub const MIN_OVERLAY_OPACITY: f64 = 0.2;
-/// Maximum allowed overlay opacity
-pub const MAX_OVERLAY_OPACITY: f64 = 0.8;
+/// Minimum allowed overlay opacity (10%)
+pub const MIN_OVERLAY_OPACITY: f64 = 0.1;
+/// Maximum allowed overlay opacity (90%)
+pub const MAX_OVERLAY_OPACITY: f64 = 0.9;
+/// Default overlay color preset
+pub const DEFAULT_OVERLAY_COLOR: &str = "gray";
 
 /// Configuration file structure for persistent settings
 #[derive(Debug, Deserialize, Serialize, Default, Clone)]
@@ -20,8 +22,11 @@ pub struct Config {
     /// Default auto-exit timer duration (e.g., "30m", "1h")
     pub default_timer: Option<String>,
 
-    /// Overlay opacity (0.2 to 0.8, default 0.5)
+    /// Overlay opacity (0.1 to 0.9, default 0.5)
     pub overlay_opacity: Option<f64>,
+
+    /// Overlay color preset ("gray", "blue", "green", "red", "purple") or hex color (e.g., "#FF5500")
+    pub overlay_color: Option<String>,
 
     /// Keys that are allowed to pass through the shield (e.g., ["Cmd+Space", "F11", "F12"])
     pub allowed_keys: Option<Vec<String>>,
@@ -72,6 +77,13 @@ impl Config {
             .clamp(MIN_OVERLAY_OPACITY, MAX_OVERLAY_OPACITY)
     }
 
+    /// Get the overlay color setting
+    pub fn color(&self) -> &str {
+        self.overlay_color
+            .as_deref()
+            .unwrap_or(DEFAULT_OVERLAY_COLOR)
+    }
+
     /// Save configuration to the config file atomically.
     ///
     /// Uses a write-to-temp-then-rename strategy to ensure the config file
@@ -103,6 +115,53 @@ impl Config {
         })?;
 
         Ok(())
+    }
+
+    /// Parse overlay color to RGB values (r, g, b each 0.0-1.0)
+    ///
+    /// Supports:
+    /// - Preset names: "gray", "blue", "green", "red", "purple"
+    /// - Hex colors: "#RRGGBB" or "#RGB"
+    ///
+    /// Returns None if the color string is invalid.
+    pub fn parse_color_to_rgb(color: &str) -> Option<(f32, f32, f32)> {
+        let color_lower = color.to_lowercase();
+
+        // Check preset colors first
+        match color_lower.as_str() {
+            "gray" | "grey" | "dark" => Some((0.1, 0.1, 0.1)),
+            "blue" => Some((0.05, 0.1, 0.2)),
+            "green" => Some((0.05, 0.15, 0.1)),
+            "red" => Some((0.15, 0.05, 0.05)),
+            "purple" => Some((0.12, 0.08, 0.18)),
+            _ if color.starts_with('#') => Self::parse_hex_color(color),
+            _ => None,
+        }
+    }
+
+    /// Parse a hex color string to RGB values
+    ///
+    /// Supports both #RRGGBB and #RGB formats.
+    fn parse_hex_color(hex: &str) -> Option<(f32, f32, f32)> {
+        let hex = hex.trim_start_matches('#');
+
+        match hex.len() {
+            // #RGB format
+            3 => {
+                let r = u8::from_str_radix(&hex[0..1], 16).ok()? * 17;
+                let g = u8::from_str_radix(&hex[1..2], 16).ok()? * 17;
+                let b = u8::from_str_radix(&hex[2..3], 16).ok()? * 17;
+                Some((r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0))
+            }
+            // #RRGGBB format
+            6 => {
+                let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
+                let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
+                let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
+                Some((r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0))
+            }
+            _ => None,
+        }
     }
 
     /// Load configuration from a specific path (for testing)
@@ -250,6 +309,7 @@ another_unknown = 42
             exit_key: Some("Cmd+Option+U".to_string()),
             default_timer: None,
             overlay_opacity: None,
+            overlay_color: None,
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
@@ -269,6 +329,7 @@ another_unknown = 42
             exit_key: Some("Cmd+Option+U".to_string()),
             default_timer: None,
             overlay_opacity: None,
+            overlay_color: None,
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
@@ -288,6 +349,7 @@ another_unknown = 42
             exit_key: Some("Cmd+Shift+X".to_string()),
             default_timer: Some("1h".to_string()),
             overlay_opacity: Some(0.7),
+            overlay_color: None,
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
@@ -311,6 +373,7 @@ another_unknown = 42
             exit_key: Some("Cmd+Option+A".to_string()),
             default_timer: None,
             overlay_opacity: None,
+            overlay_color: None,
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
@@ -322,6 +385,7 @@ another_unknown = 42
             exit_key: Some("Cmd+Option+B".to_string()),
             default_timer: Some("2h".to_string()),
             overlay_opacity: Some(0.3),
+            overlay_color: None,
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
@@ -343,6 +407,7 @@ another_unknown = 42
             exit_key: Some("Ctrl+Option+Escape".to_string()),
             default_timer: Some("45m".to_string()),
             overlay_opacity: Some(0.65),
+            overlay_color: None,
             allowed_keys: None,
             launch_at_login: Some(true),
             enable_trace_logging: None,
@@ -366,6 +431,7 @@ another_unknown = 42
             exit_key: Some("Cmd+Shift+Q".to_string()),
             default_timer: None,
             overlay_opacity: Some(0.4),
+            overlay_color: None,
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
@@ -385,6 +451,7 @@ another_unknown = 42
             exit_key: None,
             default_timer: None,
             overlay_opacity: None,
+            overlay_color: None,
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
@@ -399,14 +466,15 @@ another_unknown = 42
         let config = Config {
             exit_key: None,
             default_timer: None,
-            overlay_opacity: Some(0.1), // Below MIN_OVERLAY_OPACITY (0.2)
+            overlay_opacity: Some(0.05), // Below MIN_OVERLAY_OPACITY (0.1)
+            overlay_color: None,
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
         };
 
         assert_eq!(config.opacity(), MIN_OVERLAY_OPACITY);
-        assert_eq!(config.opacity(), 0.2);
+        assert_eq!(config.opacity(), 0.1);
     }
 
     #[test]
@@ -414,14 +482,15 @@ another_unknown = 42
         let config = Config {
             exit_key: None,
             default_timer: None,
-            overlay_opacity: Some(0.95), // Above MAX_OVERLAY_OPACITY (0.8)
+            overlay_opacity: Some(0.95), // Above MAX_OVERLAY_OPACITY (0.9)
+            overlay_color: None,
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
         };
 
         assert_eq!(config.opacity(), MAX_OVERLAY_OPACITY);
-        assert_eq!(config.opacity(), 0.8);
+        assert_eq!(config.opacity(), 0.9);
     }
 
     #[test]
@@ -430,6 +499,7 @@ another_unknown = 42
             exit_key: None,
             default_timer: None,
             overlay_opacity: Some(0.6),
+            overlay_color: None,
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
@@ -511,6 +581,7 @@ allowed_keys = ["Cmd+Space", "F11", "F12", "Ctrl+Option+A"]
             exit_key: Some("Cmd+Q".to_string()),
             default_timer: Some("30m".to_string()),
             overlay_opacity: Some(0.6),
+            overlay_color: None,
             allowed_keys: Some(vec![
                 "Cmd+Space".to_string(),
                 "F11".to_string(),
@@ -571,6 +642,7 @@ allowed_keys = ["Cmd+Space", "F11", "F12", "Ctrl+Option+A"]
             exit_key: None,
             default_timer: None,
             overlay_opacity: None,
+            overlay_color: None,
             allowed_keys: None,
             launch_at_login: Some(true),
             enable_trace_logging: None,
@@ -624,6 +696,7 @@ allowed_keys = ["Cmd+Space", "F11", "F12", "Ctrl+Option+A"]
             exit_key: None,
             default_timer: None,
             overlay_opacity: None,
+            overlay_color: None,
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: Some(true),
@@ -648,6 +721,7 @@ allowed_keys = ["Cmd+Space", "F11", "F12", "Ctrl+Option+A"]
             exit_key: Some("Cmd+Option+U".to_string()),
             default_timer: Some("30m".to_string()),
             overlay_opacity: Some(0.6),
+            overlay_color: None,
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
@@ -674,6 +748,7 @@ allowed_keys = ["Cmd+Space", "F11", "F12", "Ctrl+Option+A"]
             exit_key: Some("Cmd+Option+A".to_string()),
             default_timer: None,
             overlay_opacity: Some(0.3),
+            overlay_color: None,
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
@@ -685,6 +760,7 @@ allowed_keys = ["Cmd+Space", "F11", "F12", "Ctrl+Option+A"]
             exit_key: Some("Cmd+Option+B".to_string()),
             default_timer: Some("1h".to_string()),
             overlay_opacity: Some(0.7),
+            overlay_color: None,
             allowed_keys: Some(vec!["F11".to_string()]),
             launch_at_login: Some(true),
             enable_trace_logging: Some(false),
@@ -717,6 +793,7 @@ allowed_keys = ["Cmd+Space", "F11", "F12", "Ctrl+Option+A"]
                 exit_key: Some("Cmd+Shift+Escape".to_string()),
                 default_timer: Some("45m".to_string()),
                 overlay_opacity: Some(0.65),
+                overlay_color: Some("blue".to_string()),
                 allowed_keys: Some(vec!["Cmd+Space".to_string(), "F12".to_string()]),
                 launch_at_login: Some(true),
                 enable_trace_logging: Some(false),
@@ -832,6 +909,7 @@ overlay_opacity = "not a number"
             exit_key: Some("Ctrl+Alt+Delete".to_string()),
             default_timer: Some("2h30m".to_string()),
             overlay_opacity: Some(0.42),
+            overlay_color: Some("#FF5500".to_string()),
             allowed_keys: Some(vec![
                 "F1".to_string(),
                 "F2".to_string(),
@@ -848,8 +926,165 @@ overlay_opacity = "not a number"
         assert_eq!(original.exit_key, loaded.exit_key);
         assert_eq!(original.default_timer, loaded.default_timer);
         assert_eq!(original.overlay_opacity, loaded.overlay_opacity);
+        assert_eq!(original.overlay_color, loaded.overlay_color);
         assert_eq!(original.allowed_keys, loaded.allowed_keys);
         assert_eq!(original.launch_at_login, loaded.launch_at_login);
         assert_eq!(original.enable_trace_logging, loaded.enable_trace_logging);
+    }
+
+    // ============================================================
+    // Color parsing tests (Issue #159 - Overlay Customization)
+    // ============================================================
+
+    #[test]
+    fn test_parse_color_preset_gray() {
+        let (r, g, b) = Config::parse_color_to_rgb("gray").unwrap();
+        assert!((r - 0.1).abs() < f32::EPSILON);
+        assert!((g - 0.1).abs() < f32::EPSILON);
+        assert!((b - 0.1).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_parse_color_preset_grey_alias() {
+        let result = Config::parse_color_to_rgb("grey");
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn test_parse_color_preset_blue() {
+        let (r, g, b) = Config::parse_color_to_rgb("blue").unwrap();
+        assert!((r - 0.05).abs() < f32::EPSILON);
+        assert!((g - 0.1).abs() < f32::EPSILON);
+        assert!((b - 0.2).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_parse_color_preset_green() {
+        let (r, g, b) = Config::parse_color_to_rgb("green").unwrap();
+        assert!((r - 0.05).abs() < f32::EPSILON);
+        assert!((g - 0.15).abs() < f32::EPSILON);
+        assert!((b - 0.1).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_parse_color_preset_red() {
+        let (r, g, b) = Config::parse_color_to_rgb("red").unwrap();
+        assert!((r - 0.15).abs() < f32::EPSILON);
+        assert!((g - 0.05).abs() < f32::EPSILON);
+        assert!((b - 0.05).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_parse_color_preset_purple() {
+        let (r, g, b) = Config::parse_color_to_rgb("purple").unwrap();
+        assert!((r - 0.12).abs() < f32::EPSILON);
+        assert!((g - 0.08).abs() < f32::EPSILON);
+        assert!((b - 0.18).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_parse_color_preset_case_insensitive() {
+        assert!(Config::parse_color_to_rgb("BLUE").is_some());
+        assert!(Config::parse_color_to_rgb("Blue").is_some());
+        assert!(Config::parse_color_to_rgb("bLuE").is_some());
+    }
+
+    #[test]
+    fn test_parse_color_hex_6_digits() {
+        let (r, g, b) = Config::parse_color_to_rgb("#FF0000").unwrap();
+        assert!((r - 1.0).abs() < f32::EPSILON);
+        assert!((g - 0.0).abs() < f32::EPSILON);
+        assert!((b - 0.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_parse_color_hex_3_digits() {
+        let (r, g, b) = Config::parse_color_to_rgb("#F00").unwrap();
+        assert!((r - 1.0).abs() < f32::EPSILON);
+        assert!((g - 0.0).abs() < f32::EPSILON);
+        assert!((b - 0.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_parse_color_hex_lowercase() {
+        let result = Config::parse_color_to_rgb("#abc");
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn test_parse_color_hex_mixed_case() {
+        let result = Config::parse_color_to_rgb("#AaBbCc");
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn test_parse_color_invalid_preset() {
+        assert!(Config::parse_color_to_rgb("invalid").is_none());
+        assert!(Config::parse_color_to_rgb("orange").is_none());
+    }
+
+    #[test]
+    fn test_parse_color_invalid_hex() {
+        assert!(Config::parse_color_to_rgb("#GG0000").is_none());
+        assert!(Config::parse_color_to_rgb("#12345").is_none()); // 5 digits
+        assert!(Config::parse_color_to_rgb("#1234567").is_none()); // 7 digits
+        assert!(Config::parse_color_to_rgb("FF0000").is_none()); // Missing #
+    }
+
+    #[test]
+    fn test_config_color_default_when_none() {
+        let config = Config::default();
+        assert_eq!(config.color(), "gray");
+    }
+
+    #[test]
+    fn test_config_color_returns_value() {
+        let config = Config {
+            overlay_color: Some("blue".to_string()),
+            ..Default::default()
+        };
+        assert_eq!(config.color(), "blue");
+    }
+
+    #[test]
+    fn test_config_color_round_trip() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+
+        let original = Config {
+            exit_key: None,
+            default_timer: None,
+            overlay_opacity: None,
+            overlay_color: Some("purple".to_string()),
+            allowed_keys: None,
+            launch_at_login: None,
+            enable_trace_logging: None,
+        };
+
+        original.save_to_path(&config_path).unwrap();
+        let loaded = Config::load_from_path(&config_path);
+
+        assert_eq!(loaded.overlay_color, Some("purple".to_string()));
+    }
+
+    #[test]
+    fn test_config_hex_color_round_trip() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+
+        let original = Config {
+            exit_key: None,
+            default_timer: None,
+            overlay_opacity: None,
+            overlay_color: Some("#1a2b3c".to_string()),
+            allowed_keys: None,
+            launch_at_login: None,
+            enable_trace_logging: None,
+        };
+
+        original.save_to_path(&config_path).unwrap();
+        let loaded = Config::load_from_path(&config_path);
+
+        assert_eq!(loaded.overlay_color, Some("#1a2b3c".to_string()));
     }
 }
