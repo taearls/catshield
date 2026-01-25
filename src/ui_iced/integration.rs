@@ -1,20 +1,21 @@
-//! macOS platform integration for iced windows
+//! Platform integration for iced windows
 //!
-//! This module provides the bridge between the AppKit menu bar (NSStatusItem)
+//! This module provides the bridge between platform-specific UI (menu bar, system tray)
 //! and iced-based windows (Settings, About). It handles:
 //!
-//! - Launching iced windows from AppKit menu actions
+//! - Launching iced windows from menu/tray actions
 //! - Window lifecycle management (open/close)
-//! - Coordination between AppKit and iced event loops
+//! - Coordination between platform UI and iced event loops
 //!
 //! # Architecture
 //!
-//! The macOS menu bar remains implemented in AppKit (NSStatusItem) because:
-//! - It integrates naturally with the system menu bar
-//! - It's already working and well-tested
-//! - iced doesn't provide native menu bar support
+//! Platform-specific menus remain in native code because:
+//! - macOS: NSStatusItem integrates naturally with the system menu bar
+//! - Windows: Win32 Shell_NotifyIcon for system tray integration
+//! - They're already working and well-tested
+//! - iced doesn't provide native menu bar/tray support
 //!
-//! When a menu item is clicked (e.g., "Preferences..."), this module spawns
+//! When a menu item is clicked (e.g., "Settings" or "About"), this module spawns
 //! the corresponding iced window in a new thread. The iced application runs
 //! its own event loop until the window is closed.
 //!

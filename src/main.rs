@@ -578,7 +578,6 @@ fn main() {
     log::info!("✓ System tray active");
 
     // Set up tray menu callback
-    let exit_key_for_callback = exit_key_display.clone();
     let menu_callback: MenuCallback = Box::new(move |action| {
         match action {
             TrayMenuAction::StartProtection => {
@@ -594,13 +593,12 @@ fn main() {
                 WINDOWS_SHIELD_ACTIVE.store(false, Ordering::SeqCst);
             }
             TrayMenuAction::OpenSettings => {
-                log::info!("Settings requested (not yet implemented on Windows)");
-                // TODO: Implement settings window for Windows
+                log::info!("Opening settings window...");
+                cat_shield::ui_iced::open_settings_window();
             }
             TrayMenuAction::ShowAbout => {
-                log::info!("Cat Shield - A cat-proof screen overlay");
-                log::info!("Exit key: {}", exit_key_for_callback);
-                // TODO: Show About dialog on Windows
+                log::info!("Opening about window...");
+                cat_shield::ui_iced::open_about_window();
             }
             TrayMenuAction::Quit => {
                 log::info!("Quit requested");
@@ -654,6 +652,9 @@ fn main() {
 
     // Cleanup
     log::info!("Shutting down...");
+
+    // Close any open iced windows
+    cat_shield::ui_iced::close_all_windows();
 
     // Disable input blocking if still active
     if input_blocker.is_active() {
