@@ -5,12 +5,15 @@
 //! - Custom NSView classes (close button, timer display)
 //! - Window creation (shield overlay, settings)
 //! - Menu bar setup and handlers
+//! - iced window handlers (for launching iced-based Settings/About windows)
 //!
 //! Note: Most UI functionality is macOS-only. Windows and Linux support
 //! is planned for future releases.
 
 #[cfg(target_os = "macos")]
 pub mod helpers;
+#[cfg(target_os = "macos")]
+pub mod iced_handlers;
 #[cfg(target_os = "macos")]
 pub mod menu_bar;
 #[cfg(target_os = "macos")]
@@ -26,6 +29,11 @@ pub mod windows;
 
 #[cfg(target_os = "macos")]
 pub use helpers::create_label;
+#[cfg(target_os = "macos")]
+pub use iced_handlers::{
+    check_menu_item_reenable, IcedAboutHandler, IcedSettingsHandler, ABOUT_NEEDS_REENABLE,
+    SETTINGS_NEEDS_REENABLE,
+};
 #[cfg(target_os = "macos")]
 pub use ptr_helper::{with_ptr, with_ptr_mut, with_ptr_void, with_raw_ptr};
 #[cfg(target_os = "macos")]
