@@ -327,9 +327,11 @@ impl SettingsWindow {
     /// Check if settings have changed from original
     fn check_for_changes(&mut self) {
         let current = self.build_config();
+        // Compare effective opacity values rather than Option<f64> to handle
+        // the case where original_config.overlay_opacity is None (default)
         self.has_changes = current.exit_key != self.original_config.exit_key
             || current.default_timer != self.original_config.default_timer
-            || current.overlay_opacity != self.original_config.overlay_opacity
+            || current.opacity() != self.original_config.opacity()
             || current.allowed_keys != self.original_config.allowed_keys
             || current.launch_at_login != self.original_config.launch_at_login
             || current.enable_trace_logging != self.original_config.enable_trace_logging;
@@ -581,8 +583,9 @@ impl SettingsWindow {
     fn view_overlay_section(&self) -> Element<'_, SettingsMessage> {
         let opacity_percent = (self.opacity * 100.0).round() as i32;
 
-        // Opacity preview box
-        let preview_color = Color::from_rgba(0.1, 0.1, 0.1, self.opacity as f32);
+        // Opacity preview box using selected color preset
+        let (r, g, b) = self.color_preset.to_rgb();
+        let preview_color = Color::from_rgba(r, g, b, self.opacity as f32);
 
         column![
             // Opacity setting
