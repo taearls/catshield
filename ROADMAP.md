@@ -5,7 +5,7 @@
 <!-- Keep under 150 lines - agents read this first -->
 
 **Current Phase**: 9 - iced UI Migration
-**Next Priority**: #158 (Implement settings persistence)
+**Next Priority**: #159 (Add overlay customization)
 **Blocking Issues**: None
 
 ### Open Issues by Priority
@@ -13,8 +13,7 @@
 | # | Title | Priority | Effort | Blocked By | Phase |
 |---|-------|----------|--------|------------|-------|
 | 152 | Epic: Migrate UI Rendering to iced Framework | 🟡 High | ~4-6 weeks | None | 9 |
-| 158 | Implement settings persistence | 🟢 Medium | ~1-2 days | None | 9 |
-| 159 | Add overlay customization | 🟢 Medium | ~1-2 days | #158 | 9 |
+| 159 | Add overlay customization | 🟢 Medium | ~1-2 days | None | 9 |
 | 160 | macOS menu bar integration | 🟢 Medium | ~1-2 days | None | 9 |
 | 161 | Windows system tray integration | 🟢 Medium | ~1-2 days | None | 9 |
 | 162 | Linux tray integration | 🟢 Medium | ~1-2 days | None | 9 |
@@ -23,12 +22,13 @@
 | 165 | Animated cat companion overlay | 🔵 Low | ~2-3 days | None | 9 |
 | 166 | Documentation update | 🔵 Low | ~1 day | All others | 9 |
 
-**Summary**: 10 open issues (0 Critical, 1 High, 5 Medium, 4 Low)
+**Summary**: 9 open issues (0 Critical, 1 High, 4 Medium, 4 Low)
 
 ### Completed This Session
 
 | # | Title | Priority | Date |
 |---|-------|----------|------|
+| 158 | Implement settings persistence to disk | 🟢 Medium | 2026-01-25 |
 | 157 | Create settings window UI in iced | 🟢 Medium | 2026-01-24 |
 | 156 | Add timer countdown display to iced overlay | 🟢 Medium | 2026-01-24 |
 | 155 | Implement basic overlay window in iced | 🟡 High | 2026-01-24 |
@@ -46,7 +46,7 @@
 
 ### Recommended Next Issues
 
-1. **#158** - Implement settings persistence (unblocked, start here!)
+1. **#159** - Add overlay customization (unblocked, start here!)
 2. **#160** - macOS menu bar integration (unblocked)
 3. **#165** - Animated cat companion overlay (unblocked)
 
@@ -63,8 +63,8 @@
 | ✅ | #155 | Implement basic overlay window | None |
 | ✅ | #156 | Add timer countdown display | None |
 | ✅ | #157 | Create settings window UI | None |
-| 📋 | #158 | Implement settings persistence | None |
-| 📋 | #159 | Add overlay customization | #158 |
+| ✅ | #158 | Implement settings persistence | None |
+| 📋 | #159 | Add overlay customization | None |
 | 📋 | #160 | macOS menu bar integration | None |
 | 📋 | #161 | Windows system tray integration | None |
 | 📋 | #162 | Linux tray integration | None |
@@ -129,11 +129,14 @@ Phase 9 (iced Migration):
     ▼
 #157 (Settings UI) ✅ Full settings window with 4 sections, controls, live preview
     │
-    ├─► #158 (Persistence) ─┬─► #159 (Customization)
-    │                       │
-    ├─► #160 (macOS)        │
-    ├─► #161 (Windows)      │
-    └─► #162 (Linux)        │
+    ▼
+#158 (Persistence) ✅ Atomic save, platform paths, graceful error handling
+    │
+    ├─► #159 (Customization)
+    │
+    ├─► #160 (macOS)
+    ├─► #161 (Windows)
+    └─► #162 (Linux)
                             │
     ├─► #163 (Polish) ◄─────┤
     │                       │
@@ -179,6 +182,7 @@ Potential future enhancements (not yet tracked as issues):
 
 | Issue | Title | Date |
 |-------|-------|------|
+| #158 | Implement settings persistence to disk | 2026-01-25 |
 | #157 | Create settings window UI in iced | 2026-01-24 |
 | #156 | Add timer countdown display to iced overlay | 2026-01-24 |
 | #155 | Implement basic overlay window in iced | 2026-01-24 |

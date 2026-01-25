@@ -72,7 +72,10 @@ impl Config {
             .clamp(MIN_OVERLAY_OPACITY, MAX_OVERLAY_OPACITY)
     }
 
-    /// Save configuration to the config file
+    /// Save configuration to the config file atomically.
+    ///
+    /// Uses a write-to-temp-then-rename strategy to ensure the config file
+    /// is never left in a corrupted state if the process is interrupted.
     pub fn save(&self) -> Result<(), String> {
         let path = Self::config_path().ok_or("Could not determine config path")?;
 
@@ -84,7 +87,20 @@ impl Config {
 
         let content =
             toml::to_string_pretty(self).map_err(|e| format!("Failed to serialize config: {e}"))?;
-        fs::write(&path, content).map_err(|e| format!("Failed to write config file: {e}"))?;
+
+        // Write to a temporary file first, then rename for atomicity
+        let temp_path = path.with_extension("toml.tmp");
+        fs::write(&temp_path, &content)
+            .map_err(|e| format!("Failed to write temporary config file: {e}"))?;
+
+        // Atomically rename temp file to final path
+        // On Unix, rename() is atomic. On Windows, it's not fully atomic but
+        // is still safer than direct write as it reduces the window for corruption.
+        fs::rename(&temp_path, &path).map_err(|e| {
+            // Try to clean up the temp file if rename fails
+            let _ = fs::remove_file(&temp_path);
+            format!("Failed to save config file: {e}")
+        })?;
 
         Ok(())
     }
@@ -103,6 +119,8 @@ impl Config {
     }
 
     /// Save configuration to a specific path (for testing)
+    ///
+    /// Uses atomic write-then-rename like `save()`.
     #[cfg(test)]
     pub fn save_to_path(&self, path: &std::path::Path) -> Result<(), String> {
         // Create directory if it doesn't exist
@@ -113,7 +131,16 @@ impl Config {
 
         let content =
             toml::to_string_pretty(self).map_err(|e| format!("Failed to serialize config: {e}"))?;
-        fs::write(path, content).map_err(|e| format!("Failed to write config file: {e}"))?;
+
+        // Write to temp file first, then rename for atomicity
+        let temp_path = path.with_extension("toml.tmp");
+        fs::write(&temp_path, &content)
+            .map_err(|e| format!("Failed to write temporary config file: {e}"))?;
+
+        fs::rename(&temp_path, path).map_err(|e| {
+            let _ = fs::remove_file(&temp_path);
+            format!("Failed to save config file: {e}")
+        })?;
 
         Ok(())
     }
@@ -605,6 +632,218 @@ allowed_keys = ["Cmd+Space", "F11", "F12", "Ctrl+Option+A"]
         original.save_to_path(&config_path).unwrap();
         let loaded = Config::load_from_path(&config_path);
 
+        assert_eq!(original.enable_trace_logging, loaded.enable_trace_logging);
+    }
+
+    // ============================================================
+    // Atomic save tests (Issue #158 - Settings Persistence)
+    // ============================================================
+
+    #[test]
+    fn test_config_save_atomic_no_temp_file_left() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+
+        let config = Config {
+            exit_key: Some("Cmd+Option+U".to_string()),
+            default_timer: Some("30m".to_string()),
+            overlay_opacity: Some(0.6),
+            allowed_keys: None,
+            launch_at_login: None,
+            enable_trace_logging: None,
+        };
+
+        config.save_to_path(&config_path).unwrap();
+
+        // Verify temp file doesn't exist after successful save
+        let temp_path = config_path.with_extension("toml.tmp");
+        assert!(!temp_path.exists(), "Temp file should be removed after save");
+        assert!(config_path.exists(), "Config file should exist");
+    }
+
+    #[test]
+    fn test_config_save_atomic_overwrites_cleanly() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+
+        // Save initial config
+        let config1 = Config {
+            exit_key: Some("Cmd+Option+A".to_string()),
+            default_timer: None,
+            overlay_opacity: Some(0.3),
+            allowed_keys: None,
+            launch_at_login: None,
+            enable_trace_logging: None,
+        };
+        config1.save_to_path(&config_path).unwrap();
+
+        // Save updated config
+        let config2 = Config {
+            exit_key: Some("Cmd+Option+B".to_string()),
+            default_timer: Some("1h".to_string()),
+            overlay_opacity: Some(0.7),
+            allowed_keys: Some(vec!["F11".to_string()]),
+            launch_at_login: Some(true),
+            enable_trace_logging: Some(false),
+        };
+        config2.save_to_path(&config_path).unwrap();
+
+        // Verify the new config was saved correctly
+        let loaded = Config::load_from_path(&config_path);
+        assert_eq!(loaded.exit_key, Some("Cmd+Option+B".to_string()));
+        assert_eq!(loaded.default_timer, Some("1h".to_string()));
+        assert_eq!(loaded.overlay_opacity, Some(0.7));
+        assert_eq!(loaded.allowed_keys, Some(vec!["F11".to_string()]));
+        assert_eq!(loaded.launch_at_login, Some(true));
+        assert_eq!(loaded.enable_trace_logging, Some(false));
+    }
+
+    // ============================================================
+    // Full persistence workflow tests (Issue #158 Acceptance Criteria)
+    // ============================================================
+
+    /// Acceptance Criteria: Settings persist across restarts
+    #[test]
+    fn test_settings_persist_across_simulated_restart() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+
+        // Simulate first "session" - user changes settings and saves
+        {
+            let config = Config {
+                exit_key: Some("Cmd+Shift+Escape".to_string()),
+                default_timer: Some("45m".to_string()),
+                overlay_opacity: Some(0.65),
+                allowed_keys: Some(vec!["Cmd+Space".to_string(), "F12".to_string()]),
+                launch_at_login: Some(true),
+                enable_trace_logging: Some(false),
+            };
+            config.save_to_path(&config_path).unwrap();
+        }
+
+        // Simulate "restart" - load settings from disk
+        {
+            let loaded = Config::load_from_path(&config_path);
+
+            // All settings should be preserved
+            assert_eq!(loaded.exit_key, Some("Cmd+Shift+Escape".to_string()));
+            assert_eq!(loaded.default_timer, Some("45m".to_string()));
+            assert_eq!(loaded.overlay_opacity, Some(0.65));
+            assert_eq!(
+                loaded.allowed_keys,
+                Some(vec!["Cmd+Space".to_string(), "F12".to_string()])
+            );
+            assert_eq!(loaded.launch_at_login, Some(true));
+            assert_eq!(loaded.enable_trace_logging, Some(false));
+        }
+    }
+
+    /// Acceptance Criteria: Missing file handled gracefully
+    #[test]
+    fn test_missing_file_handled_gracefully() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("nonexistent_subdir").join("config.toml");
+
+        // Loading from nonexistent path should return defaults, not panic
+        let config = Config::load_from_path(&config_path);
+
+        // Should get default values for all fields
+        assert!(config.exit_key.is_none());
+        assert!(config.default_timer.is_none());
+        assert!(config.overlay_opacity.is_none());
+        assert!(config.allowed_keys.is_none());
+        assert!(config.launch_at_login.is_none());
+        assert!(config.enable_trace_logging.is_none());
+
+        // Default opacity should still work
+        assert_eq!(config.opacity(), DEFAULT_OVERLAY_OPACITY);
+    }
+
+    /// Acceptance Criteria: Corrupted file handled gracefully
+    #[test]
+    fn test_corrupted_file_handled_gracefully_binary_garbage() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+
+        // Write binary garbage to the config file
+        std::fs::write(&config_path, [0xFF, 0xFE, 0x00, 0x01, 0xAB, 0xCD]).unwrap();
+
+        // Should return defaults, not panic
+        let config = Config::load_from_path(&config_path);
+        assert!(config.exit_key.is_none());
+        assert_eq!(config.opacity(), DEFAULT_OVERLAY_OPACITY);
+    }
+
+    /// Acceptance Criteria: Corrupted file handled gracefully
+    #[test]
+    fn test_corrupted_file_handled_gracefully_truncated() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+
+        // Write truncated/incomplete TOML
+        std::fs::write(&config_path, r#"exit_key = "Cmd+Option"#).unwrap();
+
+        // Should return defaults (the truncated string will be parsed as valid)
+        // Actually TOML allows unterminated strings at EOF in some parsers
+        // but the key test is that it doesn't panic
+        let config = Config::load_from_path(&config_path);
+
+        // Either it parses the truncated value or returns default - both are acceptable
+        // The important thing is no panic
+        assert!(config.default_timer.is_none());
+    }
+
+    /// Acceptance Criteria: Corrupted file handled gracefully
+    #[test]
+    fn test_corrupted_file_handled_gracefully_wrong_types() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+
+        // Write TOML with wrong types (number where string expected)
+        std::fs::write(
+            &config_path,
+            r#"
+exit_key = 12345
+overlay_opacity = "not a number"
+"#,
+        )
+        .unwrap();
+
+        // Should return defaults due to type mismatch
+        let config = Config::load_from_path(&config_path);
+        assert!(config.exit_key.is_none());
+        assert!(config.overlay_opacity.is_none());
+        assert_eq!(config.opacity(), DEFAULT_OVERLAY_OPACITY);
+    }
+
+    /// Test that all config fields round-trip correctly (comprehensive)
+    #[test]
+    fn test_full_config_round_trip_all_fields() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+
+        let original = Config {
+            exit_key: Some("Ctrl+Alt+Delete".to_string()),
+            default_timer: Some("2h30m".to_string()),
+            overlay_opacity: Some(0.42),
+            allowed_keys: Some(vec![
+                "F1".to_string(),
+                "F2".to_string(),
+                "Cmd+Tab".to_string(),
+            ]),
+            launch_at_login: Some(true),
+            enable_trace_logging: Some(true),
+        };
+
+        original.save_to_path(&config_path).unwrap();
+        let loaded = Config::load_from_path(&config_path);
+
+        // Verify every single field
+        assert_eq!(original.exit_key, loaded.exit_key);
+        assert_eq!(original.default_timer, loaded.default_timer);
+        assert_eq!(original.overlay_opacity, loaded.overlay_opacity);
+        assert_eq!(original.allowed_keys, loaded.allowed_keys);
+        assert_eq!(original.launch_at_login, loaded.launch_at_login);
         assert_eq!(original.enable_trace_logging, loaded.enable_trace_logging);
     }
 }
