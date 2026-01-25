@@ -12,6 +12,7 @@
 //! Platform-specific menus remain in native code because:
 //! - macOS: NSStatusItem integrates naturally with the system menu bar
 //! - Windows: Win32 Shell_NotifyIcon for system tray integration
+//! - Linux: ksni StatusNotifierItem for system tray integration
 //! - They're already working and well-tested
 //! - iced doesn't provide native menu bar/tray support
 //!

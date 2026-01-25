@@ -137,11 +137,12 @@ fn main() {
             LINUX_SHIELD_ACTIVE.store(false, Ordering::SeqCst);
         }
         TrayMenuAction::OpenSettings => {
-            log::info!("Settings requested (not yet implemented on Linux)");
+            log::info!("Opening settings window...");
+            cat_shield::ui_iced::open_settings_window();
         }
         TrayMenuAction::ShowAbout => {
-            log::info!("Cat Shield - A cat-proof screen overlay");
-            log::info!("Display server: {effective_display}");
+            log::info!("Opening about window...");
+            cat_shield::ui_iced::open_about_window();
         }
         TrayMenuAction::Quit => {
             log::info!("Quit requested");
@@ -179,6 +180,9 @@ fn main() {
 
     // Cleanup
     log::info!("Shutting down...");
+
+    // Close any open iced windows
+    cat_shield::ui_iced::close_all_windows();
 
     // Remove tray icon
     LinuxSystemTray::clear_callback();
