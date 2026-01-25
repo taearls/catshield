@@ -141,6 +141,8 @@ pub struct OverlayApp {
     exit_key_display: String,
     /// Overlay opacity (0.0 - 1.0)
     opacity: f64,
+    /// Overlay background color RGB (each component 0.0 - 1.0)
+    color: (f32, f32, f32),
     /// Exit key configuration for detecting unlock shortcut
     exit_key_config: Option<ExitKeyConfig>,
     /// Whether to hide the timer display (--hide-timer flag)
@@ -148,6 +150,9 @@ pub struct OverlayApp {
     /// Whether to show progress bar
     show_progress: bool,
 }
+
+/// Default overlay color (dark gray)
+const DEFAULT_OVERLAY_COLOR: (f32, f32, f32) = (0.1, 0.1, 0.1);
 
 impl Default for OverlayApp {
     fn default() -> Self {
@@ -159,6 +164,7 @@ impl Default for OverlayApp {
             is_active: true,
             exit_key_display: String::new(),
             opacity: crate::config::DEFAULT_OVERLAY_OPACITY,
+            color: DEFAULT_OVERLAY_COLOR,
             exit_key_config: None,
             hide_timer: false,
             show_progress: true,
@@ -166,7 +172,34 @@ impl Default for OverlayApp {
     }
 }
 
-/// Configuration for the overlay timer display
+/// Configuration for the overlay display
+#[derive(Debug, Clone)]
+pub struct OverlayConfig {
+    /// Timer duration in seconds (None = no timer, show elapsed time)
+    pub duration: Option<u64>,
+    /// Whether to hide the timer display
+    pub hide_timer: bool,
+    /// Whether to show the progress bar
+    pub show_progress: bool,
+    /// Overlay opacity (0.0 - 1.0)
+    pub opacity: f64,
+    /// Overlay background color RGB (each component 0.0 - 1.0)
+    pub color: (f32, f32, f32),
+}
+
+impl Default for OverlayConfig {
+    fn default() -> Self {
+        Self {
+            duration: None,
+            hide_timer: false,
+            show_progress: true,
+            opacity: crate::config::DEFAULT_OVERLAY_OPACITY,
+            color: DEFAULT_OVERLAY_COLOR,
+        }
+    }
+}
+
+/// Configuration for the overlay timer display (legacy, for backward compatibility)
 #[derive(Debug, Clone, Default)]
 pub struct TimerConfig {
     /// Timer duration in seconds (None = no timer, show elapsed time)
@@ -188,6 +221,7 @@ impl OverlayApp {
             is_active: true,
             exit_key_display,
             opacity,
+            color: DEFAULT_OVERLAY_COLOR,
             exit_key_config: None,
             hide_timer: false,
             show_progress: true,
@@ -208,13 +242,14 @@ impl OverlayApp {
             is_active: true,
             exit_key_display: exit_key_config.display.clone(),
             opacity,
+            color: DEFAULT_OVERLAY_COLOR,
             exit_key_config: Some(exit_key_config),
             hide_timer: false,
             show_progress: true,
         }
     }
 
-    /// Create a new overlay app with full timer configuration
+    /// Create a new overlay app with full timer configuration (legacy)
     pub fn with_timer_config(
         exit_key_config: ExitKeyConfig,
         timer_config: TimerConfig,
@@ -228,9 +263,27 @@ impl OverlayApp {
             is_active: true,
             exit_key_display: exit_key_config.display.clone(),
             opacity,
+            color: DEFAULT_OVERLAY_COLOR,
             exit_key_config: Some(exit_key_config),
             hide_timer: timer_config.hide_timer,
             show_progress: timer_config.show_progress,
+        }
+    }
+
+    /// Create a new overlay app with full overlay configuration including color
+    pub fn with_overlay_config(exit_key_config: ExitKeyConfig, config: OverlayConfig) -> Self {
+        Self {
+            start_time: Instant::now(),
+            elapsed_seconds: 0,
+            remaining_seconds: config.duration,
+            initial_duration: config.duration,
+            is_active: true,
+            exit_key_display: exit_key_config.display.clone(),
+            opacity: config.opacity,
+            color: config.color,
+            exit_key_config: Some(exit_key_config),
+            hide_timer: config.hide_timer,
+            show_progress: config.show_progress,
         }
     }
 
@@ -405,8 +458,9 @@ impl OverlayApp {
                 .on_press(OverlayMessage::RequestClose),
         );
 
-        // Wrap in centered container with semi-transparent background
-        let background_color = Color::from_rgba(0.1, 0.1, 0.1, self.opacity as f32);
+        // Wrap in centered container with semi-transparent background using configured color
+        let (r, g, b) = self.color;
+        let background_color = Color::from_rgba(r, g, b, self.opacity as f32);
 
         container(center(content))
             .width(Length::Fill)
@@ -512,7 +566,7 @@ impl OverlayApp {
         .run()
     }
 
-    /// Run the overlay application with full timer configuration
+    /// Run the overlay application with full timer configuration (legacy)
     ///
     /// This variant allows full control over timer display including:
     /// - Timer duration
@@ -531,6 +585,35 @@ impl OverlayApp {
     ) -> iced::Result {
         iced::application(
             move || Self::with_timer_config(exit_key_config.clone(), timer_config.clone(), opacity),
+            Self::update,
+            Self::view,
+        )
+        .title("Cat Shield")
+        .subscription(Self::subscription)
+        .window(Self::window_settings())
+        .theme(Self::theme)
+        .run()
+    }
+
+    /// Run the overlay application with full overlay configuration
+    ///
+    /// This variant allows full control over all overlay settings including:
+    /// - Timer duration
+    /// - Whether to hide the timer display (`--hide-timer`)
+    /// - Whether to show the progress bar
+    /// - Overlay opacity
+    /// - Overlay background color
+    ///
+    /// # Arguments
+    ///
+    /// * `exit_key_config` - Configuration for the exit key shortcut
+    /// * `config` - Full overlay display configuration
+    pub fn run_with_overlay_config(
+        exit_key_config: ExitKeyConfig,
+        config: OverlayConfig,
+    ) -> iced::Result {
+        iced::application(
+            move || Self::with_overlay_config(exit_key_config.clone(), config.clone()),
             Self::update,
             Self::view,
         )

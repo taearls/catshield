@@ -29,14 +29,16 @@ use crate::ui_iced::theme::{colors, CatShieldTheme};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OverlayColor {
     /// Dark gray (default)
-    Dark,
+    Gray,
     /// Deep blue
     Blue,
     /// Dark green
     Green,
+    /// Dark red
+    Red,
     /// Dark purple
     Purple,
-    /// Custom color (use color picker)
+    /// Custom color (use hex input)
     Custom,
 }
 
@@ -44,19 +46,46 @@ impl OverlayColor {
     /// Get the RGB values for this color preset
     pub fn to_rgb(&self) -> (f32, f32, f32) {
         match self {
-            OverlayColor::Dark => (0.1, 0.1, 0.1),
+            OverlayColor::Gray => (0.1, 0.1, 0.1),
             OverlayColor::Blue => (0.05, 0.1, 0.2),
             OverlayColor::Green => (0.05, 0.15, 0.1),
+            OverlayColor::Red => (0.15, 0.05, 0.05),
             OverlayColor::Purple => (0.12, 0.08, 0.18),
-            OverlayColor::Custom => (0.1, 0.1, 0.1), // Default for custom
+            OverlayColor::Custom => (0.1, 0.1, 0.1), // Default for custom, actual value from hex input
+        }
+    }
+
+    /// Get the config string representation for this color
+    pub fn to_config_string(&self) -> Option<String> {
+        match self {
+            OverlayColor::Gray => Some("gray".to_string()),
+            OverlayColor::Blue => Some("blue".to_string()),
+            OverlayColor::Green => Some("green".to_string()),
+            OverlayColor::Red => Some("red".to_string()),
+            OverlayColor::Purple => Some("purple".to_string()),
+            OverlayColor::Custom => None, // Custom uses hex_color_input
+        }
+    }
+
+    /// Parse a config string to an OverlayColor
+    pub fn from_config_string(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "gray" | "grey" | "dark" => OverlayColor::Gray,
+            "blue" => OverlayColor::Blue,
+            "green" => OverlayColor::Green,
+            "red" => OverlayColor::Red,
+            "purple" => OverlayColor::Purple,
+            _ if s.starts_with('#') => OverlayColor::Custom,
+            _ => OverlayColor::Gray, // Default fallback
         }
     }
 
     /// All available color presets
-    pub const ALL: [OverlayColor; 5] = [
-        OverlayColor::Dark,
+    pub const ALL: [OverlayColor; 6] = [
+        OverlayColor::Gray,
         OverlayColor::Blue,
         OverlayColor::Green,
+        OverlayColor::Red,
         OverlayColor::Purple,
         OverlayColor::Custom,
     ];
@@ -65,9 +94,10 @@ impl OverlayColor {
 impl std::fmt::Display for OverlayColor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            OverlayColor::Dark => write!(f, "Dark Gray"),
+            OverlayColor::Gray => write!(f, "Dark Gray"),
             OverlayColor::Blue => write!(f, "Deep Blue"),
             OverlayColor::Green => write!(f, "Forest Green"),
+            OverlayColor::Red => write!(f, "Dark Red"),
             OverlayColor::Purple => write!(f, "Dark Purple"),
             OverlayColor::Custom => write!(f, "Custom..."),
         }
@@ -163,6 +193,8 @@ pub enum SettingsMessage {
     OpacityChanged(f64),
     /// Color preset selected
     ColorPresetSelected(OverlayColor),
+    /// Custom hex color input changed
+    HexColorChanged(String),
 
     // Behavior section
     /// Timer preset selected
@@ -212,10 +244,12 @@ pub enum SettingsMessage {
 /// State for the settings window
 pub struct SettingsWindow {
     // Working copy of config
-    /// Overlay opacity (0.2 - 0.8)
+    /// Overlay opacity (0.1 - 0.9)
     opacity: f64,
     /// Selected color preset
     color_preset: OverlayColor,
+    /// Custom hex color input (when color_preset is Custom)
+    hex_color_input: String,
 
     /// Selected timer preset
     timer_preset: TimerPreset,
@@ -270,9 +304,19 @@ impl SettingsWindow {
             .unwrap_or(TimerPreset::None);
         let custom_timer = config.default_timer.clone().unwrap_or_default();
 
+        // Parse color from config
+        let color_str = config.color();
+        let color_preset = OverlayColor::from_config_string(color_str);
+        let hex_color_input = if color_preset == OverlayColor::Custom {
+            color_str.to_string()
+        } else {
+            String::new()
+        };
+
         Self {
             opacity,
-            color_preset: OverlayColor::Dark, // Will add color to config later
+            color_preset,
+            hex_color_input,
 
             timer_preset,
             custom_timer,
@@ -306,6 +350,18 @@ impl SettingsWindow {
             preset => preset.to_duration_string(),
         };
 
+        // Build overlay color - use hex input for Custom, otherwise use preset name
+        let overlay_color = match self.color_preset {
+            OverlayColor::Custom => {
+                if self.hex_color_input.is_empty() {
+                    None
+                } else {
+                    Some(self.hex_color_input.clone())
+                }
+            }
+            preset => preset.to_config_string(),
+        };
+
         Config {
             exit_key: if self.exit_key.is_empty() {
                 None
@@ -314,6 +370,7 @@ impl SettingsWindow {
             },
             default_timer,
             overlay_opacity: Some(self.opacity),
+            overlay_color,
             allowed_keys: if self.allowed_keys.is_empty() {
                 None
             } else {
@@ -327,11 +384,12 @@ impl SettingsWindow {
     /// Check if settings have changed from original
     fn check_for_changes(&mut self) {
         let current = self.build_config();
-        // Compare effective opacity values rather than Option<f64> to handle
-        // the case where original_config.overlay_opacity is None (default)
+        // Compare effective opacity and color values rather than Option types to handle
+        // the case where original_config values are None (defaults)
         self.has_changes = current.exit_key != self.original_config.exit_key
             || current.default_timer != self.original_config.default_timer
             || current.opacity() != self.original_config.opacity()
+            || current.color() != self.original_config.color()
             || current.allowed_keys != self.original_config.allowed_keys
             || current.launch_at_login != self.original_config.launch_at_login
             || current.enable_trace_logging != self.original_config.enable_trace_logging;
@@ -349,7 +407,8 @@ impl SettingsWindow {
     /// Reset all settings to defaults
     fn reset_to_defaults(&mut self) {
         self.opacity = DEFAULT_OVERLAY_OPACITY;
-        self.color_preset = OverlayColor::Dark;
+        self.color_preset = OverlayColor::Gray;
+        self.hex_color_input = String::new();
         self.timer_preset = TimerPreset::None;
         self.custom_timer = String::new();
         self.exit_key = String::new();
@@ -374,6 +433,15 @@ impl SettingsWindow {
             }
             SettingsMessage::ColorPresetSelected(color) => {
                 self.color_preset = color;
+                // Clear hex input when switching away from Custom
+                if color != OverlayColor::Custom {
+                    self.hex_color_input.clear();
+                }
+                self.check_for_changes();
+            }
+            SettingsMessage::HexColorChanged(value) => {
+                self.hex_color_input = value;
+                self.color_preset = OverlayColor::Custom;
                 self.check_for_changes();
             }
 
@@ -579,19 +647,33 @@ impl SettingsWindow {
             .into()
     }
 
+    /// Get the current effective RGB color for preview
+    fn get_preview_rgb(&self) -> (f32, f32, f32) {
+        if self.color_preset == OverlayColor::Custom && !self.hex_color_input.is_empty() {
+            // Try to parse hex color, fall back to gray on invalid input
+            Config::parse_color_to_rgb(&self.hex_color_input).unwrap_or((0.1, 0.1, 0.1))
+        } else {
+            self.color_preset.to_rgb()
+        }
+    }
+
     /// Render the overlay settings section
     fn view_overlay_section(&self) -> Element<'_, SettingsMessage> {
         let opacity_percent = (self.opacity * 100.0).round() as i32;
 
-        // Opacity preview box using selected color preset
-        let (r, g, b) = self.color_preset.to_rgb();
+        // Opacity preview box using selected color (preset or custom hex)
+        let (r, g, b) = self.get_preview_rgb();
         let preview_color = Color::from_rgba(r, g, b, self.opacity as f32);
+
+        // Check if hex color is valid (for showing error state)
+        let hex_is_valid = self.hex_color_input.is_empty()
+            || Config::parse_color_to_rgb(&self.hex_color_input).is_some();
 
         column![
             // Opacity setting
             self.view_setting_group(
                 "Opacity",
-                "How dark the overlay appears",
+                "How dark the overlay appears (10% - 90%)",
                 column![
                     row![
                         text("Transparency").size(14).color(colors::TEXT_SECONDARY),
@@ -640,13 +722,41 @@ impl SettingsWindow {
             self.view_setting_group(
                 "Color Theme",
                 "Choose a color for the overlay background",
-                pick_list(
-                    OverlayColor::ALL.as_slice(),
-                    Some(self.color_preset),
-                    SettingsMessage::ColorPresetSelected
-                )
-                .width(Length::Fixed(200.0))
-                .padding([8, 12]),
+                column![
+                    pick_list(
+                        OverlayColor::ALL.as_slice(),
+                        Some(self.color_preset),
+                        SettingsMessage::ColorPresetSelected
+                    )
+                    .width(Length::Fixed(200.0))
+                    .padding([8, 12]),
+                    // Show hex color input when Custom is selected
+                    if self.color_preset == OverlayColor::Custom {
+                        column![
+                            Space::new().height(Length::Fixed(10.0)),
+                            row![
+                                text("Hex color:").size(13).color(colors::TEXT_SECONDARY),
+                                text_input("#RRGGBB", &self.hex_color_input)
+                                    .on_input(SettingsMessage::HexColorChanged)
+                                    .padding([8, 10])
+                                    .width(Length::Fixed(120.0)),
+                            ]
+                            .spacing(10)
+                            .align_y(Alignment::Center),
+                            if !hex_is_valid {
+                                text("Invalid hex color format")
+                                    .size(11)
+                                    .color(colors::TIMER_WARNING)
+                            } else {
+                                text("").size(11)
+                            },
+                        ]
+                        .spacing(4)
+                    } else {
+                        column![]
+                    },
+                ]
+                .spacing(4),
             ),
         ]
         .spacing(10)
@@ -1001,7 +1111,7 @@ mod tests {
         // Note: This loads from the actual config file, so we test with blank_settings instead
         let window = blank_settings();
         assert_eq!(window.opacity, DEFAULT_OVERLAY_OPACITY);
-        assert_eq!(window.color_preset, OverlayColor::Dark);
+        assert_eq!(window.color_preset, OverlayColor::Gray);
         assert_eq!(window.timer_preset, TimerPreset::None);
         assert!(!window.has_changes);
         assert_eq!(window.current_section, SettingsSection::Overlay);
@@ -1013,6 +1123,7 @@ mod tests {
             exit_key: Some("Cmd+Shift+X".to_string()),
             default_timer: Some("30m".to_string()),
             overlay_opacity: Some(0.7),
+            overlay_color: Some("blue".to_string()),
             allowed_keys: Some(vec!["F11".to_string(), "F12".to_string()]),
             launch_at_login: Some(true),
             enable_trace_logging: Some(false),
@@ -1022,6 +1133,7 @@ mod tests {
         assert_eq!(window.exit_key, "Cmd+Shift+X");
         assert_eq!(window.timer_preset, TimerPreset::ThirtyMinutes);
         assert_eq!(window.opacity, 0.7);
+        assert_eq!(window.color_preset, OverlayColor::Blue);
         assert_eq!(window.allowed_keys.len(), 2);
         assert!(window.launch_at_login);
         assert!(!window.trace_logging);
@@ -1046,7 +1158,7 @@ mod tests {
 
     #[test]
     fn test_overlay_color_to_rgb() {
-        let (r, g, b) = OverlayColor::Dark.to_rgb();
+        let (r, g, b) = OverlayColor::Gray.to_rgb();
         assert!((r - 0.1).abs() < f32::EPSILON);
         assert!((g - 0.1).abs() < f32::EPSILON);
         assert!((b - 0.1).abs() < f32::EPSILON);
@@ -1059,11 +1171,76 @@ mod tests {
 
     #[test]
     fn test_overlay_color_display() {
-        assert_eq!(format!("{}", OverlayColor::Dark), "Dark Gray");
+        assert_eq!(format!("{}", OverlayColor::Gray), "Dark Gray");
         assert_eq!(format!("{}", OverlayColor::Blue), "Deep Blue");
         assert_eq!(format!("{}", OverlayColor::Green), "Forest Green");
+        assert_eq!(format!("{}", OverlayColor::Red), "Dark Red");
         assert_eq!(format!("{}", OverlayColor::Purple), "Dark Purple");
         assert_eq!(format!("{}", OverlayColor::Custom), "Custom...");
+    }
+
+    #[test]
+    fn test_overlay_color_to_config_string() {
+        assert_eq!(
+            OverlayColor::Gray.to_config_string(),
+            Some("gray".to_string())
+        );
+        assert_eq!(
+            OverlayColor::Blue.to_config_string(),
+            Some("blue".to_string())
+        );
+        assert_eq!(
+            OverlayColor::Green.to_config_string(),
+            Some("green".to_string())
+        );
+        assert_eq!(
+            OverlayColor::Red.to_config_string(),
+            Some("red".to_string())
+        );
+        assert_eq!(
+            OverlayColor::Purple.to_config_string(),
+            Some("purple".to_string())
+        );
+        assert_eq!(OverlayColor::Custom.to_config_string(), None);
+    }
+
+    #[test]
+    fn test_overlay_color_from_config_string() {
+        assert_eq!(OverlayColor::from_config_string("gray"), OverlayColor::Gray);
+        assert_eq!(OverlayColor::from_config_string("grey"), OverlayColor::Gray);
+        assert_eq!(OverlayColor::from_config_string("dark"), OverlayColor::Gray);
+        assert_eq!(OverlayColor::from_config_string("blue"), OverlayColor::Blue);
+        assert_eq!(
+            OverlayColor::from_config_string("green"),
+            OverlayColor::Green
+        );
+        assert_eq!(OverlayColor::from_config_string("red"), OverlayColor::Red);
+        assert_eq!(
+            OverlayColor::from_config_string("purple"),
+            OverlayColor::Purple
+        );
+        assert_eq!(
+            OverlayColor::from_config_string("#FF0000"),
+            OverlayColor::Custom
+        );
+    }
+
+    #[test]
+    fn test_overlay_color_from_config_string_case_insensitive() {
+        assert_eq!(OverlayColor::from_config_string("BLUE"), OverlayColor::Blue);
+        assert_eq!(OverlayColor::from_config_string("Blue"), OverlayColor::Blue);
+    }
+
+    #[test]
+    fn test_overlay_color_all_presets() {
+        // Verify ALL constant contains all expected colors
+        assert_eq!(OverlayColor::ALL.len(), 6);
+        assert!(OverlayColor::ALL.contains(&OverlayColor::Gray));
+        assert!(OverlayColor::ALL.contains(&OverlayColor::Blue));
+        assert!(OverlayColor::ALL.contains(&OverlayColor::Green));
+        assert!(OverlayColor::ALL.contains(&OverlayColor::Red));
+        assert!(OverlayColor::ALL.contains(&OverlayColor::Purple));
+        assert!(OverlayColor::ALL.contains(&OverlayColor::Custom));
     }
 
     // ============================================================
@@ -1233,6 +1410,76 @@ mod tests {
         );
 
         assert_eq!(window.color_preset, OverlayColor::Blue);
+        assert!(window.has_changes);
+    }
+
+    #[test]
+    fn test_update_color_preset_clears_hex_input() {
+        let mut window = blank_settings();
+        window.hex_color_input = "#FF0000".to_string();
+        window.color_preset = OverlayColor::Custom;
+
+        apply(
+            &mut window,
+            SettingsMessage::ColorPresetSelected(OverlayColor::Blue),
+        );
+
+        assert_eq!(window.color_preset, OverlayColor::Blue);
+        assert!(window.hex_color_input.is_empty());
+    }
+
+    #[test]
+    fn test_update_hex_color_changed() {
+        let mut window = blank_settings();
+        apply(
+            &mut window,
+            SettingsMessage::HexColorChanged("#FF5500".to_string()),
+        );
+
+        assert_eq!(window.hex_color_input, "#FF5500");
+        assert_eq!(window.color_preset, OverlayColor::Custom);
+        assert!(window.has_changes);
+    }
+
+    #[test]
+    fn test_build_config_with_color_preset() {
+        let mut window = blank_settings();
+        window.color_preset = OverlayColor::Blue;
+
+        let config = window.build_config();
+        assert_eq!(config.overlay_color, Some("blue".to_string()));
+    }
+
+    #[test]
+    fn test_build_config_with_custom_hex_color() {
+        let mut window = blank_settings();
+        window.color_preset = OverlayColor::Custom;
+        window.hex_color_input = "#1a2b3c".to_string();
+
+        let config = window.build_config();
+        assert_eq!(config.overlay_color, Some("#1a2b3c".to_string()));
+    }
+
+    #[test]
+    fn test_build_config_custom_empty_hex() {
+        let mut window = blank_settings();
+        window.color_preset = OverlayColor::Custom;
+        window.hex_color_input = String::new();
+
+        let config = window.build_config();
+        assert!(config.overlay_color.is_none());
+    }
+
+    #[test]
+    fn test_settings_loads_custom_hex_color() {
+        let config = Config {
+            overlay_color: Some("#ABC123".to_string()),
+            ..Default::default()
+        };
+
+        let window = SettingsWindow::from_config(config);
+        assert_eq!(window.color_preset, OverlayColor::Custom);
+        assert_eq!(window.hex_color_input, "#ABC123");
     }
 
     #[test]
