@@ -5,7 +5,7 @@
 <!-- Keep under 150 lines - agents read this first -->
 
 **Current Phase**: 9 - iced UI Migration
-**Next Priority**: #162 (Linux tray integration)
+**Next Priority**: #163 (Visual polish and theming)
 **Blocking Issues**: None
 
 ### Open Issues by Priority
@@ -13,18 +13,18 @@
 | # | Title | Priority | Effort | Blocked By | Phase |
 |---|-------|----------|--------|------------|-------|
 | 152 | Epic: Migrate UI Rendering to iced Framework | 🟡 High | ~4-6 weeks | None | 9 |
-| 162 | Linux tray integration | 🟢 Medium | ~1-2 days | None | 9 |
 | 163 | Visual polish and theming | 🔵 Low | ~2-3 days | None | 9 |
 | 164 | Performance testing | 🔵 Low | ~1-2 days | #156 | 9 |
 | 165 | Animated cat companion overlay | 🔵 Low | ~2-3 days | None | 9 |
 | 166 | Documentation update | 🔵 Low | ~1 day | All others | 9 |
 
-**Summary**: 6 open issues (0 Critical, 1 High, 1 Medium, 4 Low)
+**Summary**: 5 open issues (0 Critical, 1 High, 0 Medium, 4 Low)
 
 ### Completed This Session
 
 | # | Title | Priority | Date |
 |---|-------|----------|------|
+| 162 | Linux tray integration | 🟢 Medium | 2026-01-25 |
 | 161 | Windows system tray integration | 🟢 Medium | 2026-01-25 |
 | 160 | macOS menu bar integration | 🟢 Medium | 2026-01-25 |
 | 159 | Add overlay customization (opacity, color) | 🟢 Medium | 2026-01-25 |
@@ -46,9 +46,9 @@
 
 ### Recommended Next Issues
 
-1. **#162** - Linux tray integration (unblocked, start here!)
+1. **#163** - Visual polish and theming (unblocked, start here!)
 2. **#165** - Animated cat companion overlay (unblocked)
-3. **#163** - Visual polish and theming (unblocked)
+3. **#164** - Performance testing (unblocked)
 
 ---
 
@@ -67,7 +67,7 @@
 | ✅ | #159 | Add overlay customization | None |
 | ✅ | #160 | macOS menu bar integration | None |
 | ✅ | #161 | Windows system tray integration | None |
-| 📋 | #162 | Linux tray integration | None |
+| ✅ | #162 | Linux tray integration | None |
 | 📋 | #163 | Visual polish and theming | None |
 | 📋 | #164 | Performance testing | #156 |
 | 📋 | #165 | Animated cat companion overlay | None |
@@ -137,7 +137,7 @@ Phase 9 (iced Migration):
     │
     ├─► #160 (macOS) ✅ AppKit NSStatusItem + iced windows via thread spawn
     ├─► #161 (Windows) ✅ Win32 Shell_NotifyIcon + iced windows via thread spawn
-    └─► #162 (Linux)
+    └─► #162 (Linux) ✅ ksni StatusNotifierItem + iced windows via thread spawn
                             │
     ├─► #163 (Polish) ◄─────┤
     │                       │
@@ -183,6 +183,7 @@ Potential future enhancements (not yet tracked as issues):
 
 | Issue | Title | Date |
 |-------|-------|------|
+| #162 | Linux tray integration | 2026-01-25 |
 | #161 | Windows system tray integration | 2026-01-25 |
 | #160 | macOS menu bar integration | 2026-01-25 |
 | #159 | Add overlay customization (opacity, color) | 2026-01-25 |
