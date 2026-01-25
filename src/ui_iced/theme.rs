@@ -466,9 +466,7 @@ impl CatShieldTheme {
             button::Status::Active => (colors::DANGER, colors::TEXT_ON_ACCENT),
             button::Status::Hovered => (colors::DANGER_HOVER, colors::TEXT_ON_ACCENT),
             button::Status::Pressed => (colors::DANGER_PRESSED, colors::TEXT_ON_ACCENT),
-            button::Status::Disabled => {
-                (Color::from_rgba(0.5, 0.5, 0.5, 0.4), colors::TEXT_MUTED)
-            }
+            button::Status::Disabled => (Color::from_rgba(0.5, 0.5, 0.5, 0.4), colors::TEXT_MUTED),
         };
 
         button::Style {
@@ -495,9 +493,7 @@ impl CatShieldTheme {
             button::Status::Active => (colors::ACCENT, colors::TEXT_ON_ACCENT),
             button::Status::Hovered => (colors::ACCENT_HOVER, colors::TEXT_ON_ACCENT),
             button::Status::Pressed => (colors::ACCENT_PRESSED, colors::TEXT_ON_ACCENT),
-            button::Status::Disabled => {
-                (Color::from_rgba(0.4, 0.6, 0.9, 0.4), colors::TEXT_MUTED)
-            }
+            button::Status::Disabled => (Color::from_rgba(0.4, 0.6, 0.9, 0.4), colors::TEXT_MUTED),
         };
 
         button::Style {
@@ -560,10 +556,13 @@ impl CatShieldTheme {
         let base = button::secondary(theme, status);
         let (background_color, text_color) = match status {
             button::Status::Active => (Color::TRANSPARENT, colors::TEXT_SECONDARY),
-            button::Status::Hovered => (Color::from_rgba(1.0, 1.0, 1.0, 0.08), colors::TEXT_PRIMARY),
-            button::Status::Pressed => {
-                (Color::from_rgba(1.0, 1.0, 1.0, 0.04), colors::TEXT_SECONDARY)
+            button::Status::Hovered => {
+                (Color::from_rgba(1.0, 1.0, 1.0, 0.08), colors::TEXT_PRIMARY)
             }
+            button::Status::Pressed => (
+                Color::from_rgba(1.0, 1.0, 1.0, 0.04),
+                colors::TEXT_SECONDARY,
+            ),
             button::Status::Disabled => (Color::TRANSPARENT, colors::TEXT_MUTED),
         };
 
@@ -625,9 +624,7 @@ impl CatShieldTheme {
         let (background_color, text_color) = match status {
             button::Status::Active => (colors::SUCCESS, colors::TEXT_ON_ACCENT),
             button::Status::Hovered => (colors::SUCCESS_HOVER, colors::TEXT_ON_ACCENT),
-            button::Status::Pressed => {
-                (Color::from_rgb(0.22, 0.60, 0.32), colors::TEXT_ON_ACCENT)
-            }
+            button::Status::Pressed => (Color::from_rgb(0.22, 0.60, 0.32), colors::TEXT_ON_ACCENT),
             button::Status::Disabled => (Color::from_rgba(0.3, 0.7, 0.4, 0.4), colors::TEXT_MUTED),
         };
 
@@ -651,11 +648,9 @@ impl CatShieldTheme {
     pub fn tab_button(_theme: &Theme, status: button::Status, is_selected: bool) -> button::Style {
         let (background_color, text_color, border_color) = if is_selected {
             match status {
-                button::Status::Active | button::Status::Hovered | button::Status::Pressed => (
-                    colors::ACCENT,
-                    colors::TEXT_ON_ACCENT,
-                    colors::ACCENT,
-                ),
+                button::Status::Active | button::Status::Hovered | button::Status::Pressed => {
+                    (colors::ACCENT, colors::TEXT_ON_ACCENT, colors::ACCENT)
+                }
                 button::Status::Disabled => (
                     Color::from_rgba(0.4, 0.6, 0.9, 0.4),
                     colors::TEXT_MUTED,
@@ -679,11 +674,9 @@ impl CatShieldTheme {
                     colors::TEXT_SECONDARY,
                     Color::TRANSPARENT,
                 ),
-                button::Status::Disabled => (
-                    Color::TRANSPARENT,
-                    colors::TEXT_MUTED,
-                    Color::TRANSPARENT,
-                ),
+                button::Status::Disabled => {
+                    (Color::TRANSPARENT, colors::TEXT_MUTED, Color::TRANSPARENT)
+                }
             }
         };
 
@@ -928,10 +921,7 @@ impl CatShieldTheme {
     // ============================================================
 
     /// Style for pick list (dropdown) widgets
-    pub fn pick_list_style(
-        _theme: &Theme,
-        status: pick_list::Status,
-    ) -> pick_list::Style {
+    pub fn pick_list_style(_theme: &Theme, status: pick_list::Status) -> pick_list::Style {
         let (background, text_color, border_color, handle_color, placeholder_color) = match status {
             pick_list::Status::Active => (
                 colors::BACKGROUND_DEEP,
@@ -989,6 +979,7 @@ impl CatShieldTheme {
 // ============================================================
 
 #[cfg(test)]
+#[allow(clippy::assertions_on_constants)]
 mod tests {
     use super::*;
 

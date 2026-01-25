@@ -94,12 +94,7 @@ fn cat_status_icon<'a>(is_warning: bool) -> Element<'a, OverlayMessage> {
         colors::ACCENT
     };
 
-    container(
-        text("🐱")
-            .size(72.0)
-            .color(icon_color),
-    )
-    .into()
+    container(text("🐱").size(72.0).color(icon_color)).into()
 }
 
 /// Create a status badge showing protection state
@@ -109,11 +104,15 @@ fn status_badge<'a>() -> Element<'a, OverlayMessage> {
 
     container(
         row![
-            text("●").size(typography::SIZE_CAPTION).color(colors::SUCCESS),
+            text("●")
+                .size(typography::SIZE_CAPTION)
+                .color(colors::SUCCESS),
             Space::new().width(Length::Fixed(spacing::XS)),
-            text("Protected").size(typography::SIZE_CAPTION).color(colors::SUCCESS),
+            text("Protected")
+                .size(typography::SIZE_CAPTION)
+                .color(colors::SUCCESS),
         ]
-        .align_y(iced::Alignment::Center)
+        .align_y(iced::Alignment::Center),
     )
     .padding([spacing::XS, spacing::MD])
     .style(move |_theme| container::Style {
@@ -434,7 +433,7 @@ impl OverlayApp {
 
         // Build the main content column with improved spacing
         let mut content = column![]
-            .spacing(spacing::LG )
+            .spacing(spacing::LG)
             .align_x(iced::Alignment::Center);
 
         // Add cat icon with status
@@ -450,13 +449,14 @@ impl OverlayApp {
                 status_badge(),
             ]
             .align_x(iced::Alignment::Center)
-            .spacing(spacing::XS ),
+            .spacing(spacing::XS),
         );
 
         // Add timer display unless hidden
         if !self.hide_timer {
             // Format the timer display
-            let (timer_text_str, timer_is_warning) = if let Some(remaining) = self.remaining_seconds {
+            let (timer_text_str, timer_is_warning) = if let Some(remaining) = self.remaining_seconds
+            {
                 Self::format_duration(remaining)
             } else {
                 // Elapsed time mode
@@ -506,14 +506,16 @@ impl OverlayApp {
 
         // Hint section with subtle card styling
         let mut hints = column![]
-            .spacing(spacing::SM )
+            .spacing(spacing::SM)
             .align_x(iced::Alignment::Center);
 
         // Add exit key hint if available
         if !self.exit_key_display.is_empty() {
             hints = hints.push(
                 row![
-                    text("Press").size(typography::SIZE_BODY).color(colors::TEXT_MUTED),
+                    text("Press")
+                        .size(typography::SIZE_BODY)
+                        .color(colors::TEXT_MUTED),
                     Space::new().width(Length::Fixed(spacing::XS)),
                     container(
                         text(&self.exit_key_display)
@@ -522,7 +524,9 @@ impl OverlayApp {
                     )
                     .padding([spacing::XS, spacing::SM])
                     .style(|_theme| container::Style {
-                        background: Some(iced::Background::Color(Color::from_rgba(1.0, 1.0, 1.0, 0.1))),
+                        background: Some(iced::Background::Color(Color::from_rgba(
+                            1.0, 1.0, 1.0, 0.1
+                        ))),
                         border: iced::Border {
                             radius: borders::RADIUS_SM.into(),
                             width: borders::WIDTH_DEFAULT,
@@ -531,7 +535,9 @@ impl OverlayApp {
                         ..Default::default()
                     }),
                     Space::new().width(Length::Fixed(spacing::XS)),
-                    text("to unlock").size(typography::SIZE_BODY).color(colors::TEXT_MUTED),
+                    text("to unlock")
+                        .size(typography::SIZE_BODY)
+                        .color(colors::TEXT_MUTED),
                 ]
                 .align_y(iced::Alignment::Center),
             );

@@ -652,7 +652,9 @@ impl SettingsWindow {
 
         let subtitle = if self.has_changes {
             row![
-                text("●").size(typography::SIZE_CAPTION).color(colors::WARNING),
+                text("●")
+                    .size(typography::SIZE_CAPTION)
+                    .color(colors::WARNING),
                 Space::new().width(Length::Fixed(spacing::XS)),
                 text("Unsaved changes")
                     .size(typography::SIZE_CAPTION)
@@ -660,16 +662,14 @@ impl SettingsWindow {
             ]
             .align_y(Alignment::Center)
         } else {
-            row![
-                text("Configure your protection settings")
-                    .size(typography::SIZE_CAPTION)
-                    .color(colors::TEXT_SECONDARY),
-            ]
+            row![text("Configure your protection settings")
+                .size(typography::SIZE_CAPTION)
+                .color(colors::TEXT_SECONDARY),]
         };
 
         container(
             column![title, subtitle]
-                .spacing(spacing::SM )
+                .spacing(spacing::SM)
                 .align_x(Alignment::Center),
         )
         .width(Length::Fill)
@@ -679,26 +679,30 @@ impl SettingsWindow {
 
     /// Render the navigation tabs with polished styling
     fn view_tabs(&self) -> Element<'_, SettingsMessage> {
-        let make_tab =
-            |section: SettingsSection, label: &'static str, icon: &'static str, current: SettingsSection| {
-                let is_selected = current == section;
+        let make_tab = |section: SettingsSection,
+                        label: &'static str,
+                        icon: &'static str,
+                        current: SettingsSection| {
+            let is_selected = current == section;
 
-                button(
-                    row![
-                        text(icon).size(typography::SIZE_BODY),
-                        Space::new().width(Length::Fixed(spacing::XS)),
-                        text(label).size(typography::SIZE_BODY).color(if is_selected {
+            button(
+                row![
+                    text(icon).size(typography::SIZE_BODY),
+                    Space::new().width(Length::Fixed(spacing::XS)),
+                    text(label)
+                        .size(typography::SIZE_BODY)
+                        .color(if is_selected {
                             colors::TEXT_ON_ACCENT
                         } else {
                             colors::TEXT_SECONDARY
                         }),
-                    ]
-                    .align_y(Alignment::Center),
-                )
-                .padding([spacing::SM, spacing::LG])
-                .style(move |theme, status| CatShieldTheme::tab_button(theme, status, is_selected))
-                .on_press(SettingsMessage::SwitchSection(section))
-            };
+                ]
+                .align_y(Alignment::Center),
+            )
+            .padding([spacing::SM, spacing::LG])
+            .style(move |theme, status| CatShieldTheme::tab_button(theme, status, is_selected))
+            .on_press(SettingsMessage::SwitchSection(section))
+        };
 
         let current = self.current_section;
 
@@ -709,7 +713,7 @@ impl SettingsWindow {
                 make_tab(SettingsSection::Advanced, "Advanced", "🔧", current),
                 make_tab(SettingsSection::About, "About", "ℹ️", current),
             ]
-            .spacing(spacing::SM )
+            .spacing(spacing::SM)
             .align_y(Alignment::Center),
         )
         .width(Length::Fill)
@@ -799,7 +803,9 @@ impl SettingsWindow {
                     ],
                     // Preview section
                     Space::new().height(Length::Fixed(spacing::LG)),
-                    text("Preview").size(typography::SIZE_CAPTION).color(colors::TEXT_SECONDARY),
+                    text("Preview")
+                        .size(typography::SIZE_CAPTION)
+                        .color(colors::TEXT_SECONDARY),
                     container(
                         column![
                             text("🐱").size(32.0),
@@ -808,7 +814,7 @@ impl SettingsWindow {
                                 .color(colors::TEXT_PRIMARY),
                         ]
                         .align_x(Alignment::Center)
-                        .spacing(spacing::SM )
+                        .spacing(spacing::SM)
                     )
                     .width(Length::Fill)
                     .height(Length::Fixed(100.0))
@@ -825,7 +831,7 @@ impl SettingsWindow {
                         ..Default::default()
                     }),
                 ]
-                .spacing(spacing::SM ),
+                .spacing(spacing::SM),
             ),
             Space::new().height(Length::Fixed(spacing::XL)),
             // Color preset setting
@@ -855,7 +861,7 @@ impl SettingsWindow {
                                     .width(Length::Fixed(120.0))
                                     .style(CatShieldTheme::text_input_style),
                             ]
-                            .spacing(spacing::MD )
+                            .spacing(spacing::MD)
                             .align_y(Alignment::Center),
                             if !hex_is_valid {
                                 text("Invalid hex color format")
@@ -865,12 +871,12 @@ impl SettingsWindow {
                                 text("").size(typography::SIZE_MICRO)
                             },
                         ]
-                        .spacing(spacing::XS )
+                        .spacing(spacing::XS)
                     } else {
                         column![]
                     },
                 ]
-                .spacing(spacing::XS ),
+                .spacing(spacing::XS),
             ),
             Space::new().height(Length::Fixed(spacing::XL)),
             // Color scheme / dark mode setting
@@ -889,10 +895,10 @@ impl SettingsWindow {
                     Space::new().height(Length::Fixed(spacing::SM)),
                     self.view_current_scheme_indicator(),
                 ]
-                .spacing(spacing::XS ),
+                .spacing(spacing::XS),
             ),
         ]
-        .spacing(spacing::MD )
+        .spacing(spacing::MD)
         .into()
     }
 
@@ -912,7 +918,7 @@ impl SettingsWindow {
                     .size(typography::SIZE_CAPTION)
                     .color(colors::TEXT_MUTED),
             ]
-            .align_y(Alignment::Center)
+            .align_y(Alignment::Center),
         )
         .padding([spacing::XS, spacing::SM])
         .style(|_theme| container::Style {
@@ -1013,13 +1019,13 @@ impl SettingsWindow {
                                 .width(Length::Fixed(150.0))
                                 .style(CatShieldTheme::text_input_style),
                         ]
-                        .spacing(spacing::MD )
+                        .spacing(spacing::MD)
                         .align_y(Alignment::Center)
                     } else {
                         row![]
                     },
                 ]
-                .spacing(spacing::MD ),
+                .spacing(spacing::MD),
             ),
             Space::new().height(Length::Fixed(spacing::XL)),
             // Allowed keys setting
@@ -1047,7 +1053,7 @@ impl SettingsWindow {
                         .style(CatShieldTheme::primary_button)
                         .on_press(SettingsMessage::AddAllowedKey),
                     ]
-                    .spacing(spacing::SM )
+                    .spacing(spacing::SM)
                     .align_y(Alignment::Center),
                     // Preset buttons with improved styling
                     Space::new().height(Length::Fixed(spacing::SM)),
@@ -1072,13 +1078,13 @@ impl SettingsWindow {
                         .style(CatShieldTheme::ghost_button)
                         .on_press(SettingsMessage::AddSpotlightPreset),
                     ]
-                    .spacing(spacing::SM )
+                    .spacing(spacing::SM)
                     .align_y(Alignment::Center),
                 ]
-                .spacing(spacing::SM ),
+                .spacing(spacing::SM),
             ),
         ]
-        .spacing(spacing::MD )
+        .spacing(spacing::MD)
         .into()
     }
 
@@ -1130,7 +1136,7 @@ impl SettingsWindow {
                         ..Default::default()
                     }),
                 ]
-                .spacing(spacing::XS ),
+                .spacing(spacing::XS),
             ),
             Space::new().height(Length::Fixed(spacing::XL)),
             // Reset to defaults
@@ -1152,7 +1158,7 @@ impl SettingsWindow {
                 .on_press(SettingsMessage::ResetDefaults),
             ),
         ]
-        .spacing(spacing::MD )
+        .spacing(spacing::MD)
         .into()
     }
 
@@ -1182,7 +1188,7 @@ impl SettingsWindow {
                         ..Default::default()
                     }),
                 ]
-                .spacing(spacing::XS )
+                .spacing(spacing::XS)
                 .align_x(Alignment::Center)
             )
             .width(Length::Fill)
@@ -1224,7 +1230,7 @@ impl SettingsWindow {
                     ]
                     .align_y(Alignment::Center),
                 ]
-                .spacing(spacing::SM ),
+                .spacing(spacing::SM),
             ),
             Space::new().height(Length::Fixed(spacing::XL)),
             // Credits with tech stack badges
@@ -1275,10 +1281,10 @@ impl SettingsWindow {
                         ..Default::default()
                     }),
                 ]
-                .spacing(spacing::SM ),
+                .spacing(spacing::SM),
             ),
         ]
-        .spacing(spacing::MD )
+        .spacing(spacing::MD)
         .into()
     }
 
@@ -1300,7 +1306,7 @@ impl SettingsWindow {
                 Space::new().height(Length::Fixed(spacing::MD)),
                 content.into(),
             ]
-            .spacing(spacing::XS ),
+            .spacing(spacing::XS),
         )
         .width(Length::Fill)
         .padding([spacing::CARD_PADDING, spacing::SECTION_PADDING])
@@ -1318,9 +1324,7 @@ impl SettingsWindow {
 
     /// Render the footer with action buttons and polished styling
     fn view_footer(&self) -> Element<'_, SettingsMessage> {
-        let mut footer_row = row![]
-            .spacing(spacing::MD )
-            .align_y(Alignment::Center);
+        let mut footer_row = row![].spacing(spacing::MD).align_y(Alignment::Center);
 
         // Error/success message with improved styling
         if let Some(ref error) = self.error_message {

@@ -125,9 +125,9 @@ impl AboutWindow {
                             ..Default::default()
                         }),
                     ]
-                    .spacing(spacing::SM ),
+                    .spacing(spacing::SM),
                 ]
-                .spacing(spacing::XS )
+                .spacing(spacing::XS)
                 .align_x(Alignment::Center)
             )
             .width(Length::Fill)
@@ -144,7 +144,7 @@ impl AboutWindow {
                         .size(typography::SIZE_MICRO)
                         .color(colors::TEXT_MUTED),
                 ]
-                .spacing(spacing::XS )
+                .spacing(spacing::XS)
                 .align_x(Alignment::Center)
             )
             .width(Length::Fill)
@@ -166,7 +166,7 @@ impl AboutWindow {
             .align_x(iced::alignment::Horizontal::Center)
             .padding(Padding::from([0.0, 0.0]).bottom(spacing::SECTION_PADDING)),
         ]
-        .spacing(spacing::SM )
+        .spacing(spacing::SM)
         .align_x(Alignment::Center)
         .width(Length::Fill)
         .height(Length::Fill);
