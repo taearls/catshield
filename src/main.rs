@@ -595,11 +595,11 @@ fn main() {
             }
             TrayMenuAction::OpenSettings => {
                 log::info!("Opening settings window...");
-                crate::ui_iced::open_settings_window();
+                cat_shield::ui_iced::open_settings_window();
             }
             TrayMenuAction::ShowAbout => {
                 log::info!("Opening about window...");
-                crate::ui_iced::open_about_window();
+                cat_shield::ui_iced::open_about_window();
             }
             TrayMenuAction::Quit => {
                 log::info!("Quit requested");
@@ -655,7 +655,7 @@ fn main() {
     log::info!("Shutting down...");
 
     // Close any open iced windows
-    crate::ui_iced::close_all_windows();
+    cat_shield::ui_iced::close_all_windows();
 
     // Disable input blocking if still active
     if input_blocker.is_active() {
