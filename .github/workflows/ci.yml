@@ -32,10 +32,11 @@ jobs:
         run: cargo fmt --all -- --check
 
   # Build on macOS and Windows using native runners
+  # Uses nick-fields/retry for transient infrastructure failures (Issue #184)
   build-native:
     name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 25
     permissions:
       contents: read
     strategy:
@@ -56,9 +57,19 @@ jobs:
         with:
           key: ${{ matrix.os }}
       - name: Run Clippy
-        run: cargo clippy --all-targets -- -D warnings
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 10
+          max_attempts: 2
+          retry_wait_seconds: 10
+          command: cargo clippy --all-targets -- -D warnings
       - name: Build release
-        run: cargo build --release --locked
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 15
+          max_attempts: 2
+          retry_wait_seconds: 10
+          command: cargo build --release --locked
 
   # Build on Linux using Docker (docker/linux/Dockerfile as source of truth)
   build-linux:
@@ -77,10 +88,11 @@ jobs:
         run: docker run --rm -v "${{ github.workspace }}:/app" catshield-linux cargo build --release --locked
 
   # Test on macOS and Windows using native runners
+  # Uses nick-fields/retry for transient infrastructure failures (Issue #184)
   test-native:
     name: Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 25
     permissions:
       contents: read
     strategy:
@@ -94,7 +106,12 @@ jobs:
         with:
           key: ${{ matrix.os }}
       - name: Run tests
-        run: cargo test --verbose --locked
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 15
+          max_attempts: 2
+          retry_wait_seconds: 10
+          command: cargo test --verbose --locked
 
   # Test on Linux using Docker (docker/linux/Dockerfile as source of truth)
   test-linux:

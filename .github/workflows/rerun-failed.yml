@@ -1,0 +1,67 @@
+# Automatic retry workflow for transient CI failures
+# See: https://github.com/tylerearls/catshield/issues/184
+#
+# This workflow monitors the CI workflow and automatically re-runs failed jobs
+# once before requiring manual intervention. This handles transient infrastructure
+# failures (e.g., Windows runner provisioning issues) without masking actual
+# code failures.
+#
+# The retry only triggers for truly failed workflows - not cancelled or
+# in-progress runs. If the retry also fails, manual intervention is required.
+
+name: Re-run failed jobs
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+jobs:
+  rerun-on-failure:
+    name: Auto-retry failed jobs
+    # Only retry if the workflow actually failed (not cancelled or skipped)
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Check if this is a retry attempt
+        id: check-retry
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Get the workflow run details
+            const run = context.payload.workflow_run;
+
+            // Check if this run has already been retried by looking at the run_attempt
+            // run_attempt starts at 1, so if it's > 1, this is already a retry
+            if (run.run_attempt > 1) {
+              console.log(`Run ${run.id} is already attempt #${run.run_attempt}, not retrying again`);
+              return { shouldRetry: false };
+            }
+
+            console.log(`Run ${run.id} is attempt #${run.run_attempt}, will trigger retry`);
+            return { shouldRetry: true };
+          result-encoding: json
+
+      - name: Re-run failed jobs
+        if: ${{ fromJSON(steps.check-retry.outputs.result).shouldRetry }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runId = context.payload.workflow_run.id;
+            console.log(`Re-running failed jobs for workflow run ${runId}`);
+
+            try {
+              await github.rest.actions.reRunWorkflowFailedJobs({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: runId
+              });
+              console.log('Successfully triggered re-run of failed jobs');
+            } catch (error) {
+              // Log the error but don't fail - the original run already failed
+              // and we don't want to hide that by also failing here
+              console.log(`Failed to trigger re-run: ${error.message}`);
+              console.log('Manual intervention may be required');
+            }
