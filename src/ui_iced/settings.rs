@@ -15,15 +15,17 @@
 //! The settings window maintains a working copy of the configuration that can be
 //! saved (Apply/OK), cancelled (Cancel), or reset to defaults (Reset).
 
+use std::time::{Duration, Instant};
+
 use iced::widget::{
     button, checkbox, column, container, pick_list, row, rule, scrollable, slider, text,
     text_input, Space,
 };
 use iced::window::{Position, Settings as WindowSettings};
-use iced::{Alignment, Color, Element, Length, Size, Task, Theme};
+use iced::{time, Alignment, Color, Element, Length, Size, Subscription, Task, Theme};
 
 use crate::config::{Config, DEFAULT_OVERLAY_OPACITY, MAX_OVERLAY_OPACITY, MIN_OVERLAY_OPACITY};
-use crate::ui_iced::cat_animation::CatPosition;
+use crate::ui_iced::cat_animation::{CatCompanion, CatPosition};
 use crate::ui_iced::theme::{borders, colors, spacing, typography, CatShieldTheme, ColorScheme};
 
 /// Preset overlay colors for quick selection
@@ -247,6 +249,10 @@ pub enum SettingsSection {
 /// Messages for the settings window
 #[derive(Debug, Clone)]
 pub enum SettingsMessage {
+    // Animation
+    /// Timer tick for updating cat animation
+    Tick(Instant),
+
     // Overlay section
     /// Opacity slider changed
     OpacityChanged(f64),
@@ -341,6 +347,8 @@ pub struct SettingsWindow {
     show_cat: bool,
     /// Position of the cat companion
     cat_position: CatPosition,
+    /// Animated cat companion for preview
+    cat_preview: CatCompanion,
 
     // UI state
     /// Currently selected section
@@ -405,6 +413,7 @@ impl SettingsWindow {
 
             show_cat: config.show_cat(),
             cat_position: CatPosition::from_config_string(config.cat_position()),
+            cat_preview: CatCompanion::with_settings(config.show_cat(), CatPosition::default()),
 
             current_section: SettingsSection::Overlay,
             has_changes: false,
@@ -503,6 +512,7 @@ impl SettingsWindow {
         self.color_scheme = ColorSchemePreference::System;
         self.show_cat = true;
         self.cat_position = CatPosition::default();
+        self.cat_preview = CatCompanion::with_settings(true, CatPosition::default());
         self.check_for_changes();
     }
 
@@ -513,6 +523,14 @@ impl SettingsWindow {
         self.success_message = None;
 
         match message {
+            // Animation tick
+            SettingsMessage::Tick(now) => {
+                // Update cat animation for preview
+                self.cat_preview.tick(now);
+                // Don't clear messages for ticks
+                return Task::none();
+            }
+
             // Overlay section
             SettingsMessage::OpacityChanged(value) => {
                 self.opacity = value.clamp(MIN_OVERLAY_OPACITY, MAX_OVERLAY_OPACITY);
@@ -601,10 +619,12 @@ impl SettingsWindow {
             // Cat companion section
             SettingsMessage::ShowCatToggled(enabled) => {
                 self.show_cat = enabled;
+                self.cat_preview.visible = enabled;
                 self.check_for_changes();
             }
             SettingsMessage::CatPositionChanged(position) => {
                 self.cat_position = position;
+                self.cat_preview.position = position;
                 self.check_for_changes();
             }
 
@@ -960,7 +980,7 @@ impl SettingsWindow {
                             Space::new().height(Length::Fixed(spacing::SM)),
                             container(
                                 row![
-                                    text("🐱").size(typography::SIZE_HEADER),
+                                    self.cat_preview.view::<SettingsMessage>(false),
                                     Space::new().width(Length::Fixed(spacing::SM)),
                                     text("The cat will animate with bobbing and blinking")
                                         .size(typography::SIZE_CAPTION)
@@ -1532,10 +1552,23 @@ impl SettingsWindow {
         }
     }
 
+    /// Subscription for animation ticks
+    ///
+    /// Provides periodic ticks at ~30 FPS for smooth cat animation in the preview.
+    pub fn subscription(&self) -> Subscription<SettingsMessage> {
+        // Only tick when on the Overlay section where the cat preview is visible
+        if self.current_section == SettingsSection::Overlay && self.show_cat {
+            time::every(Duration::from_millis(33)).map(SettingsMessage::Tick)
+        } else {
+            Subscription::none()
+        }
+    }
+
     /// Run the settings window application
     pub fn run() -> iced::Result {
         iced::application(Self::new, Self::update, Self::view)
             .title("Cat Shield Settings")
+            .subscription(Self::subscription)
             .window(Self::window_settings())
             .theme(Self::theme)
             .run()

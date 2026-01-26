@@ -20,6 +20,7 @@
 
 | # | Title | Priority | Date |
 |---|-------|----------|------|
+| 189 | Fix cat animation not working in Settings/About windows | 🔵 Low | 2026-01-26 |
 | 187 | Fix Preferences/About windows not appearing on macOS | 🔴 High | 2026-01-26 |
 | 184 | Add automatic retry for transient CI failures | 🔵 Low | 2026-01-26 |
 | 166 | Documentation update for iced migration | 🔵 Low | 2026-01-26 |
@@ -187,6 +188,7 @@ Potential future enhancements (not yet tracked as issues):
 
 | Issue | Title | Date |
 |-------|-------|------|
+| #189 | Fix cat animation not working in Settings/About windows | 2026-01-26 |
 | #187 | Fix Preferences/About windows not appearing on macOS | 2026-01-26 |
 | #184 | Add automatic retry for transient CI failures | 2026-01-26 |
 | #166 | Documentation update for iced migration | 2026-01-26 |
@@ -233,6 +235,14 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-26
+- **Completed #189**: Fix cat animation not working in Settings/About windows
+  - Root cause: Subprocess windows lacked iced subscriptions for animation ticks
+  - SettingsWindow now has `CatCompanion` state, `Tick(Instant)` message, and `subscription()` method
+  - AboutWindow now has `CatCompanion` state, `Tick(Instant)` message, and `subscription()` method
+  - Animation ticks at ~30 FPS when cat preview is visible
+  - Settings cat preview updates when toggling show/hide or changing position
+  - Settings uses animated cat in the "Cat Companion" settings section preview
+  - About window uses animated cat instead of static emoji
 - **Completed #187**: Fix Preferences/About windows not appearing on macOS
   - Root cause: iced/winit requires EventLoop to be created on main thread, but windows were spawned in background threads
   - Solution: On macOS, launch settings and about windows as separate subprocess binaries

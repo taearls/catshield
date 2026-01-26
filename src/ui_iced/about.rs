@@ -3,15 +3,20 @@
 //! This module provides the About window for Cat Shield.
 //! It displays version information, credits, and links.
 
+use std::time::{Duration, Instant};
+
 use iced::widget::{button, column, container, row, text, Space};
 use iced::window::{Position, Settings as WindowSettings};
-use iced::{Alignment, Element, Length, Padding, Size, Task, Theme};
+use iced::{time, Alignment, Element, Length, Padding, Size, Subscription, Task, Theme};
 
+use crate::ui_iced::cat_animation::CatCompanion;
 use crate::ui_iced::theme::{borders, colors, spacing, typography, CatShieldTheme};
 
 /// Messages for the about window
 #[derive(Debug, Clone)]
 pub enum AboutMessage {
+    /// Timer tick for updating cat animation
+    Tick(Instant),
     /// Close the about window (via Close button)
     Close,
 }
@@ -20,6 +25,8 @@ pub enum AboutMessage {
 pub struct AboutWindow {
     /// Application version
     version: String,
+    /// Animated cat companion
+    cat: CatCompanion,
 }
 
 impl Default for AboutWindow {
@@ -33,12 +40,17 @@ impl AboutWindow {
     pub fn new() -> Self {
         Self {
             version: env!("CARGO_PKG_VERSION").to_string(),
+            cat: CatCompanion::new(),
         }
     }
 
     /// Update about window state
     pub fn update(&mut self, message: AboutMessage) -> Task<AboutMessage> {
         match message {
+            AboutMessage::Tick(now) => {
+                self.cat.tick(now);
+                Task::none()
+            }
             AboutMessage::Close => iced::exit(),
         }
     }
@@ -46,8 +58,8 @@ impl AboutWindow {
     /// Render the about view with polished styling
     pub fn view(&self) -> Element<'_, AboutMessage> {
         let content = column![
-            // Cat emoji with subtle background
-            container(text("🐱").size(64.0))
+            // Animated cat companion
+            container(self.cat.view::<AboutMessage>(false))
                 .width(Length::Fill)
                 .padding(Padding::from([spacing::WINDOW_PADDING, 0.0]).bottom(spacing::MD))
                 .align_x(iced::alignment::Horizontal::Center),
@@ -197,10 +209,18 @@ impl AboutWindow {
         }
     }
 
+    /// Subscription for animation ticks
+    ///
+    /// Provides periodic ticks at ~30 FPS for smooth cat animation.
+    pub fn subscription(&self) -> Subscription<AboutMessage> {
+        time::every(Duration::from_millis(33)).map(AboutMessage::Tick)
+    }
+
     /// Run the about window application
     pub fn run() -> iced::Result {
         iced::application(Self::new, Self::update, Self::view)
             .title("About Cat Shield")
+            .subscription(Self::subscription)
             .window(Self::window_settings())
             .theme(Self::theme)
             .run()
