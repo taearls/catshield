@@ -80,6 +80,7 @@ mod tests {
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
+            color_scheme: None,
         };
 
         // When no default_timer is set, parsing should fail (empty string)
@@ -101,6 +102,7 @@ mod tests {
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
+            color_scheme: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -121,6 +123,7 @@ mod tests {
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
+            color_scheme: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -141,6 +144,7 @@ mod tests {
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
+            color_scheme: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -161,6 +165,7 @@ mod tests {
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
+            color_scheme: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -182,6 +187,7 @@ mod tests {
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
+            color_scheme: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -203,6 +209,7 @@ mod tests {
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
+            color_scheme: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -225,6 +232,7 @@ mod tests {
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
+            color_scheme: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -246,6 +254,7 @@ mod tests {
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
+            color_scheme: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -665,6 +674,7 @@ mod tests {
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
+            color_scheme: None,
         };
 
         original.save_to_path(&config_path).unwrap();
@@ -691,6 +701,7 @@ mod tests {
             allowed_keys: None,
             launch_at_login: None,
             enable_trace_logging: None,
+            color_scheme: None,
         };
 
         original.save_to_path(&config_path).unwrap();

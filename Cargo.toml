@@ -18,6 +18,8 @@ serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
 env_logger = "0.11"
 chrono = "0.4"
+# System theme detection for dark/light mode support
+dark-light = "2.0"
 
 # macOS-specific dependencies
 [target.'cfg(target_os = "macos")'.dependencies]
@@ -44,7 +46,7 @@ windows = { version = "0.58", features = [
 # Linux-specific dependencies
 [target.'cfg(target_os = "linux")'.dependencies]
 x11rb = { version = "0.13", features = ["allow-unsafe-code"] }
-zbus = { version = "5.5", features = ["blocking"] }
+zbus = { version = "5.13", features = ["blocking"] }
 ksni = "0.2"
 # Wayland support for overlay (wlr-layer-shell protocol)
 wayland-client = "0.31"

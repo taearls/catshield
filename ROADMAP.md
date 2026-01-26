@@ -5,7 +5,7 @@
 <!-- Keep under 150 lines - agents read this first -->
 
 **Current Phase**: 9 - iced UI Migration
-**Next Priority**: #163 (Visual polish and theming)
+**Next Priority**: #179 (Theme-aware light mode colors)
 **Blocking Issues**: None
 
 ### Open Issues by Priority
@@ -13,18 +13,18 @@
 | # | Title | Priority | Effort | Blocked By | Phase |
 |---|-------|----------|--------|------------|-------|
 | 152 | Epic: Migrate UI Rendering to iced Framework | 🟡 High | ~4-6 weeks | None | 9 |
-| 163 | Visual polish and theming | 🔵 Low | ~2-3 days | None | 9 |
 | 164 | Performance testing | 🔵 Low | ~1-2 days | #156 | 9 |
 | 165 | Animated cat companion overlay | 🔵 Low | ~2-3 days | None | 9 |
 | 166 | Documentation update | 🔵 Low | ~1 day | All others | 9 |
-| 179 | Theme-aware light mode colors | 🔵 Low | ~1 day | #163 | 9 |
+| 179 | Theme-aware light mode colors | 🔵 Low | ~1 day | None | 9 |
 
-**Summary**: 6 open issues (0 Critical, 1 High, 0 Medium, 5 Low)
+**Summary**: 5 open issues (0 Critical, 1 High, 0 Medium, 4 Low)
 
 ### Completed This Session
 
 | # | Title | Priority | Date |
 |---|-------|----------|------|
+| 163 | Visual polish and theming | 🔵 Low | 2026-01-25 |
 | 162 | Linux tray integration | 🟢 Medium | 2026-01-25 |
 | 161 | Windows system tray integration | 🟢 Medium | 2026-01-25 |
 | 160 | macOS menu bar integration | 🟢 Medium | 2026-01-25 |
@@ -47,10 +47,10 @@
 
 ### Recommended Next Issues
 
-1. **#163** - Visual polish and theming (unblocked, start here!)
-2. **#179** - Theme-aware light mode colors (follow-up from #163 review)
+1. **#179** - Theme-aware light mode colors (follow-up from #163)
+2. **#164** - Performance testing (unblocked)
 3. **#165** - Animated cat companion overlay (unblocked)
-4. **#164** - Performance testing (unblocked)
+4. **#166** - Documentation update (after all others)
 
 ---
 
@@ -70,11 +70,11 @@
 | ✅ | #160 | macOS menu bar integration | None |
 | ✅ | #161 | Windows system tray integration | None |
 | ✅ | #162 | Linux tray integration | None |
-| 📋 | #163 | Visual polish and theming | None |
+| ✅ | #163 | Visual polish and theming | None |
 | 📋 | #164 | Performance testing | #156 |
 | 📋 | #165 | Animated cat companion overlay | None |
 | 📋 | #166 | Documentation update | All |
-| 📋 | #179 | Theme-aware light mode colors | #163 |
+| 📋 | #179 | Theme-aware light mode colors | None |
 
 ---
 
@@ -142,7 +142,7 @@ Phase 9 (iced Migration):
     ├─► #161 (Windows) ✅ Win32 Shell_NotifyIcon + iced windows via thread spawn
     └─► #162 (Linux) ✅ ksni StatusNotifierItem + iced windows via thread spawn
                             │
-    ├─► #163 (Polish) ◄─────┤
+    ├─► #163 (Polish) ✅ ◄──┤ Enhanced theme, widget styles, dark/light mode
     │       │
     │       └─► #179 (Light Mode Colors)
     │
@@ -188,6 +188,7 @@ Potential future enhancements (not yet tracked as issues):
 
 | Issue | Title | Date |
 |-------|-------|------|
+| #163 | Visual polish and theming | 2026-01-25 |
 | #162 | Linux tray integration | 2026-01-25 |
 | #161 | Windows system tray integration | 2026-01-25 |
 | #160 | macOS menu bar integration | 2026-01-25 |

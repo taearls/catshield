@@ -1,6 +1,7 @@
 //! Shield overlay window using iced
 //!
 //! Provides a fullscreen, semi-transparent overlay that displays:
+//! - Cat icon with status indicator
 //! - Timer countdown (when active) - large, centered, high contrast
 //! - Optional progress bar showing time remaining
 //! - Close button (hold to exit)
@@ -27,21 +28,21 @@
 
 use iced::event::Event;
 use iced::keyboard;
-use iced::widget::{button, center, column, container, text, Space};
+use iced::widget::{button, center, column, container, row, text, Space};
 use iced::window::{self, Level, Position, Settings as WindowSettings};
 use iced::{time, Color, Element, Length, Size, Subscription, Task, Theme};
 use std::time::{Duration, Instant};
 
-use crate::ui_iced::theme::{colors, CatShieldTheme};
+use crate::ui_iced::theme::{borders, colors, spacing, typography, CatShieldTheme};
 
-/// Create a horizontal progress bar widget
+/// Create a horizontal progress bar widget with polished styling
 ///
 /// # Arguments
 /// * `progress` - Value from 0.0 (empty) to 1.0 (full)
 /// * `is_warning` - If true, use warning color for the fill
 fn progress_bar<'a>(progress: f32, is_warning: bool) -> Element<'a, OverlayMessage> {
-    let bar_width: f32 = 300.0;
-    let bar_height: f32 = 8.0;
+    let bar_width: f32 = 320.0;
+    let bar_height: f32 = 6.0;
 
     let fill_color = if is_warning {
         colors::PROGRESS_WARNING
@@ -49,7 +50,7 @@ fn progress_bar<'a>(progress: f32, is_warning: bool) -> Element<'a, OverlayMessa
         colors::PROGRESS_FILL
     };
 
-    // Create the background bar
+    // Create the background bar with subtle styling
     let background = container(
         Space::new()
             .width(Length::Fixed(bar_width))
@@ -64,7 +65,7 @@ fn progress_bar<'a>(progress: f32, is_warning: bool) -> Element<'a, OverlayMessa
         ..Default::default()
     });
 
-    // Create the fill bar (overlay on top)
+    // Create the fill bar with smooth transition
     let fill_width = bar_width * progress.clamp(0.0, 1.0);
     let fill = container(
         Space::new()
@@ -83,6 +84,47 @@ fn progress_bar<'a>(progress: f32, is_warning: bool) -> Element<'a, OverlayMessa
     // Stack fill on top of background using iced's stack widget
     use iced::widget::stack;
     stack![background, fill].into()
+}
+
+/// Create a cat icon with status indicator
+fn cat_status_icon<'a>(is_warning: bool) -> Element<'a, OverlayMessage> {
+    let icon_color = if is_warning {
+        colors::WARNING
+    } else {
+        colors::ACCENT
+    };
+
+    container(text("🐱").size(72.0).color(icon_color)).into()
+}
+
+/// Create a status badge showing protection state
+fn status_badge<'a>() -> Element<'a, OverlayMessage> {
+    let badge_background = Color::from_rgba(0.3, 0.72, 0.4, 0.25);
+    let badge_border = colors::SUCCESS;
+
+    container(
+        row![
+            text("●")
+                .size(typography::SIZE_CAPTION)
+                .color(colors::SUCCESS),
+            Space::new().width(Length::Fixed(spacing::XS)),
+            text("Protected")
+                .size(typography::SIZE_CAPTION)
+                .color(colors::SUCCESS),
+        ]
+        .align_y(iced::Alignment::Center),
+    )
+    .padding([spacing::XS, spacing::MD])
+    .style(move |_theme| container::Style {
+        background: Some(iced::Background::Color(badge_background)),
+        border: iced::Border {
+            radius: borders::RADIUS_PILL.into(),
+            width: borders::WIDTH_DEFAULT,
+            color: badge_border,
+        },
+        ..Default::default()
+    })
+    .into()
 }
 
 /// Messages that can be sent to the overlay application
@@ -384,78 +426,137 @@ impl OverlayApp {
         }
     }
 
-    /// Render the overlay view
+    /// Render the overlay view with polished visual design
     pub fn view(&self) -> Element<'_, OverlayMessage> {
-        // Build the main content column
-        let mut content = column![text("Cat Shield Active")
-            .size(32)
-            .color(colors::TEXT_PRIMARY),]
-        .spacing(15)
-        .align_x(iced::Alignment::Center);
+        // Determine if we're in warning state
+        let is_warning = self.remaining_seconds.is_some_and(|r| r <= 60 && r > 0);
+
+        // Build the main content column with improved spacing
+        let mut content = column![]
+            .spacing(spacing::LG)
+            .align_x(iced::Alignment::Center);
+
+        // Add cat icon with status
+        content = content.push(cat_status_icon(is_warning));
+
+        // Add title with status badge
+        content = content.push(
+            column![
+                text("Cat Shield")
+                    .size(typography::SIZE_HEADER_LARGE)
+                    .color(colors::TEXT_PRIMARY),
+                Space::new().height(Length::Fixed(spacing::SM)),
+                status_badge(),
+            ]
+            .align_x(iced::Alignment::Center)
+            .spacing(spacing::XS),
+        );
 
         // Add timer display unless hidden
         if !self.hide_timer {
             // Format the timer display
-            let (timer_text, is_warning) = if let Some(remaining) = self.remaining_seconds {
+            let (timer_text_str, timer_is_warning) = if let Some(remaining) = self.remaining_seconds
+            {
                 Self::format_duration(remaining)
             } else {
                 // Elapsed time mode
                 Self::format_duration(self.elapsed_seconds)
             };
 
-            // Timer label
+            // Timer label with subtle styling
             let timer_label = if self.remaining_seconds.is_some() {
                 "Time Remaining"
             } else {
                 "Elapsed Time"
             };
 
-            content = content.push(text(timer_label).size(18).color(colors::TEXT_SECONDARY));
+            content = content.push(Space::new().height(Length::Fixed(spacing::MD)));
+
+            content = content.push(
+                text(timer_label)
+                    .size(typography::SIZE_BODY)
+                    .color(colors::TEXT_SECONDARY),
+            );
 
             // Use warning color when time is running out
-            let timer_color = if is_warning && self.remaining_seconds.is_some() {
+            let timer_color = if timer_is_warning && self.remaining_seconds.is_some() {
                 colors::TIMER_WARNING
             } else {
                 colors::TEXT_PRIMARY
             };
 
-            content = content.push(text(timer_text).size(96).color(timer_color));
+            // Large timer display with monospace-like appearance
+            content = content.push(
+                text(timer_text_str)
+                    .size(typography::SIZE_HERO)
+                    .color(timer_color),
+            );
 
             // Add progress bar if we have timer duration and progress is enabled
             if self.show_progress {
                 if let Some(progress) = self.calculate_progress() {
-                    content = content.push(Space::new().height(Length::Fixed(10.0)));
-                    content = content.push(progress_bar(progress, is_warning));
+                    content = content.push(Space::new().height(Length::Fixed(spacing::SM)));
+                    content = content.push(progress_bar(progress, timer_is_warning));
                 }
             }
         }
 
-        // Add some vertical space before hints
-        content = content.push(Space::new().height(Length::Fixed(20.0)));
+        // Add some vertical space before hints section
+        content = content.push(Space::new().height(Length::Fixed(spacing::XXL)));
+
+        // Hint section with subtle card styling
+        let mut hints = column![]
+            .spacing(spacing::SM)
+            .align_x(iced::Alignment::Center);
 
         // Add exit key hint if available
         if !self.exit_key_display.is_empty() {
-            content = content.push(
-                text(format!("Press {} to unlock", self.exit_key_display))
-                    .size(16)
-                    .color(colors::TEXT_MUTED),
+            hints = hints.push(
+                row![
+                    text("Press")
+                        .size(typography::SIZE_BODY)
+                        .color(colors::TEXT_MUTED),
+                    Space::new().width(Length::Fixed(spacing::XS)),
+                    container(
+                        text(&self.exit_key_display)
+                            .size(typography::SIZE_BODY)
+                            .color(colors::TEXT_PRIMARY)
+                    )
+                    .padding([spacing::XS, spacing::SM])
+                    .style(|_theme| container::Style {
+                        background: Some(iced::Background::Color(Color::from_rgba(
+                            1.0, 1.0, 1.0, 0.1
+                        ))),
+                        border: iced::Border {
+                            radius: borders::RADIUS_SM.into(),
+                            width: borders::WIDTH_DEFAULT,
+                            color: colors::BORDER_SUBTLE,
+                        },
+                        ..Default::default()
+                    }),
+                    Space::new().width(Length::Fixed(spacing::XS)),
+                    text("to unlock")
+                        .size(typography::SIZE_BODY)
+                        .color(colors::TEXT_MUTED),
+                ]
+                .align_y(iced::Alignment::Center),
             );
         }
 
-        // Add close button hint
-        content = content.push(
-            text("or click the close button")
-                .size(14)
-                .color(colors::TEXT_MUTED),
-        );
+        content = content.push(hints);
 
-        content = content.push(Space::new().height(Length::Fixed(10.0)));
+        content = content.push(Space::new().height(Length::Fixed(spacing::LG)));
 
+        // Close button with improved styling
         content = content.push(
-            button(text("Close").size(16).color(Color::WHITE))
-                .padding([12, 24])
-                .style(CatShieldTheme::close_button)
-                .on_press(OverlayMessage::RequestClose),
+            button(
+                text("Close Shield")
+                    .size(typography::SIZE_BODY)
+                    .color(Color::WHITE),
+            )
+            .padding([spacing::MD, spacing::XL])
+            .style(CatShieldTheme::close_button)
+            .on_press(OverlayMessage::RequestClose),
         );
 
         // Wrap in centered container with semi-transparent background using configured color
@@ -495,7 +596,7 @@ impl OverlayApp {
 
     /// Get the theme for the overlay
     pub fn theme(&self) -> Theme {
-        CatShieldTheme::base()
+        CatShieldTheme::system()
     }
 
     /// Get window settings for the overlay
