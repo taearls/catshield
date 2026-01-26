@@ -4,23 +4,23 @@
 <!-- AI-OPTIMIZED: This section contains actionable info for automated tools -->
 <!-- Keep under 150 lines - agents read this first -->
 
-**Current Phase**: 9 - iced UI Migration
-**Next Priority**: #166 (Documentation update)
+**Current Phase**: 9 - iced UI Migration (Complete)
+**Next Priority**: Phase 10 (Future Enhancements)
 **Blocking Issues**: None
 
 ### Open Issues by Priority
 
 | # | Title | Priority | Effort | Blocked By | Phase |
 |---|-------|----------|--------|------------|-------|
-| 152 | Epic: Migrate UI Rendering to iced Framework | 🟡 High | ~4-6 weeks | None | 9 |
-| 166 | Documentation update | 🔵 Low | ~1 day | All others | 9 |
+| 152 | Epic: Migrate UI Rendering to iced Framework | ✅ Complete | ~4-6 weeks | None | 9 |
 
-**Summary**: 2 open issues (0 Critical, 1 High, 0 Medium, 1 Low)
+**Summary**: 0 open issues - Phase 9 complete!
 
 ### Completed This Session
 
 | # | Title | Priority | Date |
 |---|-------|----------|------|
+| 166 | Documentation update for iced migration | 🔵 Low | 2026-01-26 |
 | 165 | Animated cat companion overlay | 🔵 Low | 2026-01-25 |
 | 164 | Performance testing and optimization | 🔵 Low | 2026-01-25 |
 | 179 | Theme-aware light mode colors | 🔵 Low | 2026-01-25 |
@@ -47,7 +47,7 @@
 
 ### Recommended Next Issues
 
-1. **#166** - Documentation update (after all others)
+Phase 9 is now complete. Future work items are tracked in Phase 10 (Future Considerations).
 
 ---
 
@@ -71,7 +71,7 @@
 | ✅ | #179 | Theme-aware light mode colors | None |
 | ✅ | #164 | Performance testing and optimization | #156 |
 | ✅ | #165 | Animated cat companion overlay | None |
-| 📋 | #166 | Documentation update | All |
+| ✅ | #166 | Documentation update | All |
 
 ---
 
@@ -148,7 +148,7 @@ Phase 9 (iced Migration):
     └─► #165 (Cat Animation) ✅ Animated cat companion with bobbing, blinking, --no-cat flag
                 │
                 ▼
-        #166 (Documentation) ◄── All complete
+        #166 (Documentation) ✅ README, CHANGELOG, architecture docs updated
 ```
 
 ---
@@ -166,7 +166,7 @@ Phase 9 (iced Migration):
 | 6 | ✅ Complete | Enhanced input control (key allowlist) |
 | 7 | ✅ Complete | Settings window polish |
 | 8 | ✅ Complete | Cross-platform support |
-| 9 | 🚧 In Progress | iced UI migration (Epic #152) |
+| 9 | ✅ Complete | iced UI migration (Epic #152) |
 | 10 | 📋 Planned | Future enhancements |
 
 ---
@@ -185,6 +185,7 @@ Potential future enhancements (not yet tracked as issues):
 
 | Issue | Title | Date |
 |-------|-------|------|
+| #166 | Documentation update for iced migration | 2026-01-26 |
 | #165 | Animated cat companion overlay | 2026-01-25 |
 | #164 | Performance testing and optimization | 2026-01-25 |
 | #179 | Theme-aware light mode colors | 2026-01-25 |
@@ -226,6 +227,14 @@ Potential future enhancements (not yet tracked as issues):
 ---
 
 ## Changelog
+
+### 2026-01-26
+- **Completed #166**: Documentation update for iced migration
+  - Updated README with new features, CLI flags, config file format, and architecture diagram
+  - Updated CHANGELOG with comprehensive Phase 9 (iced migration) documentation
+  - Updated ROADMAP to mark Phase 9 as complete
+  - Documented hybrid architecture: iced for UI, platform-native for input blocking
+  - Added documentation for all new CLI flags: `--opacity`, `--color`, `--no-cat`, `-v`
 
 ### 2026-01-25
 - **Completed #165**: Animated cat companion overlay
