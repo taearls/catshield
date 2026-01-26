@@ -36,7 +36,7 @@ jobs:
   build-native:
     name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 25
+    timeout-minutes: 40
     permissions:
       contents: read
     strategy:
@@ -92,7 +92,7 @@ jobs:
   test-native:
     name: Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 25
+    timeout-minutes: 40
     permissions:
       contents: read
     strategy:

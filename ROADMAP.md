@@ -237,7 +237,7 @@ Potential future enhancements (not yet tracked as issues):
   - Only retries on first failure (checks `run_attempt` to prevent infinite loops)
   - Updated CI workflow to use `nick-fields/retry@v3` for build/test steps
   - Added step-level retry (2 attempts, 10s wait) for clippy, build, and test commands
-  - Increased job timeout from 20 to 25 minutes to accommodate retries
+  - Increased job timeout from 20 to 40 minutes to accommodate worst-case retries
   - Handles transient Windows runner provisioning issues without manual intervention
 - **Completed #166**: Documentation update for iced migration
   - Updated README with new features, CLI flags, config file format, and architecture diagram
