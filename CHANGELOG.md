@@ -6,6 +6,37 @@ All notable changes to Cat Shield are documented in this file.
 
 ## [Unreleased]
 
+### Phase 9: iced UI Migration (Epic #152)
+
+This release represents a major architectural change: migration from platform-specific UI implementations to the [iced](https://iced.rs) cross-platform GUI framework. The iced framework now handles all visual rendering while platform-native APIs continue to handle input blocking for security.
+
+**New Features:**
+- **Animated cat companion** (#165) - A cute animated cat watches over your screen with idle, blinking, and sleeping states. Disable with `--no-cat` flag or `show_cat = false` in config
+- **Overlay customization** (#159) - Adjust opacity (10-90%) with `--opacity` and color with `--color` (presets: gray, blue, green, red, purple, or hex codes like `#1a2b3c`)
+- **Timer countdown display** (#156) - Visual countdown with progress bar when using `--timer`
+- **Settings window** (#157) - Full GUI for configuring all options with live preview
+- **Settings persistence** (#158) - All settings saved to `~/.config/catshield/config.toml`
+- **Dark/light theme support** (#163, #179) - Automatically adapts to system theme preference
+- **Performance optimizations** (#164) - Criterion benchmarks, optimized release profile
+
+**Platform Integration:**
+- macOS menu bar integration (#160) - NSStatusItem works alongside iced windows
+- Windows system tray integration (#161) - Shell_NotifyIcon works alongside iced windows
+- Linux tray integration (#162) - ksni StatusNotifierItem works alongside iced windows
+
+**Architecture:**
+- Hybrid approach: iced for UI rendering, platform-native APIs for input blocking
+- iced 0.14 with canvas and tokio features
+- Elm architecture: State, Message, View pattern
+- Thread-spawned iced windows from native menu/tray callbacks
+
+**Technical Details:**
+- Added `iced` 0.14 dependency with `canvas` and `tokio` features
+- New `ui_iced` module with: `overlay`, `settings`, `about`, `theme`, `cat_animation`, `integration`
+- Theme-aware styling with 24+ style functions supporting dark/light modes
+- Cat animation: ~30 FPS bobbing, 3-6 second random blink intervals
+- Sub-microsecond timer formatting (<100ns per benchmark)
+
 ### 2026-01-15
 - Completed Issue #102: Add Windows system tray implementation
   - Implemented `WindowsSystemTray` in `src/platform/windows/tray.rs`

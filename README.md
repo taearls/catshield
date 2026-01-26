@@ -1,6 +1,19 @@
 # Cat Shield 🐱🛡️
 
-A cat-proof screen overlay for macOS that protects your work from curious felines walking on your keyboard.
+A cross-platform cat-proof screen overlay that protects your work from curious felines walking on your keyboard. Available for macOS, Windows, and Linux.
+
+## Features
+
+- **Fullscreen overlay protection** - Semi-transparent overlay blocks input while keeping your work visible
+- **Animated cat companion** - A cute animated cat watches over your screen (can be disabled with `--no-cat`)
+- **Customizable appearance** - Adjust overlay opacity (10-90%) and color (presets or hex colors)
+- **Timer-based auto-exit** - Set a countdown timer to automatically deactivate protection
+- **Custom exit key** - Configure your own keyboard shortcut to unlock (default: Cmd+Option+U on macOS)
+- **Key allowlist** - Allow specific keys to pass through (e.g., media keys, Spotlight)
+- **System tray/menu bar integration** - Quick access from macOS menu bar or Windows/Linux system tray
+- **Settings persistence** - Your preferences are saved to a config file
+- **Dark/light mode support** - Automatically adapts to your system theme
+- **Cross-platform** - Native support for macOS, Windows, and Linux (X11, Wayland)
 
 ## Installation
 
@@ -53,7 +66,7 @@ sudo chmod +x /usr/local/bin/catshield
 ## Usage
 
 ```bash
-# Start in menu bar mode
+# Start in menu bar/system tray mode
 catshield
 
 # Start with a timer (auto-exit after duration)
@@ -63,16 +76,69 @@ catshield -t 2h
 # Start with custom exit key
 catshield --exit-key "Cmd+Shift+Q"
 
+# Customize overlay appearance
+catshield --opacity 70          # 70% opacity (more opaque)
+catshield --color blue          # Blue preset color
+catshield --color "#2a3f5f"     # Custom hex color
+
+# Disable the animated cat companion
+catshield --no-cat
+
+# Enable verbose logging (for troubleshooting)
+catshield -v                    # Info level
+catshield -vv                   # Debug level
+catshield -vvv                  # Trace level
+
 # Combine options
-catshield --timer 1h --hide-timer
+catshield --timer 1h --hide-timer --opacity 60 --color green
 
 # Show help
 catshield --help
 ```
 
+## Configuration File
+
+Settings are persisted in `~/.config/catshield/config.toml`:
+
+```toml
+# Custom exit key combination
+exit_key = "Cmd+Option+U"
+
+# Default auto-exit timer (e.g., "30m", "1h", "2h30m")
+default_timer = "30m"
+
+# Overlay opacity (0.1 to 0.9, default 0.5)
+overlay_opacity = 0.5
+
+# Overlay color: preset name or hex code
+# Presets: "gray", "blue", "green", "red", "purple"
+# Hex format: "#RRGGBB" or "#RGB"
+overlay_color = "gray"
+
+# Keys allowed to pass through the shield
+allowed_keys = ["Cmd+Space", "F11", "F12"]
+
+# Launch Cat Shield automatically at login
+launch_at_login = false
+
+# Enable trace logging to file (~/.config/catshield/logs/)
+enable_trace_logging = false
+
+# Color scheme: "dark", "light", or "system" (follows OS preference)
+color_scheme = "system"
+
+# Show animated cat companion on overlay
+show_cat = true
+
+# Cat position: "bottom-right", "bottom-left", "top-right", "top-left"
+cat_position = "bottom-right"
+```
+
+CLI arguments override config file settings for that session.
+
 ## Project Goals
 
-This project aims to create a simple macOS utility written in Rust that:
+This project aims to create a cross-platform utility written in Rust that:
 
 1. **Protects laptops from cat interference** - Prevents accidental input when cats walk on the keyboard
 
@@ -80,35 +146,94 @@ This project aims to create a simple macOS utility written in Rust that:
 
 3. **Keeps the machine awake** - Prevents the display from sleeping during downloads or long-running tasks
 
-4. **Provides quick recovery** - Simple key combination (Cmd+Option+U) to unlock and exit
+4. **Provides quick recovery** - Configurable key combination to unlock and exit
 
-5. **Demonstrates macOS/Rust integration** - Shows how to use macOS frameworks from Rust
+5. **Works across platforms** - Native support for macOS, Windows, and Linux
 
 ## Core Requirements
 
-- **Semi-transparent fullscreen overlay** - Borderless window at 30% opacity
-- **Input blocking** - Intercept and block all keyboard/mouse events via CGEventTap
-- **Sleep prevention** - Use IOKit power assertions to prevent display sleep
-- **Unlock mechanism** - Cmd+Option+U combination to deactivate
-- **Accessibility awareness** - Detect and warn about missing permissions
+- **Semi-transparent fullscreen overlay** - Borderless window with customizable opacity (10-90%)
+- **Input blocking** - Platform-native event interception (CGEventTap, Win32 hooks, X11 grab)
+- **Sleep prevention** - Platform-specific power assertions to prevent display sleep
+- **Unlock mechanism** - Configurable keyboard shortcut to deactivate
+- **Accessibility awareness** - Detect and warn about missing permissions (macOS)
+- **Settings persistence** - TOML config file at `~/.config/catshield/config.toml`
 
 ## Technical Stack
 
 - **Language**: Rust (1.71+)
-- **Platform**: macOS 10.12+
-- **Frameworks**:
-  - Cocoa/AppKit (window management)
-  - CoreGraphics (event interception)
-  - IOKit (power management)
-  - CoreFoundation (run loop)
+- **UI Framework**: [iced](https://iced.rs) 0.14 (cross-platform GUI)
+- **Platforms**: macOS 10.12+, Windows 10+, Linux (X11/Wayland)
+
+### Architecture
+
+Cat Shield uses a hybrid architecture combining the iced framework for UI rendering with platform-native APIs for input blocking:
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│                      Cat Shield                             │
+├─────────────────────────────────────────────────────────────┤
+│                    iced UI Layer                            │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
+│  │   Overlay   │  │  Settings   │  │    About Window     │  │
+│  │   Window    │  │   Window    │  │                     │  │
+│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
+├─────────────────────────────────────────────────────────────┤
+│              Platform Integration Layer                      │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
+│  │   macOS     │  │   Windows   │  │       Linux         │  │
+│  │ NSStatusItem│  │  Shell_     │  │  StatusNotifierItem │  │
+│  │             │  │ NotifyIcon  │  │       (ksni)        │  │
+│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
+├─────────────────────────────────────────────────────────────┤
+│                Platform-Native Input Blocking                │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
+│  │  CGEventTap │  │ WH_KEYBOARD │  │   X11 Grab /        │  │
+│  │   (macOS)   │  │ _LL (Win32) │  │ Wayland Inhibitor   │  │
+│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+The iced framework provides:
+- **Cross-platform overlay window** with semi-transparent background
+- **Timer countdown display** with progress bar
+- **Settings window** for configuring all options
+- **Animated cat companion** with idle, blinking, and sleeping states
+- **Theme support** with automatic dark/light mode detection
+
+Input blocking remains platform-native for security:
+- **macOS**: CGEventTap with Accessibility permissions
+- **Windows**: Low-level keyboard hook (WH_KEYBOARD_LL)
+- **Linux**: X11 keyboard grab or Wayland keyboard-shortcuts-inhibit protocol
+
+### Dependencies
+
+**Cross-platform:**
+- `iced` 0.14 - UI framework
+- `clap` - CLI argument parsing
+- `serde` + `toml` - Configuration serialization
+- `log` + `env_logger` - Logging infrastructure
+- `dark-light` - System theme detection
+
+**macOS:**
+- `objc2` ecosystem - AppKit, CoreGraphics, IOKit bindings
+
+**Windows:**
+- `windows` crate - Win32 API bindings
+
+**Linux:**
+- `x11rb` - X11 protocol bindings
+- `zbus` - D-Bus (for power management)
+- `ksni` - StatusNotifierItem (system tray)
+- `wayland-client` / `wayland-protocols` - Wayland support
 
 ## Platform Support
 
 | Platform | Status | Input Blocking | Notes |
 |----------|--------|----------------|-------|
 | **macOS** | ✅ Full Support | Complete | Uses CGEventTap with Accessibility permissions |
-| **Windows** | 🚧 In Progress | Partial | Keyboard hook implemented, UI pending |
-| **Linux (X11)** | 📋 Planned | - | Issue #106 |
+| **Windows** | ✅ Full Support | Complete | Uses low-level keyboard hook (WH_KEYBOARD_LL) |
+| **Linux (X11)** | ✅ Full Support | Complete | Uses X11 keyboard grab |
 | **Linux (Wayland)** | ⚠️ Limited | Partial | See [Wayland Limitations](#wayland-limitations) |
 
 ### Wayland Limitations
