@@ -20,6 +20,7 @@
 
 | # | Title | Priority | Date |
 |---|-------|----------|------|
+| 184 | Add automatic retry for transient CI failures | 🔵 Low | 2026-01-26 |
 | 166 | Documentation update for iced migration | 🔵 Low | 2026-01-26 |
 | 165 | Animated cat companion overlay | 🔵 Low | 2026-01-25 |
 | 164 | Performance testing and optimization | 🔵 Low | 2026-01-25 |
@@ -185,6 +186,7 @@ Potential future enhancements (not yet tracked as issues):
 
 | Issue | Title | Date |
 |-------|-------|------|
+| #184 | Add automatic retry for transient CI failures | 2026-01-26 |
 | #166 | Documentation update for iced migration | 2026-01-26 |
 | #165 | Animated cat companion overlay | 2026-01-25 |
 | #164 | Performance testing and optimization | 2026-01-25 |
@@ -229,6 +231,14 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-26
+- **Completed #184**: Add automatic retry for transient CI failures
+  - Created `rerun-failed.yml` workflow that monitors CI and auto-retries failed jobs
+  - Uses `actions/github-script@v7` to call `reRunWorkflowFailedJobs` API
+  - Only retries on first failure (checks `run_attempt` to prevent infinite loops)
+  - Updated CI workflow to use `nick-fields/retry@v3` for build/test steps
+  - Added step-level retry (2 attempts, 10s wait) for clippy, build, and test commands
+  - Increased job timeout from 20 to 40 minutes to accommodate worst-case retries
+  - Handles transient Windows runner provisioning issues without manual intervention
 - **Completed #166**: Documentation update for iced migration
   - Updated README with new features, CLI flags, config file format, and architecture diagram
   - Updated CHANGELOG with comprehensive Phase 9 (iced migration) documentation
