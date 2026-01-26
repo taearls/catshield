@@ -452,7 +452,10 @@ impl CatShieldTheme {
         let (background, border_color) = if Self::is_dark_mode(theme) {
             (colors::BACKGROUND_SECONDARY, colors::BORDER_SUBTLE)
         } else {
-            (colors_light::BACKGROUND_SECONDARY, colors_light::BORDER_SUBTLE)
+            (
+                colors_light::BACKGROUND_SECONDARY,
+                colors_light::BORDER_SUBTLE,
+            )
         };
         container::Style {
             background: Some(Background::Color(background)),
@@ -470,7 +473,10 @@ impl CatShieldTheme {
         let (background, border_color) = if Self::is_dark_mode(theme) {
             (colors::BACKGROUND_ELEVATED, colors::BORDER_SUBTLE)
         } else {
-            (colors_light::BACKGROUND_ELEVATED, colors_light::BORDER_SUBTLE)
+            (
+                colors_light::BACKGROUND_ELEVATED,
+                colors_light::BORDER_SUBTLE,
+            )
         };
         container::Style {
             background: Some(Background::Color(background)),
@@ -534,7 +540,11 @@ impl CatShieldTheme {
                 }
             }
             button::Status::Disabled => {
-                let muted = if is_dark { colors::TEXT_MUTED } else { colors_light::TEXT_MUTED };
+                let muted = if is_dark {
+                    colors::TEXT_MUTED
+                } else {
+                    colors_light::TEXT_MUTED
+                };
                 (Color::from_rgba(0.5, 0.5, 0.5, 0.4), muted)
             }
         };
@@ -583,7 +593,11 @@ impl CatShieldTheme {
                 }
             }
             button::Status::Disabled => {
-                let muted = if is_dark { colors::TEXT_MUTED } else { colors_light::TEXT_MUTED };
+                let muted = if is_dark {
+                    colors::TEXT_MUTED
+                } else {
+                    colors_light::TEXT_MUTED
+                };
                 (Color::from_rgba(0.4, 0.6, 0.9, 0.4), muted)
             }
         };
@@ -701,14 +715,23 @@ impl CatShieldTheme {
                 if is_dark {
                     (Color::from_rgba(1.0, 1.0, 1.0, 0.08), colors::TEXT_PRIMARY)
                 } else {
-                    (Color::from_rgba(0.0, 0.0, 0.0, 0.05), colors_light::TEXT_PRIMARY)
+                    (
+                        Color::from_rgba(0.0, 0.0, 0.0, 0.05),
+                        colors_light::TEXT_PRIMARY,
+                    )
                 }
             }
             button::Status::Pressed => {
                 if is_dark {
-                    (Color::from_rgba(1.0, 1.0, 1.0, 0.04), colors::TEXT_SECONDARY)
+                    (
+                        Color::from_rgba(1.0, 1.0, 1.0, 0.04),
+                        colors::TEXT_SECONDARY,
+                    )
                 } else {
-                    (Color::from_rgba(0.0, 0.0, 0.0, 0.03), colors_light::TEXT_SECONDARY)
+                    (
+                        Color::from_rgba(0.0, 0.0, 0.0, 0.03),
+                        colors_light::TEXT_SECONDARY,
+                    )
                 }
             }
             button::Status::Disabled => {
@@ -836,11 +859,18 @@ impl CatShieldTheme {
                 if is_dark {
                     (Color::from_rgb(0.22, 0.60, 0.32), colors::TEXT_ON_ACCENT)
                 } else {
-                    (Color::from_rgb(0.18, 0.52, 0.28), colors_light::TEXT_ON_ACCENT)
+                    (
+                        Color::from_rgb(0.18, 0.52, 0.28),
+                        colors_light::TEXT_ON_ACCENT,
+                    )
                 }
             }
             button::Status::Disabled => {
-                let muted = if is_dark { colors::TEXT_MUTED } else { colors_light::TEXT_MUTED };
+                let muted = if is_dark {
+                    colors::TEXT_MUTED
+                } else {
+                    colors_light::TEXT_MUTED
+                };
                 (Color::from_rgba(0.3, 0.7, 0.4, 0.4), muted)
             }
         };
@@ -871,7 +901,11 @@ impl CatShieldTheme {
                     if is_dark {
                         (colors::ACCENT, colors::TEXT_ON_ACCENT, colors::ACCENT)
                     } else {
-                        (colors_light::ACCENT, colors_light::TEXT_ON_ACCENT, colors_light::ACCENT)
+                        (
+                            colors_light::ACCENT,
+                            colors_light::TEXT_ON_ACCENT,
+                            colors_light::ACCENT,
+                        )
                     }
                 }
                 button::Status::Disabled => {
@@ -894,9 +928,17 @@ impl CatShieldTheme {
             match status {
                 button::Status::Active => {
                     if is_dark {
-                        (Color::TRANSPARENT, colors::TEXT_SECONDARY, Color::TRANSPARENT)
+                        (
+                            Color::TRANSPARENT,
+                            colors::TEXT_SECONDARY,
+                            Color::TRANSPARENT,
+                        )
                     } else {
-                        (Color::TRANSPARENT, colors_light::TEXT_SECONDARY, Color::TRANSPARENT)
+                        (
+                            Color::TRANSPARENT,
+                            colors_light::TEXT_SECONDARY,
+                            Color::TRANSPARENT,
+                        )
                     }
                 }
                 button::Status::Hovered => {
@@ -933,7 +975,11 @@ impl CatShieldTheme {
                     if is_dark {
                         (Color::TRANSPARENT, colors::TEXT_MUTED, Color::TRANSPARENT)
                     } else {
-                        (Color::TRANSPARENT, colors_light::TEXT_MUTED, Color::TRANSPARENT)
+                        (
+                            Color::TRANSPARENT,
+                            colors_light::TEXT_MUTED,
+                            Color::TRANSPARENT,
+                        )
                     }
                 }
             }
