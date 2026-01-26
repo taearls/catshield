@@ -123,17 +123,17 @@ pub mod frames {
         },
         // Slight head tilt
         CatFrame {
-            body: "  /\\_/\\  \n ( o.o ) \n  > ^ <  ",
+            body: "  /\\_/\\  \n ( o.o )~\n  > ^ <  ",
             duration_ms: 1500,
         },
         // Looking left
         CatFrame {
-            body: "  /\\_/\\  \n ( o.o ) \n  > ^ <  ",
+            body: "  /\\_/\\  \n (o.o  ) \n  > ^ <  ",
             duration_ms: 1000,
         },
         // Looking right
         CatFrame {
-            body: "  /\\_/\\  \n ( o.o ) \n  > ^ <  ",
+            body: "  /\\_/\\  \n (  o.o) \n  > ^ <  ",
             duration_ms: 1000,
         },
     ];
@@ -249,13 +249,13 @@ impl CatCompanion {
         if self.state == CatAnimationState::Idle
             && now.duration_since(self.last_blink) >= self.blink_interval
         {
+            // Capture entropy before resetting frame_start
+            let random_offset = (self.frame_start.elapsed().as_nanos() % 3000) as u64;
             self.state = CatAnimationState::Blinking;
             self.frame_index = 0;
             self.frame_start = now;
             self.last_blink = now;
             // Randomize next blink interval (3-6 seconds)
-            // Use frame_start.elapsed() for entropy since `now` was just created
-            let random_offset = (self.frame_start.elapsed().as_nanos() % 3000) as u64;
             self.blink_interval = Duration::from_millis(3000 + random_offset);
             changed = true;
         }
