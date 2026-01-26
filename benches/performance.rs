@@ -28,7 +28,7 @@
 //! - Standard deviation
 //! - Performance regression detection
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use std::time::Duration;
 
 /// Benchmark timer formatting operations
@@ -40,24 +40,22 @@ fn bench_format_duration(c: &mut Criterion) {
 
     // Test various duration ranges that the overlay displays
     let test_durations = [
-        0u64,      // Edge case: zero
-        30,        // 30 seconds (warning threshold)
-        60,        // 1 minute (warning threshold)
-        300,       // 5 minutes (typical short timer)
-        1800,      // 30 minutes (typical medium timer)
-        3600,      // 1 hour (format switch point)
-        7200,      // 2 hours (long session)
-        36000,     // 10 hours (extended session)
+        0u64,  // Edge case: zero
+        30,    // 30 seconds (warning threshold)
+        60,    // 1 minute (warning threshold)
+        300,   // 5 minutes (typical short timer)
+        1800,  // 30 minutes (typical medium timer)
+        3600,  // 1 hour (format switch point)
+        7200,  // 2 hours (long session)
+        36000, // 10 hours (extended session)
     ];
 
     for duration in test_durations.iter() {
         group.bench_with_input(
-            BenchmarkId::from_parameter(format!("{}s", duration)),
+            BenchmarkId::from_parameter(format!("{duration}s")),
             duration,
             |b, &secs| {
-                b.iter(|| {
-                    cat_shield::format_duration(black_box(secs))
-                });
+                b.iter(|| cat_shield::format_duration(black_box(secs)));
             },
         );
     }
@@ -84,15 +82,9 @@ fn bench_parse_duration(c: &mut Criterion) {
     ];
 
     for input in test_inputs.iter() {
-        group.bench_with_input(
-            BenchmarkId::from_parameter(input),
-            input,
-            |b, input| {
-                b.iter(|| {
-                    cat_shield::parse_duration(black_box(input))
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(input), input, |b, input| {
+            b.iter(|| cat_shield::parse_duration(black_box(input)));
+        });
     }
 
     group.finish();
@@ -173,22 +165,16 @@ fn bench_exit_key_parsing(c: &mut Criterion) {
     let mut group = c.benchmark_group("exit_key_parsing");
 
     let test_keys = [
-        "Cmd+Option+U",      // Default
-        "Ctrl+Alt+X",        // Alternative
-        "Shift+Escape",      // Simple
+        "Cmd+Option+U",       // Default
+        "Ctrl+Alt+X",         // Alternative
+        "Shift+Escape",       // Simple
         "Cmd+Shift+Option+Q", // Complex
     ];
 
     for key_str in test_keys.iter() {
-        group.bench_with_input(
-            BenchmarkId::from_parameter(key_str),
-            key_str,
-            |b, input| {
-                b.iter(|| {
-                    ExitKey::parse(black_box(input))
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(key_str), key_str, |b, input| {
+            b.iter(|| ExitKey::parse(black_box(input)));
+        });
     }
 
     group.finish();
@@ -203,10 +189,7 @@ criterion_group!(
 );
 
 #[cfg(target_os = "macos")]
-criterion_group!(
-    macos_benches,
-    bench_exit_key_parsing,
-);
+criterion_group!(macos_benches, bench_exit_key_parsing,);
 
 #[cfg(not(target_os = "macos"))]
 criterion_main!(benches);
