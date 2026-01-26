@@ -64,7 +64,15 @@ features = ["canvas", "tokio"]
 [dev-dependencies]
 tempfile = "3.10"
 serial_test = "3.2"
+criterion = { version = "0.5", features = ["html_reports"] }
+sysinfo = "0.35"
+
+[[bench]]
+name = "performance"
+harness = false
 
 [profile.release]
 opt-level = 3
 lto = true
+codegen-units = 1
+strip = true

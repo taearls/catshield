@@ -24,6 +24,7 @@ pub mod config;
 pub mod input;
 pub mod lock;
 pub mod logging;
+pub mod perf;
 pub mod platform;
 #[cfg(target_os = "macos")]
 pub mod shield_core;
