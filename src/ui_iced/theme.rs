@@ -150,6 +150,7 @@ pub mod colors_light {
     pub const ACCENT: Color = Color::from_rgb(0.20, 0.45, 0.88);
     pub const ACCENT_HOVER: Color = Color::from_rgb(0.25, 0.50, 0.95);
     pub const ACCENT_PRESSED: Color = Color::from_rgb(0.15, 0.38, 0.78);
+    pub const ACCENT_WARM: Color = Color::from_rgb(0.88, 0.55, 0.25);
 
     // === Background Colors ===
 
@@ -173,13 +174,35 @@ pub mod colors_light {
     pub const DANGER_HOVER: Color = Color::from_rgb(0.95, 0.32, 0.32);
     pub const DANGER_PRESSED: Color = Color::from_rgb(0.68, 0.15, 0.15);
     pub const SUCCESS: Color = Color::from_rgb(0.22, 0.62, 0.32);
+    pub const SUCCESS_HOVER: Color = Color::from_rgb(0.32, 0.72, 0.42);
     pub const WARNING: Color = Color::from_rgb(0.92, 0.52, 0.12);
+    pub const WARNING_HOVER: Color = Color::from_rgb(0.98, 0.62, 0.22);
+
+    // === Legacy aliases (for backward compatibility) ===
+
+    pub const CLOSE_BUTTON: Color = DANGER;
+    pub const CLOSE_BUTTON_HOVER: Color = DANGER_HOVER;
+    pub const CLOSE_BUTTON_PRESSED: Color = DANGER_PRESSED;
+    pub const TIMER_WARNING: Color = WARNING;
+
+    // === Progress Bar Colors ===
+
+    pub const PROGRESS_BACKGROUND: Color = Color::from_rgba(0.0, 0.0, 0.0, 0.10);
+    pub const PROGRESS_FILL: Color = Color::from_rgb(0.25, 0.65, 0.35);
+    pub const PROGRESS_WARNING: Color = WARNING;
 
     // === Border Colors ===
 
     pub const BORDER_SUBTLE: Color = Color::from_rgba(0.0, 0.0, 0.0, 0.08);
     pub const BORDER_MEDIUM: Color = Color::from_rgba(0.0, 0.0, 0.0, 0.15);
     pub const BORDER_FOCUS: Color = ACCENT;
+
+    // === Slider Colors ===
+
+    pub const SLIDER_TRACK: Color = Color::from_rgba(0.0, 0.0, 0.0, 0.12);
+    pub const SLIDER_FILL: Color = ACCENT;
+    pub const SLIDER_HANDLE: Color = Color::WHITE;
+    pub const SLIDER_HANDLE_HOVER: Color = Color::from_rgb(0.95, 0.95, 0.98);
 }
 
 // ============================================================
@@ -399,42 +422,68 @@ impl CatShieldTheme {
     // ============================================================
 
     /// Style for the overlay background container
-    pub fn overlay_container(_theme: &Theme) -> container::Style {
+    pub fn overlay_container(theme: &Theme) -> container::Style {
+        let background = if Self::is_dark_mode(theme) {
+            colors::OVERLAY_BACKGROUND
+        } else {
+            colors_light::OVERLAY_BACKGROUND
+        };
         container::Style {
-            background: Some(Background::Color(colors::OVERLAY_BACKGROUND)),
+            background: Some(Background::Color(background)),
             ..Default::default()
         }
     }
 
     /// Style for the settings window background container
-    pub fn settings_container(_theme: &Theme) -> container::Style {
+    pub fn settings_container(theme: &Theme) -> container::Style {
+        let background = if Self::is_dark_mode(theme) {
+            colors::SETTINGS_BACKGROUND
+        } else {
+            colors_light::SETTINGS_BACKGROUND
+        };
         container::Style {
-            background: Some(Background::Color(colors::SETTINGS_BACKGROUND)),
+            background: Some(Background::Color(background)),
             ..Default::default()
         }
     }
 
     /// Style for card/section containers
-    pub fn card_container(_theme: &Theme) -> container::Style {
+    pub fn card_container(theme: &Theme) -> container::Style {
+        let (background, border_color) = if Self::is_dark_mode(theme) {
+            (colors::BACKGROUND_SECONDARY, colors::BORDER_SUBTLE)
+        } else {
+            (
+                colors_light::BACKGROUND_SECONDARY,
+                colors_light::BORDER_SUBTLE,
+            )
+        };
         container::Style {
-            background: Some(Background::Color(colors::BACKGROUND_SECONDARY)),
+            background: Some(Background::Color(background)),
             border: Border {
                 radius: borders::RADIUS_MD.into(),
                 width: borders::WIDTH_DEFAULT,
-                color: colors::BORDER_SUBTLE,
+                color: border_color,
             },
             ..Default::default()
         }
     }
 
     /// Style for elevated card containers (with shadow)
-    pub fn elevated_container(_theme: &Theme) -> container::Style {
+    pub fn elevated_container(theme: &Theme) -> container::Style {
+        let (background, border_color) = if Self::is_dark_mode(theme) {
+            (colors::BACKGROUND_ELEVATED, colors::BORDER_SUBTLE)
+        } else {
+            (
+                colors_light::BACKGROUND_ELEVATED,
+                colors_light::BORDER_SUBTLE,
+            )
+        };
         container::Style {
-            background: Some(Background::Color(colors::BACKGROUND_ELEVATED)),
+            background: Some(Background::Color(background)),
             border: Border {
                 radius: borders::RADIUS_MD.into(),
                 width: borders::WIDTH_DEFAULT,
-                color: colors::BORDER_SUBTLE,
+                color: border_color,
             },
             shadow: shadows::subtle(),
             ..Default::default()
@@ -442,13 +491,18 @@ impl CatShieldTheme {
     }
 
     /// Style for input containers
-    pub fn input_container(_theme: &Theme) -> container::Style {
+    pub fn input_container(theme: &Theme) -> container::Style {
+        let (background, border_color) = if Self::is_dark_mode(theme) {
+            (colors::BACKGROUND_DEEP, colors::BORDER_MEDIUM)
+        } else {
+            (colors_light::BACKGROUND_DEEP, colors_light::BORDER_MEDIUM)
+        };
         container::Style {
-            background: Some(Background::Color(colors::BACKGROUND_DEEP)),
+            background: Some(Background::Color(background)),
             border: Border {
                 radius: borders::RADIUS_SM.into(),
                 width: borders::WIDTH_DEFAULT,
-                color: colors::BORDER_MEDIUM,
+                color: border_color,
             },
             ..Default::default()
         }
@@ -461,12 +515,38 @@ impl CatShieldTheme {
     /// Style for close button
     pub fn close_button(theme: &Theme, status: button::Status) -> button::Style {
         let base = button::primary(theme, status);
+        let is_dark = Self::is_dark_mode(theme);
 
         let (background_color, text_color) = match status {
-            button::Status::Active => (colors::DANGER, colors::TEXT_ON_ACCENT),
-            button::Status::Hovered => (colors::DANGER_HOVER, colors::TEXT_ON_ACCENT),
-            button::Status::Pressed => (colors::DANGER_PRESSED, colors::TEXT_ON_ACCENT),
-            button::Status::Disabled => (Color::from_rgba(0.5, 0.5, 0.5, 0.4), colors::TEXT_MUTED),
+            button::Status::Active => {
+                if is_dark {
+                    (colors::DANGER, colors::TEXT_ON_ACCENT)
+                } else {
+                    (colors_light::DANGER, colors_light::TEXT_ON_ACCENT)
+                }
+            }
+            button::Status::Hovered => {
+                if is_dark {
+                    (colors::DANGER_HOVER, colors::TEXT_ON_ACCENT)
+                } else {
+                    (colors_light::DANGER_HOVER, colors_light::TEXT_ON_ACCENT)
+                }
+            }
+            button::Status::Pressed => {
+                if is_dark {
+                    (colors::DANGER_PRESSED, colors::TEXT_ON_ACCENT)
+                } else {
+                    (colors_light::DANGER_PRESSED, colors_light::TEXT_ON_ACCENT)
+                }
+            }
+            button::Status::Disabled => {
+                let muted = if is_dark {
+                    colors::TEXT_MUTED
+                } else {
+                    colors_light::TEXT_MUTED
+                };
+                (Color::from_rgba(0.5, 0.5, 0.5, 0.4), muted)
+            }
         };
 
         button::Style {
@@ -488,12 +568,38 @@ impl CatShieldTheme {
     /// Style for primary action button
     pub fn primary_button(theme: &Theme, status: button::Status) -> button::Style {
         let base = button::primary(theme, status);
+        let is_dark = Self::is_dark_mode(theme);
 
         let (background_color, text_color) = match status {
-            button::Status::Active => (colors::ACCENT, colors::TEXT_ON_ACCENT),
-            button::Status::Hovered => (colors::ACCENT_HOVER, colors::TEXT_ON_ACCENT),
-            button::Status::Pressed => (colors::ACCENT_PRESSED, colors::TEXT_ON_ACCENT),
-            button::Status::Disabled => (Color::from_rgba(0.4, 0.6, 0.9, 0.4), colors::TEXT_MUTED),
+            button::Status::Active => {
+                if is_dark {
+                    (colors::ACCENT, colors::TEXT_ON_ACCENT)
+                } else {
+                    (colors_light::ACCENT, colors_light::TEXT_ON_ACCENT)
+                }
+            }
+            button::Status::Hovered => {
+                if is_dark {
+                    (colors::ACCENT_HOVER, colors::TEXT_ON_ACCENT)
+                } else {
+                    (colors_light::ACCENT_HOVER, colors_light::TEXT_ON_ACCENT)
+                }
+            }
+            button::Status::Pressed => {
+                if is_dark {
+                    (colors::ACCENT_PRESSED, colors::TEXT_ON_ACCENT)
+                } else {
+                    (colors_light::ACCENT_PRESSED, colors_light::TEXT_ON_ACCENT)
+                }
+            }
+            button::Status::Disabled => {
+                let muted = if is_dark {
+                    colors::TEXT_MUTED
+                } else {
+                    colors_light::TEXT_MUTED
+                };
+                (Color::from_rgba(0.4, 0.6, 0.9, 0.4), muted)
+            }
         };
 
         button::Style {
@@ -515,28 +621,69 @@ impl CatShieldTheme {
     /// Style for secondary/cancel button
     pub fn secondary_button(theme: &Theme, status: button::Status) -> button::Style {
         let base = button::secondary(theme, status);
+        let is_dark = Self::is_dark_mode(theme);
 
         let (background_color, text_color, border_color) = match status {
-            button::Status::Active => (
-                Color::from_rgba(1.0, 1.0, 1.0, 0.08),
-                colors::TEXT_SECONDARY,
-                colors::BORDER_MEDIUM,
-            ),
-            button::Status::Hovered => (
-                Color::from_rgba(1.0, 1.0, 1.0, 0.12),
-                colors::TEXT_PRIMARY,
-                colors::BORDER_MEDIUM,
-            ),
-            button::Status::Pressed => (
-                Color::from_rgba(1.0, 1.0, 1.0, 0.05),
-                colors::TEXT_SECONDARY,
-                colors::BORDER_MEDIUM,
-            ),
-            button::Status::Disabled => (
-                Color::from_rgba(0.5, 0.5, 0.5, 0.05),
-                colors::TEXT_MUTED,
-                colors::BORDER_SUBTLE,
-            ),
+            button::Status::Active => {
+                if is_dark {
+                    (
+                        Color::from_rgba(1.0, 1.0, 1.0, 0.08),
+                        colors::TEXT_SECONDARY,
+                        colors::BORDER_MEDIUM,
+                    )
+                } else {
+                    (
+                        Color::from_rgba(0.0, 0.0, 0.0, 0.05),
+                        colors_light::TEXT_SECONDARY,
+                        colors_light::BORDER_MEDIUM,
+                    )
+                }
+            }
+            button::Status::Hovered => {
+                if is_dark {
+                    (
+                        Color::from_rgba(1.0, 1.0, 1.0, 0.12),
+                        colors::TEXT_PRIMARY,
+                        colors::BORDER_MEDIUM,
+                    )
+                } else {
+                    (
+                        Color::from_rgba(0.0, 0.0, 0.0, 0.08),
+                        colors_light::TEXT_PRIMARY,
+                        colors_light::BORDER_MEDIUM,
+                    )
+                }
+            }
+            button::Status::Pressed => {
+                if is_dark {
+                    (
+                        Color::from_rgba(1.0, 1.0, 1.0, 0.05),
+                        colors::TEXT_SECONDARY,
+                        colors::BORDER_MEDIUM,
+                    )
+                } else {
+                    (
+                        Color::from_rgba(0.0, 0.0, 0.0, 0.03),
+                        colors_light::TEXT_SECONDARY,
+                        colors_light::BORDER_MEDIUM,
+                    )
+                }
+            }
+            button::Status::Disabled => {
+                if is_dark {
+                    (
+                        Color::from_rgba(0.5, 0.5, 0.5, 0.05),
+                        colors::TEXT_MUTED,
+                        colors::BORDER_SUBTLE,
+                    )
+                } else {
+                    (
+                        Color::from_rgba(0.5, 0.5, 0.5, 0.05),
+                        colors_light::TEXT_MUTED,
+                        colors_light::BORDER_SUBTLE,
+                    )
+                }
+            }
         };
 
         button::Style {
@@ -554,16 +701,46 @@ impl CatShieldTheme {
     /// Style for ghost/text-only button
     pub fn ghost_button(theme: &Theme, status: button::Status) -> button::Style {
         let base = button::secondary(theme, status);
+        let is_dark = Self::is_dark_mode(theme);
+
         let (background_color, text_color) = match status {
-            button::Status::Active => (Color::TRANSPARENT, colors::TEXT_SECONDARY),
-            button::Status::Hovered => {
-                (Color::from_rgba(1.0, 1.0, 1.0, 0.08), colors::TEXT_PRIMARY)
+            button::Status::Active => {
+                if is_dark {
+                    (Color::TRANSPARENT, colors::TEXT_SECONDARY)
+                } else {
+                    (Color::TRANSPARENT, colors_light::TEXT_SECONDARY)
+                }
             }
-            button::Status::Pressed => (
-                Color::from_rgba(1.0, 1.0, 1.0, 0.04),
-                colors::TEXT_SECONDARY,
-            ),
-            button::Status::Disabled => (Color::TRANSPARENT, colors::TEXT_MUTED),
+            button::Status::Hovered => {
+                if is_dark {
+                    (Color::from_rgba(1.0, 1.0, 1.0, 0.08), colors::TEXT_PRIMARY)
+                } else {
+                    (
+                        Color::from_rgba(0.0, 0.0, 0.0, 0.05),
+                        colors_light::TEXT_PRIMARY,
+                    )
+                }
+            }
+            button::Status::Pressed => {
+                if is_dark {
+                    (
+                        Color::from_rgba(1.0, 1.0, 1.0, 0.04),
+                        colors::TEXT_SECONDARY,
+                    )
+                } else {
+                    (
+                        Color::from_rgba(0.0, 0.0, 0.0, 0.03),
+                        colors_light::TEXT_SECONDARY,
+                    )
+                }
+            }
+            button::Status::Disabled => {
+                if is_dark {
+                    (Color::TRANSPARENT, colors::TEXT_MUTED)
+                } else {
+                    (Color::TRANSPARENT, colors_light::TEXT_MUTED)
+                }
+            }
         };
 
         button::Style {
@@ -581,28 +758,69 @@ impl CatShieldTheme {
     /// Style for danger/destructive button
     pub fn danger_button(theme: &Theme, status: button::Status) -> button::Style {
         let base = button::primary(theme, status);
+        let is_dark = Self::is_dark_mode(theme);
 
         let (background_color, text_color, border_color) = match status {
-            button::Status::Active => (
-                Color::from_rgba(0.92, 0.28, 0.28, 0.15),
-                colors::DANGER,
-                colors::DANGER,
-            ),
-            button::Status::Hovered => (
-                Color::from_rgba(0.92, 0.28, 0.28, 0.25),
-                colors::DANGER_HOVER,
-                colors::DANGER_HOVER,
-            ),
-            button::Status::Pressed => (
-                Color::from_rgba(0.92, 0.28, 0.28, 0.10),
-                colors::DANGER_PRESSED,
-                colors::DANGER_PRESSED,
-            ),
-            button::Status::Disabled => (
-                Color::from_rgba(0.5, 0.5, 0.5, 0.1),
-                colors::TEXT_MUTED,
-                colors::BORDER_SUBTLE,
-            ),
+            button::Status::Active => {
+                if is_dark {
+                    (
+                        Color::from_rgba(0.92, 0.28, 0.28, 0.15),
+                        colors::DANGER,
+                        colors::DANGER,
+                    )
+                } else {
+                    (
+                        Color::from_rgba(0.85, 0.22, 0.22, 0.12),
+                        colors_light::DANGER,
+                        colors_light::DANGER,
+                    )
+                }
+            }
+            button::Status::Hovered => {
+                if is_dark {
+                    (
+                        Color::from_rgba(0.92, 0.28, 0.28, 0.25),
+                        colors::DANGER_HOVER,
+                        colors::DANGER_HOVER,
+                    )
+                } else {
+                    (
+                        Color::from_rgba(0.85, 0.22, 0.22, 0.20),
+                        colors_light::DANGER_HOVER,
+                        colors_light::DANGER_HOVER,
+                    )
+                }
+            }
+            button::Status::Pressed => {
+                if is_dark {
+                    (
+                        Color::from_rgba(0.92, 0.28, 0.28, 0.10),
+                        colors::DANGER_PRESSED,
+                        colors::DANGER_PRESSED,
+                    )
+                } else {
+                    (
+                        Color::from_rgba(0.85, 0.22, 0.22, 0.08),
+                        colors_light::DANGER_PRESSED,
+                        colors_light::DANGER_PRESSED,
+                    )
+                }
+            }
+            button::Status::Disabled => {
+                if is_dark {
+                    (
+                        Color::from_rgba(0.5, 0.5, 0.5, 0.1),
+                        colors::TEXT_MUTED,
+                        colors::BORDER_SUBTLE,
+                    )
+                } else {
+                    (
+                        Color::from_rgba(0.5, 0.5, 0.5, 0.1),
+                        colors_light::TEXT_MUTED,
+                        colors_light::BORDER_SUBTLE,
+                    )
+                }
+            }
         };
 
         button::Style {
@@ -620,12 +838,41 @@ impl CatShieldTheme {
     /// Style for success button
     pub fn success_button(theme: &Theme, status: button::Status) -> button::Style {
         let base = button::primary(theme, status);
+        let is_dark = Self::is_dark_mode(theme);
 
         let (background_color, text_color) = match status {
-            button::Status::Active => (colors::SUCCESS, colors::TEXT_ON_ACCENT),
-            button::Status::Hovered => (colors::SUCCESS_HOVER, colors::TEXT_ON_ACCENT),
-            button::Status::Pressed => (Color::from_rgb(0.22, 0.60, 0.32), colors::TEXT_ON_ACCENT),
-            button::Status::Disabled => (Color::from_rgba(0.3, 0.7, 0.4, 0.4), colors::TEXT_MUTED),
+            button::Status::Active => {
+                if is_dark {
+                    (colors::SUCCESS, colors::TEXT_ON_ACCENT)
+                } else {
+                    (colors_light::SUCCESS, colors_light::TEXT_ON_ACCENT)
+                }
+            }
+            button::Status::Hovered => {
+                if is_dark {
+                    (colors::SUCCESS_HOVER, colors::TEXT_ON_ACCENT)
+                } else {
+                    (colors_light::SUCCESS_HOVER, colors_light::TEXT_ON_ACCENT)
+                }
+            }
+            button::Status::Pressed => {
+                if is_dark {
+                    (Color::from_rgb(0.22, 0.60, 0.32), colors::TEXT_ON_ACCENT)
+                } else {
+                    (
+                        Color::from_rgb(0.18, 0.52, 0.28),
+                        colors_light::TEXT_ON_ACCENT,
+                    )
+                }
+            }
+            button::Status::Disabled => {
+                let muted = if is_dark {
+                    colors::TEXT_MUTED
+                } else {
+                    colors_light::TEXT_MUTED
+                };
+                (Color::from_rgba(0.3, 0.7, 0.4, 0.4), muted)
+            }
         };
 
         button::Style {
@@ -645,37 +892,95 @@ impl CatShieldTheme {
     }
 
     /// Style for tab/navigation button
-    pub fn tab_button(_theme: &Theme, status: button::Status, is_selected: bool) -> button::Style {
+    pub fn tab_button(theme: &Theme, status: button::Status, is_selected: bool) -> button::Style {
+        let is_dark = Self::is_dark_mode(theme);
+
         let (background_color, text_color, border_color) = if is_selected {
             match status {
                 button::Status::Active | button::Status::Hovered | button::Status::Pressed => {
-                    (colors::ACCENT, colors::TEXT_ON_ACCENT, colors::ACCENT)
+                    if is_dark {
+                        (colors::ACCENT, colors::TEXT_ON_ACCENT, colors::ACCENT)
+                    } else {
+                        (
+                            colors_light::ACCENT,
+                            colors_light::TEXT_ON_ACCENT,
+                            colors_light::ACCENT,
+                        )
+                    }
                 }
-                button::Status::Disabled => (
-                    Color::from_rgba(0.4, 0.6, 0.9, 0.4),
-                    colors::TEXT_MUTED,
-                    colors::BORDER_SUBTLE,
-                ),
+                button::Status::Disabled => {
+                    if is_dark {
+                        (
+                            Color::from_rgba(0.4, 0.6, 0.9, 0.4),
+                            colors::TEXT_MUTED,
+                            colors::BORDER_SUBTLE,
+                        )
+                    } else {
+                        (
+                            Color::from_rgba(0.4, 0.6, 0.9, 0.4),
+                            colors_light::TEXT_MUTED,
+                            colors_light::BORDER_SUBTLE,
+                        )
+                    }
+                }
             }
         } else {
             match status {
-                button::Status::Active => (
-                    Color::TRANSPARENT,
-                    colors::TEXT_SECONDARY,
-                    Color::TRANSPARENT,
-                ),
-                button::Status::Hovered => (
-                    Color::from_rgba(1.0, 1.0, 1.0, 0.08),
-                    colors::TEXT_PRIMARY,
-                    Color::TRANSPARENT,
-                ),
-                button::Status::Pressed => (
-                    Color::from_rgba(1.0, 1.0, 1.0, 0.04),
-                    colors::TEXT_SECONDARY,
-                    Color::TRANSPARENT,
-                ),
+                button::Status::Active => {
+                    if is_dark {
+                        (
+                            Color::TRANSPARENT,
+                            colors::TEXT_SECONDARY,
+                            Color::TRANSPARENT,
+                        )
+                    } else {
+                        (
+                            Color::TRANSPARENT,
+                            colors_light::TEXT_SECONDARY,
+                            Color::TRANSPARENT,
+                        )
+                    }
+                }
+                button::Status::Hovered => {
+                    if is_dark {
+                        (
+                            Color::from_rgba(1.0, 1.0, 1.0, 0.08),
+                            colors::TEXT_PRIMARY,
+                            Color::TRANSPARENT,
+                        )
+                    } else {
+                        (
+                            Color::from_rgba(0.0, 0.0, 0.0, 0.05),
+                            colors_light::TEXT_PRIMARY,
+                            Color::TRANSPARENT,
+                        )
+                    }
+                }
+                button::Status::Pressed => {
+                    if is_dark {
+                        (
+                            Color::from_rgba(1.0, 1.0, 1.0, 0.04),
+                            colors::TEXT_SECONDARY,
+                            Color::TRANSPARENT,
+                        )
+                    } else {
+                        (
+                            Color::from_rgba(0.0, 0.0, 0.0, 0.03),
+                            colors_light::TEXT_SECONDARY,
+                            Color::TRANSPARENT,
+                        )
+                    }
+                }
                 button::Status::Disabled => {
-                    (Color::TRANSPARENT, colors::TEXT_MUTED, Color::TRANSPARENT)
+                    if is_dark {
+                        (Color::TRANSPARENT, colors::TEXT_MUTED, Color::TRANSPARENT)
+                    } else {
+                        (
+                            Color::TRANSPARENT,
+                            colors_light::TEXT_MUTED,
+                            Color::TRANSPARENT,
+                        )
+                    }
                 }
             }
         };
@@ -701,52 +1006,73 @@ impl CatShieldTheme {
     // ============================================================
 
     /// Style for large timer text
-    pub fn timer_text() -> text::Style {
-        text::Style {
-            color: Some(colors::TEXT_PRIMARY),
-        }
+    pub fn timer_text(theme: &Theme) -> text::Style {
+        let color = if Self::is_dark_mode(theme) {
+            colors::TEXT_PRIMARY
+        } else {
+            colors_light::TEXT_PRIMARY
+        };
+        text::Style { color: Some(color) }
     }
 
     /// Style for secondary/instructional text
-    pub fn secondary_text() -> text::Style {
-        text::Style {
-            color: Some(colors::TEXT_SECONDARY),
-        }
+    pub fn secondary_text(theme: &Theme) -> text::Style {
+        let color = if Self::is_dark_mode(theme) {
+            colors::TEXT_SECONDARY
+        } else {
+            colors_light::TEXT_SECONDARY
+        };
+        text::Style { color: Some(color) }
     }
 
     /// Style for muted/hint text
-    pub fn muted_text() -> text::Style {
-        text::Style {
-            color: Some(colors::TEXT_MUTED),
-        }
+    pub fn muted_text(theme: &Theme) -> text::Style {
+        let color = if Self::is_dark_mode(theme) {
+            colors::TEXT_MUTED
+        } else {
+            colors_light::TEXT_MUTED
+        };
+        text::Style { color: Some(color) }
     }
 
     /// Style for success text
-    pub fn success_text() -> text::Style {
-        text::Style {
-            color: Some(colors::SUCCESS),
-        }
+    pub fn success_text(theme: &Theme) -> text::Style {
+        let color = if Self::is_dark_mode(theme) {
+            colors::SUCCESS
+        } else {
+            colors_light::SUCCESS
+        };
+        text::Style { color: Some(color) }
     }
 
     /// Style for warning text
-    pub fn warning_text() -> text::Style {
-        text::Style {
-            color: Some(colors::WARNING),
-        }
+    pub fn warning_text(theme: &Theme) -> text::Style {
+        let color = if Self::is_dark_mode(theme) {
+            colors::WARNING
+        } else {
+            colors_light::WARNING
+        };
+        text::Style { color: Some(color) }
     }
 
     /// Style for danger/error text
-    pub fn danger_text() -> text::Style {
-        text::Style {
-            color: Some(colors::DANGER),
-        }
+    pub fn danger_text(theme: &Theme) -> text::Style {
+        let color = if Self::is_dark_mode(theme) {
+            colors::DANGER
+        } else {
+            colors_light::DANGER
+        };
+        text::Style { color: Some(color) }
     }
 
     /// Style for accent/link text
-    pub fn accent_text() -> text::Style {
-        text::Style {
-            color: Some(colors::ACCENT),
-        }
+    pub fn accent_text(theme: &Theme) -> text::Style {
+        let color = if Self::is_dark_mode(theme) {
+            colors::ACCENT
+        } else {
+            colors_light::ACCENT
+        };
+        text::Style { color: Some(color) }
     }
 
     // ============================================================
@@ -754,32 +1080,84 @@ impl CatShieldTheme {
     // ============================================================
 
     /// Style for text input fields
-    pub fn text_input_style(_theme: &Theme, status: text_input::Status) -> text_input::Style {
+    pub fn text_input_style(theme: &Theme, status: text_input::Status) -> text_input::Style {
+        let is_dark = Self::is_dark_mode(theme);
+
         let (background, border_color, icon_color, placeholder_color) = match status {
-            text_input::Status::Active => (
-                colors::BACKGROUND_DEEP,
-                colors::BORDER_MEDIUM,
-                colors::TEXT_MUTED,
-                colors::TEXT_MUTED,
-            ),
-            text_input::Status::Hovered => (
-                colors::BACKGROUND_DEEP,
-                colors::BORDER_MEDIUM,
-                colors::TEXT_SECONDARY,
-                colors::TEXT_MUTED,
-            ),
-            text_input::Status::Focused { is_hovered: _ } => (
-                colors::BACKGROUND_DEEP,
-                colors::BORDER_FOCUS,
-                colors::TEXT_PRIMARY,
-                colors::TEXT_MUTED,
-            ),
-            text_input::Status::Disabled => (
-                Color::from_rgba(0.08, 0.08, 0.1, 0.5),
-                colors::BORDER_SUBTLE,
-                colors::TEXT_MUTED,
-                colors::TEXT_MUTED,
-            ),
+            text_input::Status::Active => {
+                if is_dark {
+                    (
+                        colors::BACKGROUND_DEEP,
+                        colors::BORDER_MEDIUM,
+                        colors::TEXT_MUTED,
+                        colors::TEXT_MUTED,
+                    )
+                } else {
+                    (
+                        colors_light::BACKGROUND_DEEP,
+                        colors_light::BORDER_MEDIUM,
+                        colors_light::TEXT_MUTED,
+                        colors_light::TEXT_MUTED,
+                    )
+                }
+            }
+            text_input::Status::Hovered => {
+                if is_dark {
+                    (
+                        colors::BACKGROUND_DEEP,
+                        colors::BORDER_MEDIUM,
+                        colors::TEXT_SECONDARY,
+                        colors::TEXT_MUTED,
+                    )
+                } else {
+                    (
+                        colors_light::BACKGROUND_DEEP,
+                        colors_light::BORDER_MEDIUM,
+                        colors_light::TEXT_SECONDARY,
+                        colors_light::TEXT_MUTED,
+                    )
+                }
+            }
+            text_input::Status::Focused { is_hovered: _ } => {
+                if is_dark {
+                    (
+                        colors::BACKGROUND_DEEP,
+                        colors::BORDER_FOCUS,
+                        colors::TEXT_PRIMARY,
+                        colors::TEXT_MUTED,
+                    )
+                } else {
+                    (
+                        colors_light::BACKGROUND_DEEP,
+                        colors_light::BORDER_FOCUS,
+                        colors_light::TEXT_PRIMARY,
+                        colors_light::TEXT_MUTED,
+                    )
+                }
+            }
+            text_input::Status::Disabled => {
+                if is_dark {
+                    (
+                        Color::from_rgba(0.08, 0.08, 0.1, 0.5),
+                        colors::BORDER_SUBTLE,
+                        colors::TEXT_MUTED,
+                        colors::TEXT_MUTED,
+                    )
+                } else {
+                    (
+                        Color::from_rgba(0.92, 0.92, 0.94, 0.5),
+                        colors_light::BORDER_SUBTLE,
+                        colors_light::TEXT_MUTED,
+                        colors_light::TEXT_MUTED,
+                    )
+                }
+            }
+        };
+
+        let (value_color, selection_color) = if is_dark {
+            (colors::TEXT_PRIMARY, colors::ACCENT)
+        } else {
+            (colors_light::TEXT_PRIMARY, colors_light::ACCENT)
         };
 
         text_input::Style {
@@ -791,8 +1169,8 @@ impl CatShieldTheme {
             },
             icon: icon_color,
             placeholder: placeholder_color,
-            value: colors::TEXT_PRIMARY,
-            selection: colors::ACCENT,
+            value: value_color,
+            selection: selection_color,
         }
     }
 
@@ -801,26 +1179,61 @@ impl CatShieldTheme {
     // ============================================================
 
     /// Style for slider widgets
-    pub fn slider_style(_theme: &Theme, status: slider::Status) -> slider::Style {
+    pub fn slider_style(theme: &Theme, status: slider::Status) -> slider::Style {
+        let is_dark = Self::is_dark_mode(theme);
+
         let (fill_color, track_color, handle_bg, handle_border_color) = match status {
-            slider::Status::Active => (
-                colors::SLIDER_FILL,
-                colors::SLIDER_TRACK,
-                colors::SLIDER_HANDLE,
-                colors::SLIDER_FILL,
-            ),
-            slider::Status::Hovered => (
-                colors::ACCENT_HOVER,
-                colors::SLIDER_TRACK,
-                colors::SLIDER_HANDLE_HOVER,
-                colors::ACCENT_HOVER,
-            ),
-            slider::Status::Dragged => (
-                colors::ACCENT_PRESSED,
-                colors::SLIDER_TRACK,
-                colors::SLIDER_HANDLE,
-                colors::ACCENT_PRESSED,
-            ),
+            slider::Status::Active => {
+                if is_dark {
+                    (
+                        colors::SLIDER_FILL,
+                        colors::SLIDER_TRACK,
+                        colors::SLIDER_HANDLE,
+                        colors::SLIDER_FILL,
+                    )
+                } else {
+                    (
+                        colors_light::SLIDER_FILL,
+                        colors_light::SLIDER_TRACK,
+                        colors_light::SLIDER_HANDLE,
+                        colors_light::SLIDER_FILL,
+                    )
+                }
+            }
+            slider::Status::Hovered => {
+                if is_dark {
+                    (
+                        colors::ACCENT_HOVER,
+                        colors::SLIDER_TRACK,
+                        colors::SLIDER_HANDLE_HOVER,
+                        colors::ACCENT_HOVER,
+                    )
+                } else {
+                    (
+                        colors_light::ACCENT_HOVER,
+                        colors_light::SLIDER_TRACK,
+                        colors_light::SLIDER_HANDLE_HOVER,
+                        colors_light::ACCENT_HOVER,
+                    )
+                }
+            }
+            slider::Status::Dragged => {
+                if is_dark {
+                    (
+                        colors::ACCENT_PRESSED,
+                        colors::SLIDER_TRACK,
+                        colors::SLIDER_HANDLE,
+                        colors::ACCENT_PRESSED,
+                    )
+                } else {
+                    (
+                        colors_light::ACCENT_PRESSED,
+                        colors_light::SLIDER_TRACK,
+                        colors_light::SLIDER_HANDLE,
+                        colors_light::ACCENT_PRESSED,
+                    )
+                }
+            }
         };
 
         slider::Style {
@@ -849,56 +1262,106 @@ impl CatShieldTheme {
     // ============================================================
 
     /// Style for checkbox widgets
-    pub fn checkbox_style(_theme: &Theme, status: checkbox::Status) -> checkbox::Style {
+    pub fn checkbox_style(theme: &Theme, status: checkbox::Status) -> checkbox::Style {
+        let is_dark = Self::is_dark_mode(theme);
+
         let (background, icon_color, border_color, text_color) = match status {
             checkbox::Status::Active { is_checked } => {
                 if is_checked {
-                    (
-                        Background::Color(colors::ACCENT),
-                        colors::TEXT_ON_ACCENT,
-                        colors::ACCENT,
-                        colors::TEXT_PRIMARY,
-                    )
-                } else {
+                    if is_dark {
+                        (
+                            Background::Color(colors::ACCENT),
+                            colors::TEXT_ON_ACCENT,
+                            colors::ACCENT,
+                            colors::TEXT_PRIMARY,
+                        )
+                    } else {
+                        (
+                            Background::Color(colors_light::ACCENT),
+                            colors_light::TEXT_ON_ACCENT,
+                            colors_light::ACCENT,
+                            colors_light::TEXT_PRIMARY,
+                        )
+                    }
+                } else if is_dark {
                     (
                         Background::Color(colors::BACKGROUND_DEEP),
                         colors::TEXT_MUTED,
                         colors::BORDER_MEDIUM,
                         colors::TEXT_PRIMARY,
                     )
+                } else {
+                    (
+                        Background::Color(colors_light::BACKGROUND_DEEP),
+                        colors_light::TEXT_MUTED,
+                        colors_light::BORDER_MEDIUM,
+                        colors_light::TEXT_PRIMARY,
+                    )
                 }
             }
             checkbox::Status::Hovered { is_checked } => {
                 if is_checked {
-                    (
-                        Background::Color(colors::ACCENT_HOVER),
-                        colors::TEXT_ON_ACCENT,
-                        colors::ACCENT_HOVER,
-                        colors::TEXT_PRIMARY,
-                    )
-                } else {
+                    if is_dark {
+                        (
+                            Background::Color(colors::ACCENT_HOVER),
+                            colors::TEXT_ON_ACCENT,
+                            colors::ACCENT_HOVER,
+                            colors::TEXT_PRIMARY,
+                        )
+                    } else {
+                        (
+                            Background::Color(colors_light::ACCENT_HOVER),
+                            colors_light::TEXT_ON_ACCENT,
+                            colors_light::ACCENT_HOVER,
+                            colors_light::TEXT_PRIMARY,
+                        )
+                    }
+                } else if is_dark {
                     (
                         Background::Color(colors::BACKGROUND_ELEVATED),
                         colors::TEXT_SECONDARY,
                         colors::BORDER_MEDIUM,
                         colors::TEXT_PRIMARY,
                     )
+                } else {
+                    (
+                        Background::Color(colors_light::BACKGROUND_ELEVATED),
+                        colors_light::TEXT_SECONDARY,
+                        colors_light::BORDER_MEDIUM,
+                        colors_light::TEXT_PRIMARY,
+                    )
                 }
             }
             checkbox::Status::Disabled { is_checked } => {
                 if is_checked {
+                    if is_dark {
+                        (
+                            Background::Color(Color::from_rgba(0.4, 0.6, 0.9, 0.4)),
+                            colors::TEXT_MUTED,
+                            colors::BORDER_SUBTLE,
+                            colors::TEXT_MUTED,
+                        )
+                    } else {
+                        (
+                            Background::Color(Color::from_rgba(0.4, 0.6, 0.9, 0.4)),
+                            colors_light::TEXT_MUTED,
+                            colors_light::BORDER_SUBTLE,
+                            colors_light::TEXT_MUTED,
+                        )
+                    }
+                } else if is_dark {
                     (
-                        Background::Color(Color::from_rgba(0.4, 0.6, 0.9, 0.4)),
+                        Background::Color(Color::from_rgba(0.08, 0.08, 0.1, 0.5)),
                         colors::TEXT_MUTED,
                         colors::BORDER_SUBTLE,
                         colors::TEXT_MUTED,
                     )
                 } else {
                     (
-                        Background::Color(Color::from_rgba(0.08, 0.08, 0.1, 0.5)),
-                        colors::TEXT_MUTED,
-                        colors::BORDER_SUBTLE,
-                        colors::TEXT_MUTED,
+                        Background::Color(Color::from_rgba(0.92, 0.92, 0.94, 0.5)),
+                        colors_light::TEXT_MUTED,
+                        colors_light::BORDER_SUBTLE,
+                        colors_light::TEXT_MUTED,
                     )
                 }
             }
@@ -921,29 +1384,67 @@ impl CatShieldTheme {
     // ============================================================
 
     /// Style for pick list (dropdown) widgets
-    pub fn pick_list_style(_theme: &Theme, status: pick_list::Status) -> pick_list::Style {
+    pub fn pick_list_style(theme: &Theme, status: pick_list::Status) -> pick_list::Style {
+        let is_dark = Self::is_dark_mode(theme);
+
         let (background, text_color, border_color, handle_color, placeholder_color) = match status {
-            pick_list::Status::Active => (
-                colors::BACKGROUND_DEEP,
-                colors::TEXT_PRIMARY,
-                colors::BORDER_MEDIUM,
-                colors::TEXT_SECONDARY,
-                colors::TEXT_MUTED,
-            ),
-            pick_list::Status::Hovered => (
-                colors::BACKGROUND_ELEVATED,
-                colors::TEXT_PRIMARY,
-                colors::BORDER_MEDIUM,
-                colors::TEXT_PRIMARY,
-                colors::TEXT_MUTED,
-            ),
-            pick_list::Status::Opened { is_hovered: _ } => (
-                colors::BACKGROUND_DEEP,
-                colors::TEXT_PRIMARY,
-                colors::BORDER_FOCUS,
-                colors::ACCENT,
-                colors::TEXT_MUTED,
-            ),
+            pick_list::Status::Active => {
+                if is_dark {
+                    (
+                        colors::BACKGROUND_DEEP,
+                        colors::TEXT_PRIMARY,
+                        colors::BORDER_MEDIUM,
+                        colors::TEXT_SECONDARY,
+                        colors::TEXT_MUTED,
+                    )
+                } else {
+                    (
+                        colors_light::BACKGROUND_DEEP,
+                        colors_light::TEXT_PRIMARY,
+                        colors_light::BORDER_MEDIUM,
+                        colors_light::TEXT_SECONDARY,
+                        colors_light::TEXT_MUTED,
+                    )
+                }
+            }
+            pick_list::Status::Hovered => {
+                if is_dark {
+                    (
+                        colors::BACKGROUND_ELEVATED,
+                        colors::TEXT_PRIMARY,
+                        colors::BORDER_MEDIUM,
+                        colors::TEXT_PRIMARY,
+                        colors::TEXT_MUTED,
+                    )
+                } else {
+                    (
+                        colors_light::BACKGROUND_ELEVATED,
+                        colors_light::TEXT_PRIMARY,
+                        colors_light::BORDER_MEDIUM,
+                        colors_light::TEXT_PRIMARY,
+                        colors_light::TEXT_MUTED,
+                    )
+                }
+            }
+            pick_list::Status::Opened { is_hovered: _ } => {
+                if is_dark {
+                    (
+                        colors::BACKGROUND_DEEP,
+                        colors::TEXT_PRIMARY,
+                        colors::BORDER_FOCUS,
+                        colors::ACCENT,
+                        colors::TEXT_MUTED,
+                    )
+                } else {
+                    (
+                        colors_light::BACKGROUND_DEEP,
+                        colors_light::TEXT_PRIMARY,
+                        colors_light::BORDER_FOCUS,
+                        colors_light::ACCENT,
+                        colors_light::TEXT_MUTED,
+                    )
+                }
+            }
         };
 
         pick_list::Style {
@@ -964,9 +1465,14 @@ impl CatShieldTheme {
     // ============================================================
 
     /// Style for horizontal rule (divider)
-    pub fn rule_style(_theme: &Theme) -> rule::Style {
+    pub fn rule_style(theme: &Theme) -> rule::Style {
+        let color = if Self::is_dark_mode(theme) {
+            colors::BORDER_SUBTLE
+        } else {
+            colors_light::BORDER_SUBTLE
+        };
         rule::Style {
-            color: colors::BORDER_SUBTLE,
+            color,
             radius: 0.0.into(),
             fill_mode: rule::FillMode::Full,
             snap: true,

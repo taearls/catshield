@@ -5,7 +5,7 @@
 <!-- Keep under 150 lines - agents read this first -->
 
 **Current Phase**: 9 - iced UI Migration
-**Next Priority**: #179 (Theme-aware light mode colors)
+**Next Priority**: #164 (Performance testing)
 **Blocking Issues**: None
 
 ### Open Issues by Priority
@@ -16,14 +16,14 @@
 | 164 | Performance testing | 🔵 Low | ~1-2 days | #156 | 9 |
 | 165 | Animated cat companion overlay | 🔵 Low | ~2-3 days | None | 9 |
 | 166 | Documentation update | 🔵 Low | ~1 day | All others | 9 |
-| 179 | Theme-aware light mode colors | 🔵 Low | ~1 day | None | 9 |
 
-**Summary**: 5 open issues (0 Critical, 1 High, 0 Medium, 4 Low)
+**Summary**: 4 open issues (0 Critical, 1 High, 0 Medium, 3 Low)
 
 ### Completed This Session
 
 | # | Title | Priority | Date |
 |---|-------|----------|------|
+| 179 | Theme-aware light mode colors | 🔵 Low | 2026-01-25 |
 | 163 | Visual polish and theming | 🔵 Low | 2026-01-25 |
 | 162 | Linux tray integration | 🟢 Medium | 2026-01-25 |
 | 161 | Windows system tray integration | 🟢 Medium | 2026-01-25 |
@@ -47,10 +47,9 @@
 
 ### Recommended Next Issues
 
-1. **#179** - Theme-aware light mode colors (follow-up from #163)
-2. **#164** - Performance testing (unblocked)
-3. **#165** - Animated cat companion overlay (unblocked)
-4. **#166** - Documentation update (after all others)
+1. **#164** - Performance testing (unblocked)
+2. **#165** - Animated cat companion overlay (unblocked)
+3. **#166** - Documentation update (after all others)
 
 ---
 
@@ -71,10 +70,10 @@
 | ✅ | #161 | Windows system tray integration | None |
 | ✅ | #162 | Linux tray integration | None |
 | ✅ | #163 | Visual polish and theming | None |
+| ✅ | #179 | Theme-aware light mode colors | None |
 | 📋 | #164 | Performance testing | #156 |
 | 📋 | #165 | Animated cat companion overlay | None |
 | 📋 | #166 | Documentation update | All |
-| 📋 | #179 | Theme-aware light mode colors | None |
 
 ---
 
@@ -144,7 +143,7 @@ Phase 9 (iced Migration):
                             │
     ├─► #163 (Polish) ✅ ◄──┤ Enhanced theme, widget styles, dark/light mode
     │       │
-    │       └─► #179 (Light Mode Colors)
+    │       └─► #179 (Light Mode Colors) ✅ All 24 style functions theme-aware
     │
     ├─► #164 (Performance)
     │
@@ -188,6 +187,7 @@ Potential future enhancements (not yet tracked as issues):
 
 | Issue | Title | Date |
 |-------|-------|------|
+| #179 | Theme-aware light mode colors | 2026-01-25 |
 | #163 | Visual polish and theming | 2026-01-25 |
 | #162 | Linux tray integration | 2026-01-25 |
 | #161 | Windows system tray integration | 2026-01-25 |
@@ -228,6 +228,12 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-25
-- Added #179: Theme-aware light mode colors (follow-up from PR #178 CodeRabbit review)
-- Updated open issues summary (6 total: 1 High, 5 Low)
-- Updated critical path diagram to show #179 dependency on #163
+- **Completed #179**: Theme-aware light mode colors
+  - Added missing colors to `colors_light` module (slider, progress, success/warning hover)
+  - Updated all 24 style functions to use theme-aware color selection
+  - Container styles: overlay, settings, card, elevated, input
+  - Button styles: close, primary, secondary, ghost, danger, success, tab
+  - Text styles: timer, secondary, muted, success, warning, danger, accent (added theme param)
+  - Widget styles: text_input, slider, checkbox, pick_list, rule
+- Updated open issues summary (4 total: 1 High, 3 Low)
+- Updated critical path diagram to show #179 completion
