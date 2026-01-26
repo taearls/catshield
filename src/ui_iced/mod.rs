@@ -38,6 +38,7 @@
 //! the corresponding iced window in a separate thread.
 
 pub mod about;
+pub mod cat_animation;
 #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 pub mod integration;
 pub mod overlay;
@@ -46,6 +47,7 @@ pub mod theme;
 
 // Re-export main types for convenience
 pub use about::{AboutMessage, AboutWindow};
+pub use cat_animation::{CatCompanion, CatPosition};
 #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 pub use integration::{
     close_all_windows, is_about_window_open, is_settings_window_open, open_about_window,

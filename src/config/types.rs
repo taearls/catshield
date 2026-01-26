@@ -41,6 +41,13 @@ pub struct Config {
     /// Color scheme preference ("dark", "light", or "system")
     /// Default: "system" - follows system preference
     pub color_scheme: Option<String>,
+
+    /// Whether to show the animated cat companion on the overlay (default: true)
+    pub show_cat: Option<bool>,
+
+    /// Position of the cat companion on the overlay
+    /// Options: "bottom-right" (default), "bottom-left", "top-right", "top-left"
+    pub cat_position: Option<String>,
 }
 
 impl Config {
@@ -97,6 +104,16 @@ impl Config {
             Some(v) if v.eq_ignore_ascii_case("system") => "system",
             _ => "system",
         }
+    }
+
+    /// Get whether to show the animated cat companion (default: true)
+    pub fn show_cat(&self) -> bool {
+        self.show_cat.unwrap_or(true)
+    }
+
+    /// Get the cat position setting
+    pub fn cat_position(&self) -> &str {
+        self.cat_position.as_deref().unwrap_or("bottom-right")
     }
 
     /// Save configuration to the config file atomically.
@@ -330,6 +347,8 @@ another_unknown = 42
             launch_at_login: None,
             enable_trace_logging: None,
             color_scheme: None,
+            show_cat: None,
+            cat_position: None,
         };
 
         config.save_to_path(&config_path).unwrap();
@@ -351,6 +370,8 @@ another_unknown = 42
             launch_at_login: None,
             enable_trace_logging: None,
             color_scheme: None,
+            show_cat: None,
+            cat_position: None,
         };
 
         config.save_to_path(&config_path).unwrap();
@@ -372,6 +393,8 @@ another_unknown = 42
             launch_at_login: None,
             enable_trace_logging: None,
             color_scheme: None,
+            show_cat: None,
+            cat_position: None,
         };
 
         config.save_to_path(&config_path).unwrap();
@@ -397,6 +420,8 @@ another_unknown = 42
             launch_at_login: None,
             enable_trace_logging: None,
             color_scheme: None,
+            show_cat: None,
+            cat_position: None,
         };
         config1.save_to_path(&config_path).unwrap();
 
@@ -410,6 +435,8 @@ another_unknown = 42
             launch_at_login: None,
             enable_trace_logging: None,
             color_scheme: None,
+            show_cat: None,
+            cat_position: None,
         };
         config2.save_to_path(&config_path).unwrap();
 
@@ -433,6 +460,8 @@ another_unknown = 42
             launch_at_login: Some(true),
             enable_trace_logging: None,
             color_scheme: None,
+            show_cat: None,
+            cat_position: None,
         };
 
         original.save_to_path(&config_path).unwrap();
@@ -458,6 +487,8 @@ another_unknown = 42
             launch_at_login: None,
             enable_trace_logging: None,
             color_scheme: None,
+            show_cat: None,
+            cat_position: None,
         };
 
         original.save_to_path(&config_path).unwrap();
@@ -479,6 +510,8 @@ another_unknown = 42
             launch_at_login: None,
             enable_trace_logging: None,
             color_scheme: None,
+            show_cat: None,
+            cat_position: None,
         };
 
         assert_eq!(config.opacity(), DEFAULT_OVERLAY_OPACITY);
@@ -496,6 +529,8 @@ another_unknown = 42
             launch_at_login: None,
             enable_trace_logging: None,
             color_scheme: None,
+            show_cat: None,
+            cat_position: None,
         };
 
         assert_eq!(config.opacity(), MIN_OVERLAY_OPACITY);
@@ -513,6 +548,8 @@ another_unknown = 42
             launch_at_login: None,
             enable_trace_logging: None,
             color_scheme: None,
+            show_cat: None,
+            cat_position: None,
         };
 
         assert_eq!(config.opacity(), MAX_OVERLAY_OPACITY);
@@ -530,6 +567,8 @@ another_unknown = 42
             launch_at_login: None,
             enable_trace_logging: None,
             color_scheme: None,
+            show_cat: None,
+            cat_position: None,
         };
 
         assert_eq!(config.opacity(), 0.6);
@@ -617,6 +656,8 @@ allowed_keys = ["Cmd+Space", "F11", "F12", "Ctrl+Option+A"]
             launch_at_login: None,
             enable_trace_logging: None,
             color_scheme: None,
+            show_cat: None,
+            cat_position: None,
         };
 
         original.save_to_path(&config_path).unwrap();
@@ -675,6 +716,8 @@ allowed_keys = ["Cmd+Space", "F11", "F12", "Ctrl+Option+A"]
             launch_at_login: Some(true),
             enable_trace_logging: None,
             color_scheme: None,
+            show_cat: None,
+            cat_position: None,
         };
 
         original.save_to_path(&config_path).unwrap();
@@ -730,6 +773,8 @@ allowed_keys = ["Cmd+Space", "F11", "F12", "Ctrl+Option+A"]
             launch_at_login: None,
             enable_trace_logging: Some(true),
             color_scheme: None,
+            show_cat: None,
+            cat_position: None,
         };
 
         original.save_to_path(&config_path).unwrap();
@@ -756,6 +801,8 @@ allowed_keys = ["Cmd+Space", "F11", "F12", "Ctrl+Option+A"]
             launch_at_login: None,
             enable_trace_logging: None,
             color_scheme: None,
+            show_cat: None,
+            cat_position: None,
         };
 
         config.save_to_path(&config_path).unwrap();
@@ -784,6 +831,8 @@ allowed_keys = ["Cmd+Space", "F11", "F12", "Ctrl+Option+A"]
             launch_at_login: None,
             enable_trace_logging: None,
             color_scheme: None,
+            show_cat: None,
+            cat_position: None,
         };
         config1.save_to_path(&config_path).unwrap();
 
@@ -797,6 +846,8 @@ allowed_keys = ["Cmd+Space", "F11", "F12", "Ctrl+Option+A"]
             launch_at_login: Some(true),
             enable_trace_logging: Some(false),
             color_scheme: None,
+            show_cat: None,
+            cat_position: None,
         };
         config2.save_to_path(&config_path).unwrap();
 
@@ -831,6 +882,8 @@ allowed_keys = ["Cmd+Space", "F11", "F12", "Ctrl+Option+A"]
                 launch_at_login: Some(true),
                 enable_trace_logging: Some(false),
                 color_scheme: None,
+                show_cat: None,
+                cat_position: None,
             };
             config.save_to_path(&config_path).unwrap();
         }
@@ -952,6 +1005,8 @@ overlay_opacity = "not a number"
             launch_at_login: Some(true),
             enable_trace_logging: Some(true),
             color_scheme: None,
+            show_cat: None,
+            cat_position: None,
         };
 
         original.save_to_path(&config_path).unwrap();
@@ -1095,6 +1150,8 @@ overlay_opacity = "not a number"
             launch_at_login: None,
             enable_trace_logging: None,
             color_scheme: None,
+            show_cat: None,
+            cat_position: None,
         };
 
         original.save_to_path(&config_path).unwrap();
@@ -1117,6 +1174,8 @@ overlay_opacity = "not a number"
             launch_at_login: None,
             enable_trace_logging: None,
             color_scheme: None,
+            show_cat: None,
+            cat_position: None,
         };
 
         original.save_to_path(&config_path).unwrap();

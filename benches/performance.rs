@@ -143,6 +143,8 @@ fn bench_config_save(c: &mut Criterion) {
         launch_at_login: Some(false),
         enable_trace_logging: Some(false),
         color_scheme: Some("system".to_string()),
+        show_cat: None,
+        cat_position: None,
     };
 
     group.bench_function("save_full_config", |b| {
