@@ -254,7 +254,8 @@ impl CatCompanion {
             self.frame_start = now;
             self.last_blink = now;
             // Randomize next blink interval (3-6 seconds)
-            let random_offset = (now.elapsed().as_nanos() % 3000) as u64;
+            // Use frame_start.elapsed() for entropy since `now` was just created
+            let random_offset = (self.frame_start.elapsed().as_nanos() % 3000) as u64;
             self.blink_interval = Duration::from_millis(3000 + random_offset);
             changed = true;
         }
