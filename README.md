@@ -169,7 +169,7 @@ This project aims to create a cross-platform utility written in Rust that:
 
 Cat Shield uses a hybrid architecture combining the iced framework for UI rendering with platform-native APIs for input blocking:
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                      Cat Shield                             │
 ├─────────────────────────────────────────────────────────────┤
