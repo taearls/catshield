@@ -5,7 +5,7 @@
 <!-- Keep under 150 lines - agents read this first -->
 
 **Current Phase**: 9 - iced UI Migration
-**Next Priority**: #165 (Animated cat companion overlay)
+**Next Priority**: #166 (Documentation update)
 **Blocking Issues**: None
 
 ### Open Issues by Priority
@@ -13,15 +13,15 @@
 | # | Title | Priority | Effort | Blocked By | Phase |
 |---|-------|----------|--------|------------|-------|
 | 152 | Epic: Migrate UI Rendering to iced Framework | 🟡 High | ~4-6 weeks | None | 9 |
-| 165 | Animated cat companion overlay | 🔵 Low | ~2-3 days | None | 9 |
 | 166 | Documentation update | 🔵 Low | ~1 day | All others | 9 |
 
-**Summary**: 3 open issues (0 Critical, 1 High, 0 Medium, 2 Low)
+**Summary**: 2 open issues (0 Critical, 1 High, 0 Medium, 1 Low)
 
 ### Completed This Session
 
 | # | Title | Priority | Date |
 |---|-------|----------|------|
+| 165 | Animated cat companion overlay | 🔵 Low | 2026-01-25 |
 | 164 | Performance testing and optimization | 🔵 Low | 2026-01-25 |
 | 179 | Theme-aware light mode colors | 🔵 Low | 2026-01-25 |
 | 163 | Visual polish and theming | 🔵 Low | 2026-01-25 |
@@ -47,8 +47,7 @@
 
 ### Recommended Next Issues
 
-1. **#165** - Animated cat companion overlay (unblocked)
-2. **#166** - Documentation update (after all others)
+1. **#166** - Documentation update (after all others)
 
 ---
 
@@ -71,7 +70,7 @@
 | ✅ | #163 | Visual polish and theming | None |
 | ✅ | #179 | Theme-aware light mode colors | None |
 | ✅ | #164 | Performance testing and optimization | #156 |
-| 📋 | #165 | Animated cat companion overlay | None |
+| ✅ | #165 | Animated cat companion overlay | None |
 | 📋 | #166 | Documentation update | All |
 
 ---
@@ -146,7 +145,7 @@ Phase 9 (iced Migration):
     │
     ├─► #164 (Performance) ✅ Criterion benchmarks, perf module, optimized release profile
     │
-    └─► #165 (Cat Animation)
+    └─► #165 (Cat Animation) ✅ Animated cat companion with bobbing, blinking, --no-cat flag
                 │
                 ▼
         #166 (Documentation) ◄── All complete
@@ -186,6 +185,7 @@ Potential future enhancements (not yet tracked as issues):
 
 | Issue | Title | Date |
 |-------|-------|------|
+| #165 | Animated cat companion overlay | 2026-01-25 |
 | #164 | Performance testing and optimization | 2026-01-25 |
 | #179 | Theme-aware light mode colors | 2026-01-25 |
 | #163 | Visual polish and theming | 2026-01-25 |
@@ -228,6 +228,17 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-25
+- **Completed #165**: Animated cat companion overlay
+  - Created `cat_animation` module with `CatCompanion`, `CatPosition`, `CatAnimationState` types
+  - Implemented idle, blinking, and sleeping animation states
+  - Added smooth bobbing animation using sine wave interpolation (~30 FPS)
+  - Added random blink intervals (3-6 seconds) for natural appearance
+  - Cat companion shows emoji with state-based variation and caption text
+  - Added `--no-cat` CLI flag to disable the cat companion
+  - Added `show_cat` and `cat_position` config file settings
+  - Integrated cat settings into Settings window (Overlay section)
+  - Cat can be positioned in any corner: bottom-right (default), bottom-left, top-right, top-left
+  - Falls back to static cat icon when cat animation is disabled
 - **Completed #164**: Performance testing and optimization for iced UI
   - Added Criterion benchmark framework with performance test suite
   - Benchmarks for: timer formatting, duration parsing, config operations, exit key parsing

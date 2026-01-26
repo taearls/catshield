@@ -23,6 +23,7 @@ use iced::window::{Position, Settings as WindowSettings};
 use iced::{Alignment, Color, Element, Length, Size, Task, Theme};
 
 use crate::config::{Config, DEFAULT_OVERLAY_OPACITY, MAX_OVERLAY_OPACITY, MIN_OVERLAY_OPACITY};
+use crate::ui_iced::cat_animation::CatPosition;
 use crate::ui_iced::theme::{borders, colors, spacing, typography, CatShieldTheme, ColorScheme};
 
 /// Preset overlay colors for quick selection
@@ -282,6 +283,12 @@ pub enum SettingsMessage {
     /// Color scheme preference changed
     ColorSchemeChanged(ColorSchemePreference),
 
+    // Cat companion section
+    /// Show cat toggled
+    ShowCatToggled(bool),
+    /// Cat position changed
+    CatPositionChanged(CatPosition),
+
     // Navigation
     /// Switch to a different section
     SwitchSection(SettingsSection),
@@ -329,6 +336,11 @@ pub struct SettingsWindow {
     trace_logging: bool,
     /// Color scheme preference
     color_scheme: ColorSchemePreference,
+
+    /// Whether to show animated cat companion
+    show_cat: bool,
+    /// Position of the cat companion
+    cat_position: CatPosition,
 
     // UI state
     /// Currently selected section
@@ -391,6 +403,9 @@ impl SettingsWindow {
             trace_logging: config.enable_trace_logging.unwrap_or(false),
             color_scheme: ColorSchemePreference::from_config_string(config.color_scheme()),
 
+            show_cat: config.show_cat(),
+            cat_position: CatPosition::from_config_string(config.cat_position()),
+
             current_section: SettingsSection::Overlay,
             has_changes: false,
             original_config: config,
@@ -442,6 +457,8 @@ impl SettingsWindow {
             launch_at_login: Some(self.launch_at_login),
             enable_trace_logging: Some(self.trace_logging),
             color_scheme: Some(self.color_scheme.to_config_string()),
+            show_cat: Some(self.show_cat),
+            cat_position: Some(self.cat_position.to_config_string().to_string()),
         }
     }
 
@@ -457,7 +474,9 @@ impl SettingsWindow {
             || current.allowed_keys != self.original_config.allowed_keys
             || current.launch_at_login != self.original_config.launch_at_login
             || current.enable_trace_logging != self.original_config.enable_trace_logging
-            || current.color_scheme() != self.original_config.color_scheme();
+            || current.color_scheme() != self.original_config.color_scheme()
+            || current.show_cat() != self.original_config.show_cat()
+            || current.cat_position() != self.original_config.cat_position();
     }
 
     /// Save settings to config file
@@ -482,6 +501,8 @@ impl SettingsWindow {
         self.launch_at_login = false;
         self.trace_logging = false;
         self.color_scheme = ColorSchemePreference::System;
+        self.show_cat = true;
+        self.cat_position = CatPosition::default();
         self.check_for_changes();
     }
 
@@ -574,6 +595,16 @@ impl SettingsWindow {
             }
             SettingsMessage::ColorSchemeChanged(scheme) => {
                 self.color_scheme = scheme;
+                self.check_for_changes();
+            }
+
+            // Cat companion section
+            SettingsMessage::ShowCatToggled(enabled) => {
+                self.show_cat = enabled;
+                self.check_for_changes();
+            }
+            SettingsMessage::CatPositionChanged(position) => {
+                self.cat_position = position;
                 self.check_for_changes();
             }
 
@@ -894,6 +925,62 @@ impl SettingsWindow {
                     .style(CatShieldTheme::pick_list_style),
                     Space::new().height(Length::Fixed(spacing::SM)),
                     self.view_current_scheme_indicator(),
+                ]
+                .spacing(spacing::XS),
+            ),
+            Space::new().height(Length::Fixed(spacing::XL)),
+            // Cat companion settings
+            self.view_setting_group(
+                "Cat Companion",
+                "Show an animated cat on the protection overlay",
+                column![
+                    checkbox(self.show_cat)
+                        .label("Show animated cat")
+                        .on_toggle(SettingsMessage::ShowCatToggled)
+                        .text_size(typography::SIZE_BODY)
+                        .style(CatShieldTheme::checkbox_style),
+                    if self.show_cat {
+                        column![
+                            Space::new().height(Length::Fixed(spacing::MD)),
+                            row![
+                                text("Position:")
+                                    .size(typography::SIZE_BODY_SMALL)
+                                    .color(colors::TEXT_SECONDARY),
+                                pick_list(
+                                    CatPosition::ALL.as_slice(),
+                                    Some(self.cat_position),
+                                    SettingsMessage::CatPositionChanged
+                                )
+                                .width(Length::Fixed(150.0))
+                                .padding([spacing::SM, spacing::MD])
+                                .style(CatShieldTheme::pick_list_style),
+                            ]
+                            .spacing(spacing::MD)
+                            .align_y(iced::Alignment::Center),
+                            Space::new().height(Length::Fixed(spacing::SM)),
+                            container(
+                                row![
+                                    text("🐱").size(typography::SIZE_HEADER),
+                                    Space::new().width(Length::Fixed(spacing::SM)),
+                                    text("The cat will animate with bobbing and blinking")
+                                        .size(typography::SIZE_CAPTION)
+                                        .color(colors::TEXT_MUTED),
+                                ]
+                                .align_y(iced::Alignment::Center)
+                            )
+                            .padding([spacing::SM, spacing::MD])
+                            .style(|_theme| container::Style {
+                                background: Some(iced::Background::Color(colors::BACKGROUND_ELEVATED)),
+                                border: iced::Border {
+                                    radius: borders::RADIUS_SM.into(),
+                                    ..Default::default()
+                                },
+                                ..Default::default()
+                            }),
+                        ]
+                    } else {
+                        column![]
+                    },
                 ]
                 .spacing(spacing::XS),
             ),
@@ -1493,6 +1580,8 @@ mod tests {
             launch_at_login: Some(true),
             enable_trace_logging: Some(false),
             color_scheme: None,
+            show_cat: None,
+            cat_position: None,
         };
 
         let window = SettingsWindow::from_config(config);

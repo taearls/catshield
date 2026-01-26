@@ -66,6 +66,11 @@ pub struct Args {
     /// CLI argument overrides config file setting.
     #[arg(short = 'c', long, value_parser = parse_color)]
     pub color: Option<String>,
+
+    /// Disable the animated cat companion on the overlay.
+    /// By default, a cute animated cat is shown on the protection screen.
+    #[arg(long)]
+    pub no_cat: bool,
 }
 
 /// Parse exit key string into ExitKey struct (for clap value_parser)
@@ -130,6 +135,7 @@ mod tests {
             trace: false,
             opacity: None,
             color: None,
+            no_cat: false,
         }
     }
 

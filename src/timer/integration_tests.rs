@@ -81,6 +81,8 @@ mod tests {
             launch_at_login: None,
             enable_trace_logging: None,
             color_scheme: None,
+            show_cat: None,
+            cat_position: None,
         };
 
         // When no default_timer is set, parsing should fail (empty string)
@@ -103,6 +105,8 @@ mod tests {
             launch_at_login: None,
             enable_trace_logging: None,
             color_scheme: None,
+            show_cat: None,
+            cat_position: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -124,6 +128,8 @@ mod tests {
             launch_at_login: None,
             enable_trace_logging: None,
             color_scheme: None,
+            show_cat: None,
+            cat_position: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -145,6 +151,8 @@ mod tests {
             launch_at_login: None,
             enable_trace_logging: None,
             color_scheme: None,
+            show_cat: None,
+            cat_position: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -166,6 +174,8 @@ mod tests {
             launch_at_login: None,
             enable_trace_logging: None,
             color_scheme: None,
+            show_cat: None,
+            cat_position: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -188,6 +198,8 @@ mod tests {
             launch_at_login: None,
             enable_trace_logging: None,
             color_scheme: None,
+            show_cat: None,
+            cat_position: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -210,6 +222,8 @@ mod tests {
             launch_at_login: None,
             enable_trace_logging: None,
             color_scheme: None,
+            show_cat: None,
+            cat_position: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -233,6 +247,8 @@ mod tests {
             launch_at_login: None,
             enable_trace_logging: None,
             color_scheme: None,
+            show_cat: None,
+            cat_position: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -255,6 +271,8 @@ mod tests {
             launch_at_login: None,
             enable_trace_logging: None,
             color_scheme: None,
+            show_cat: None,
+            cat_position: None,
         };
 
         let timer_str = config.default_timer.as_ref().unwrap();
@@ -675,6 +693,8 @@ mod tests {
             launch_at_login: None,
             enable_trace_logging: None,
             color_scheme: None,
+            show_cat: None,
+            cat_position: None,
         };
 
         original.save_to_path(&config_path).unwrap();
@@ -702,6 +722,8 @@ mod tests {
             launch_at_login: None,
             enable_trace_logging: None,
             color_scheme: None,
+            show_cat: None,
+            cat_position: None,
         };
 
         original.save_to_path(&config_path).unwrap();

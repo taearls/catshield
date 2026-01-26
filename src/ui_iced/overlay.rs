@@ -33,6 +33,7 @@ use iced::window::{self, Level, Position, Settings as WindowSettings};
 use iced::{time, Color, Element, Length, Size, Subscription, Task, Theme};
 use std::time::{Duration, Instant};
 
+use crate::ui_iced::cat_animation::{CatCompanion, CatPosition};
 use crate::ui_iced::theme::{borders, colors, spacing, typography, CatShieldTheme};
 
 /// Create a horizontal progress bar widget with polished styling
@@ -191,6 +192,8 @@ pub struct OverlayApp {
     hide_timer: bool,
     /// Whether to show progress bar
     show_progress: bool,
+    /// Animated cat companion
+    cat: CatCompanion,
 }
 
 /// Default overlay color (dark gray)
@@ -210,6 +213,7 @@ impl Default for OverlayApp {
             exit_key_config: None,
             hide_timer: false,
             show_progress: true,
+            cat: CatCompanion::new(),
         }
     }
 }
@@ -227,6 +231,10 @@ pub struct OverlayConfig {
     pub opacity: f64,
     /// Overlay background color RGB (each component 0.0 - 1.0)
     pub color: (f32, f32, f32),
+    /// Whether to show the animated cat companion
+    pub show_cat: bool,
+    /// Position of the cat companion
+    pub cat_position: CatPosition,
 }
 
 impl Default for OverlayConfig {
@@ -237,6 +245,8 @@ impl Default for OverlayConfig {
             show_progress: true,
             opacity: crate::config::DEFAULT_OVERLAY_OPACITY,
             color: DEFAULT_OVERLAY_COLOR,
+            show_cat: true,
+            cat_position: CatPosition::default(),
         }
     }
 }
@@ -267,6 +277,7 @@ impl OverlayApp {
             exit_key_config: None,
             hide_timer: false,
             show_progress: true,
+            cat: CatCompanion::new(),
         }
     }
 
@@ -288,6 +299,7 @@ impl OverlayApp {
             exit_key_config: Some(exit_key_config),
             hide_timer: false,
             show_progress: true,
+            cat: CatCompanion::new(),
         }
     }
 
@@ -309,6 +321,7 @@ impl OverlayApp {
             exit_key_config: Some(exit_key_config),
             hide_timer: timer_config.hide_timer,
             show_progress: timer_config.show_progress,
+            cat: CatCompanion::new(),
         }
     }
 
@@ -326,6 +339,7 @@ impl OverlayApp {
             exit_key_config: Some(exit_key_config),
             hide_timer: config.hide_timer,
             show_progress: config.show_progress,
+            cat: CatCompanion::with_settings(config.show_cat, config.cat_position),
         }
     }
 
@@ -363,6 +377,9 @@ impl OverlayApp {
                     // Note: Auto-exit when remaining reaches 0 is handled externally
                     // by the timer system, not here
                 }
+
+                // Update cat animation
+                self.cat.tick(now);
 
                 Task::none()
             }
@@ -436,8 +453,12 @@ impl OverlayApp {
             .spacing(spacing::LG)
             .align_x(iced::Alignment::Center);
 
-        // Add cat icon with status
-        content = content.push(cat_status_icon(is_warning));
+        // Add cat icon with status (use animated cat if visible, otherwise static icon)
+        if self.cat.visible {
+            content = content.push(self.cat.view::<OverlayMessage>(is_warning));
+        } else {
+            content = content.push(cat_status_icon(is_warning));
+        }
 
         // Add title with status badge
         content = content.push(
@@ -577,9 +598,18 @@ impl OverlayApp {
     pub fn subscription(&self) -> Subscription<OverlayMessage> {
         if self.is_active {
             // Combine timer subscription with keyboard event subscription
+            // Use faster tick rate when cat is visible for smooth animation
+            let tick_interval = if self.cat.visible {
+                // ~30 FPS for smooth cat animation
+                Duration::from_millis(33)
+            } else {
+                // 1 second for timer-only updates
+                Duration::from_secs(1)
+            };
+
             Subscription::batch([
-                // Update every second for timer display
-                time::every(Duration::from_secs(1)).map(OverlayMessage::Tick),
+                // Update for timer display and cat animation
+                time::every(tick_interval).map(OverlayMessage::Tick),
                 // Listen for keyboard events to detect exit key
                 iced::event::listen_with(|event, _status, _id| match event {
                     Event::Keyboard(keyboard::Event::KeyPressed { key, modifiers, .. }) => {
