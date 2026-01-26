@@ -288,7 +288,8 @@ impl FrameTimer {
         if self.frame_count == 0 {
             Duration::ZERO
         } else {
-            self.total_time / self.frame_count as u32
+            // Use nanos to avoid truncation for very long sessions (frame_count > u32::MAX)
+            Duration::from_nanos(self.total_time.as_nanos() as u64 / self.frame_count)
         }
     }
 

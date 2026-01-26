@@ -77,8 +77,8 @@ fn bench_parse_duration(c: &mut Criterion) {
         "1h",       // Hours only
         "1h30m",    // Hours and minutes
         "2h30m45s", // Full format
-        "90",       // Plain number (seconds)
-        "300",      // Larger plain number
+        "90",       // Plain number (interpreted as minutes)
+        "300",      // Larger plain number (interpreted as minutes)
     ];
 
     for input in test_inputs.iter() {
