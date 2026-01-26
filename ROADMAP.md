@@ -143,11 +143,11 @@ Phase 9 (iced Migration):
     └─► #162 (Linux) ✅ ksni StatusNotifierItem + iced windows via thread spawn
                             │
     ├─► #163 (Polish) ◄─────┤
-    │       │               │
+    │       │
     │       └─► #179 (Light Mode Colors)
-    │                       │
-    ├─► #164 (Performance)  │
-    │                       │
+    │
+    ├─► #164 (Performance)
+    │
     └─► #165 (Cat Animation)
                 │
                 ▼
