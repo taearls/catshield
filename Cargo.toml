@@ -71,6 +71,21 @@ sysinfo = "0.35"
 name = "performance"
 harness = false
 
+# Main binary (default, named "cat_shield")
+[[bin]]
+name = "cat_shield"
+path = "src/main.rs"
+
+# Standalone window binaries for subprocess launching on macOS
+# These run iced windows on their own main thread to avoid winit threading issues
+[[bin]]
+name = "settings_window"
+path = "src/bin/settings_window.rs"
+
+[[bin]]
+name = "about_window"
+path = "src/bin/about_window.rs"
+
 [profile.release]
 opt-level = 3
 lto = true

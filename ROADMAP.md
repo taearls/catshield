@@ -20,6 +20,7 @@
 
 | # | Title | Priority | Date |
 |---|-------|----------|------|
+| 187 | Fix Preferences/About windows not appearing on macOS | 🔴 High | 2026-01-26 |
 | 184 | Add automatic retry for transient CI failures | 🔵 Low | 2026-01-26 |
 | 166 | Documentation update for iced migration | 🔵 Low | 2026-01-26 |
 | 165 | Animated cat companion overlay | 🔵 Low | 2026-01-25 |
@@ -136,7 +137,7 @@ Phase 9 (iced Migration):
     ▼
 #159 (Customization) ✅ Opacity 10-90%, color presets, hex colors, CLI flags
     │
-    ├─► #160 (macOS) ✅ AppKit NSStatusItem + iced windows via thread spawn
+    ├─► #160 (macOS) ✅ AppKit NSStatusItem + iced windows via subprocess (#187)
     ├─► #161 (Windows) ✅ Win32 Shell_NotifyIcon + iced windows via thread spawn
     └─► #162 (Linux) ✅ ksni StatusNotifierItem + iced windows via thread spawn
                             │
@@ -186,6 +187,7 @@ Potential future enhancements (not yet tracked as issues):
 
 | Issue | Title | Date |
 |-------|-------|------|
+| #187 | Fix Preferences/About windows not appearing on macOS | 2026-01-26 |
 | #184 | Add automatic retry for transient CI failures | 2026-01-26 |
 | #166 | Documentation update for iced migration | 2026-01-26 |
 | #165 | Animated cat companion overlay | 2026-01-25 |
@@ -231,6 +233,16 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-26
+- **Completed #187**: Fix Preferences/About windows not appearing on macOS
+  - Root cause: iced/winit requires EventLoop to be created on main thread, but windows were spawned in background threads
+  - Solution: On macOS, launch settings and about windows as separate subprocess binaries
+  - Created `settings_window` and `about_window` standalone binaries in `src/bin/`
+  - Each subprocess runs iced on its own main thread, avoiding the winit threading constraint
+  - Updated `integration.rs` with platform-specific implementations:
+    - macOS: Uses `std::process::Command` to spawn subprocess, monitors for exit
+    - Windows/Linux: Keeps existing thread-based approach (no winit threading issues)
+  - Helper binary paths are resolved relative to the main executable
+  - Menu item enable/disable behavior preserved via subprocess exit monitoring
 - **Completed #184**: Add automatic retry for transient CI failures
   - Created `rerun-failed.yml` workflow that monitors CI and auto-retries failed jobs
   - Uses `actions/github-script@v7` to call `reRunWorkflowFailedJobs` API
