@@ -442,10 +442,11 @@ mod tests {
 
     #[test]
     fn test_animation_frames_exist() {
-        // Verify all animation frame arrays are non-empty
-        assert!(!frames::IDLE.is_empty());
-        assert!(!frames::BLINK.is_empty());
-        assert!(!frames::SLEEPING.is_empty());
+        // Verify all animation frame arrays have expected lengths
+        // (using length checks instead of is_empty to avoid const_is_empty lint)
+        assert_eq!(frames::IDLE.len(), 4);
+        assert_eq!(frames::BLINK.len(), 3);
+        assert_eq!(frames::SLEEPING.len(), 2);
     }
 
     #[test]
