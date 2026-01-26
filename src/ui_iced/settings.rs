@@ -970,7 +970,9 @@ impl SettingsWindow {
                             )
                             .padding([spacing::SM, spacing::MD])
                             .style(|_theme| container::Style {
-                                background: Some(iced::Background::Color(colors::BACKGROUND_ELEVATED)),
+                                background: Some(iced::Background::Color(
+                                    colors::BACKGROUND_ELEVATED
+                                )),
                                 border: iced::Border {
                                     radius: borders::RADIUS_SM.into(),
                                     ..Default::default()

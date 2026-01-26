@@ -309,7 +309,10 @@ impl CatCompanion {
     /// Render the cat companion as an iced Element
     pub fn view<'a, M: 'a + Clone>(&self, is_warning: bool) -> Element<'a, M> {
         if !self.visible {
-            return Space::new().width(Length::Shrink).height(Length::Shrink).into();
+            return Space::new()
+                .width(Length::Shrink)
+                .height(Length::Shrink)
+                .into();
         }
 
         let icon_color = if is_warning {
@@ -323,9 +326,7 @@ impl CatCompanion {
         let size_variation = (self.bob_phase * std::f32::consts::TAU).sin() * 2.0;
         let icon_size = base_size + size_variation;
 
-        let cat_emoji = text(self.emoji())
-            .size(icon_size)
-            .color(icon_color);
+        let cat_emoji = text(self.emoji()).size(icon_size).color(icon_color);
 
         // Add a subtle caption based on state
         let caption = match self.state {
