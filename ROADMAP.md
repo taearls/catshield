@@ -5,7 +5,7 @@
 <!-- Keep under 150 lines - agents read this first -->
 
 **Current Phase**: 9 - iced UI Migration
-**Next Priority**: #164 (Performance testing)
+**Next Priority**: #165 (Animated cat companion overlay)
 **Blocking Issues**: None
 
 ### Open Issues by Priority
@@ -13,16 +13,16 @@
 | # | Title | Priority | Effort | Blocked By | Phase |
 |---|-------|----------|--------|------------|-------|
 | 152 | Epic: Migrate UI Rendering to iced Framework | 🟡 High | ~4-6 weeks | None | 9 |
-| 164 | Performance testing | 🔵 Low | ~1-2 days | #156 | 9 |
 | 165 | Animated cat companion overlay | 🔵 Low | ~2-3 days | None | 9 |
 | 166 | Documentation update | 🔵 Low | ~1 day | All others | 9 |
 
-**Summary**: 4 open issues (0 Critical, 1 High, 0 Medium, 3 Low)
+**Summary**: 3 open issues (0 Critical, 1 High, 0 Medium, 2 Low)
 
 ### Completed This Session
 
 | # | Title | Priority | Date |
 |---|-------|----------|------|
+| 164 | Performance testing and optimization | 🔵 Low | 2026-01-25 |
 | 179 | Theme-aware light mode colors | 🔵 Low | 2026-01-25 |
 | 163 | Visual polish and theming | 🔵 Low | 2026-01-25 |
 | 162 | Linux tray integration | 🟢 Medium | 2026-01-25 |
@@ -47,9 +47,8 @@
 
 ### Recommended Next Issues
 
-1. **#164** - Performance testing (unblocked)
-2. **#165** - Animated cat companion overlay (unblocked)
-3. **#166** - Documentation update (after all others)
+1. **#165** - Animated cat companion overlay (unblocked)
+2. **#166** - Documentation update (after all others)
 
 ---
 
@@ -71,7 +70,7 @@
 | ✅ | #162 | Linux tray integration | None |
 | ✅ | #163 | Visual polish and theming | None |
 | ✅ | #179 | Theme-aware light mode colors | None |
-| 📋 | #164 | Performance testing | #156 |
+| ✅ | #164 | Performance testing and optimization | #156 |
 | 📋 | #165 | Animated cat companion overlay | None |
 | 📋 | #166 | Documentation update | All |
 
@@ -145,7 +144,7 @@ Phase 9 (iced Migration):
     │       │
     │       └─► #179 (Light Mode Colors) ✅ All 24 style functions theme-aware
     │
-    ├─► #164 (Performance)
+    ├─► #164 (Performance) ✅ Criterion benchmarks, perf module, optimized release profile
     │
     └─► #165 (Cat Animation)
                 │
@@ -187,6 +186,7 @@ Potential future enhancements (not yet tracked as issues):
 
 | Issue | Title | Date |
 |-------|-------|------|
+| #164 | Performance testing and optimization | 2026-01-25 |
 | #179 | Theme-aware light mode colors | 2026-01-25 |
 | #163 | Visual polish and theming | 2026-01-25 |
 | #162 | Linux tray integration | 2026-01-25 |
@@ -228,6 +228,14 @@ Potential future enhancements (not yet tracked as issues):
 ## Changelog
 
 ### 2026-01-25
+- **Completed #164**: Performance testing and optimization for iced UI
+  - Added Criterion benchmark framework with performance test suite
+  - Benchmarks for: timer formatting, duration parsing, config operations, exit key parsing
+  - Created `perf` module with performance monitoring infrastructure
+  - Added `PerformanceSnapshot`, `PerformanceStats`, `LatencyTimer`, `FrameTimer` types
+  - Defined performance requirements: Idle CPU <2%, Memory <100MB
+  - Optimized release profile: `codegen-units = 1`, `strip = true`
+  - Benchmark results show sub-microsecond timer formatting (<100ns)
 - **Completed #179**: Theme-aware light mode colors
   - Added missing colors to `colors_light` module (slider, progress, success/warning hover)
   - Updated all 24 style functions to use theme-aware color selection
@@ -235,5 +243,5 @@ Potential future enhancements (not yet tracked as issues):
   - Button styles: close, primary, secondary, ghost, danger, success, tab
   - Text styles: timer, secondary, muted, success, warning, danger, accent (added theme param)
   - Widget styles: text_input, slider, checkbox, pick_list, rule
-- Updated open issues summary (4 total: 1 High, 3 Low)
-- Updated critical path diagram to show #179 completion
+- Updated open issues summary (3 total: 1 High, 2 Low)
+- Updated critical path diagram to show #164 and #179 completion

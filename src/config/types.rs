@@ -179,8 +179,9 @@ impl Config {
         }
     }
 
-    /// Load configuration from a specific path (for testing)
-    #[cfg(test)]
+    /// Load configuration from a specific path
+    ///
+    /// This is useful for testing and for loading from custom paths.
     pub fn load_from_path(path: &std::path::Path) -> Self {
         if !path.exists() {
             return Self::default();
@@ -192,10 +193,10 @@ impl Config {
         }
     }
 
-    /// Save configuration to a specific path (for testing)
+    /// Save configuration to a specific path
     ///
     /// Uses atomic write-then-rename like `save()`.
-    #[cfg(test)]
+    /// This is useful for testing and for saving to custom paths.
     pub fn save_to_path(&self, path: &std::path::Path) -> Result<(), String> {
         // Create directory if it doesn't exist
         if let Some(parent) = path.parent() {
