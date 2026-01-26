@@ -17,7 +17,7 @@
 | 164 | Performance testing | 🔵 Low | ~1-2 days | #156 | 9 |
 | 165 | Animated cat companion overlay | 🔵 Low | ~2-3 days | None | 9 |
 | 166 | Documentation update | 🔵 Low | ~1 day | All others | 9 |
-| 179 | Theme-aware light mode colors | 🔵 Low | ~1 day | None | 9 |
+| 179 | Theme-aware light mode colors | 🔵 Low | ~1 day | #163 | 9 |
 
 **Summary**: 6 open issues (0 Critical, 1 High, 0 Medium, 5 Low)
 
@@ -74,7 +74,7 @@
 | 📋 | #164 | Performance testing | #156 |
 | 📋 | #165 | Animated cat companion overlay | None |
 | 📋 | #166 | Documentation update | All |
-| 📋 | #179 | Theme-aware light mode colors | None |
+| 📋 | #179 | Theme-aware light mode colors | #163 |
 
 ---
 
