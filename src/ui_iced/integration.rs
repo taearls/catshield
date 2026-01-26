@@ -35,7 +35,8 @@
 //! # Thread/Process Safety
 //!
 //! Window state is tracked using atomic booleans to prevent multiple instances
-//! of the same window from being opened simultaneously.
+//! of the same window from being opened simultaneously. On macOS, child process
+//! handles are stored to enable graceful termination on shutdown.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -44,6 +45,21 @@ static SETTINGS_WINDOW_OPEN: AtomicBool = AtomicBool::new(false);
 
 /// Whether the iced about window is currently open
 static ABOUT_WINDOW_OPEN: AtomicBool = AtomicBool::new(false);
+
+/// Storage for child process handles on macOS
+///
+/// These are used to terminate helper subprocesses when the main app exits.
+#[cfg(target_os = "macos")]
+mod child_processes {
+    use std::process::Child;
+    use std::sync::Mutex;
+
+    /// The settings window child process (if running)
+    pub static SETTINGS_CHILD: Mutex<Option<Child>> = Mutex::new(None);
+
+    /// The about window child process (if running)
+    pub static ABOUT_CHILD: Mutex<Option<Child>> = Mutex::new(None);
+}
 
 /// Get the path to the helper binary for launching iced windows.
 ///
@@ -116,29 +132,60 @@ pub fn open_settings_window() -> bool {
         }
     };
 
-    // Spawn the subprocess in a monitoring thread
+    // Spawn the subprocess
+    let child = match Command::new(&binary_path).spawn() {
+        Ok(child) => child,
+        Err(e) => {
+            log::error!("Failed to launch settings window subprocess: {e}");
+            SETTINGS_WINDOW_OPEN.store(false, Ordering::SeqCst);
+            return false;
+        }
+    };
+
+    // Store the child process handle for later cleanup
+    if let Ok(mut guard) = child_processes::SETTINGS_CHILD.lock() {
+        *guard = Some(child);
+    }
+
+    // Spawn a monitoring thread to wait for the subprocess to exit
     thread::Builder::new()
         .name("settings-monitor".to_string())
         .spawn(move || {
-            log::debug!("Launching settings window: {:?}", binary_path);
+            log::debug!("Monitoring settings window subprocess");
 
-            // Spawn the subprocess and wait for it to exit
-            match Command::new(&binary_path).spawn() {
-                Ok(mut child) => {
-                    // Wait for the subprocess to exit
-                    match child.wait() {
-                        Ok(status) => {
+            // Wait for the subprocess to exit
+            loop {
+                // Check if we still have a child to wait on
+                let mut guard = match child_processes::SETTINGS_CHILD.lock() {
+                    Ok(guard) => guard,
+                    Err(_) => break,
+                };
+
+                if let Some(ref mut child) = *guard {
+                    // Try to get the exit status without blocking
+                    match child.try_wait() {
+                        Ok(Some(status)) => {
+                            // Process exited
                             if !status.success() {
                                 log::warn!("Settings window exited with status: {status}");
                             }
+                            *guard = None;
+                            break;
+                        }
+                        Ok(None) => {
+                            // Still running, continue monitoring
+                            drop(guard);
+                            std::thread::sleep(std::time::Duration::from_millis(100));
                         }
                         Err(e) => {
-                            log::error!("Failed to wait for settings window: {e}");
+                            log::error!("Failed to check settings window status: {e}");
+                            *guard = None;
+                            break;
                         }
                     }
-                }
-                Err(e) => {
-                    log::error!("Failed to launch settings window subprocess: {e}");
+                } else {
+                    // Child was taken (terminated by close_all_windows)
+                    break;
                 }
             }
 
@@ -184,29 +231,60 @@ pub fn open_about_window() -> bool {
         }
     };
 
-    // Spawn the subprocess in a monitoring thread
+    // Spawn the subprocess
+    let child = match Command::new(&binary_path).spawn() {
+        Ok(child) => child,
+        Err(e) => {
+            log::error!("Failed to launch about window subprocess: {e}");
+            ABOUT_WINDOW_OPEN.store(false, Ordering::SeqCst);
+            return false;
+        }
+    };
+
+    // Store the child process handle for later cleanup
+    if let Ok(mut guard) = child_processes::ABOUT_CHILD.lock() {
+        *guard = Some(child);
+    }
+
+    // Spawn a monitoring thread to wait for the subprocess to exit
     thread::Builder::new()
         .name("about-monitor".to_string())
         .spawn(move || {
-            log::debug!("Launching about window: {:?}", binary_path);
+            log::debug!("Monitoring about window subprocess");
 
-            // Spawn the subprocess and wait for it to exit
-            match Command::new(&binary_path).spawn() {
-                Ok(mut child) => {
-                    // Wait for the subprocess to exit
-                    match child.wait() {
-                        Ok(status) => {
+            // Wait for the subprocess to exit
+            loop {
+                // Check if we still have a child to wait on
+                let mut guard = match child_processes::ABOUT_CHILD.lock() {
+                    Ok(guard) => guard,
+                    Err(_) => break,
+                };
+
+                if let Some(ref mut child) = *guard {
+                    // Try to get the exit status without blocking
+                    match child.try_wait() {
+                        Ok(Some(status)) => {
+                            // Process exited
                             if !status.success() {
                                 log::warn!("About window exited with status: {status}");
                             }
+                            *guard = None;
+                            break;
+                        }
+                        Ok(None) => {
+                            // Still running, continue monitoring
+                            drop(guard);
+                            std::thread::sleep(std::time::Duration::from_millis(100));
                         }
                         Err(e) => {
-                            log::error!("Failed to wait for about window: {e}");
+                            log::error!("Failed to check about window status: {e}");
+                            *guard = None;
+                            break;
                         }
                     }
-                }
-                Err(e) => {
-                    log::error!("Failed to launch about window subprocess: {e}");
+                } else {
+                    // Child was taken (terminated by close_all_windows)
+                    break;
                 }
             }
 
@@ -310,8 +388,44 @@ pub fn is_about_window_open() -> bool {
 /// Close all iced windows
 ///
 /// This is called during application shutdown to ensure clean cleanup.
+/// On macOS, this terminates any running helper subprocess. On other
+/// platforms, this only resets the tracking state.
+#[cfg(target_os = "macos")]
+pub fn close_all_windows() {
+    // Terminate settings window subprocess if running
+    if let Ok(mut guard) = child_processes::SETTINGS_CHILD.lock() {
+        if let Some(mut child) = guard.take() {
+            log::debug!("Terminating settings window subprocess");
+            if let Err(e) = child.kill() {
+                log::warn!("Failed to kill settings window: {e}");
+            }
+            // Wait for the process to actually exit to avoid zombies
+            let _ = child.wait();
+        }
+    }
+
+    // Terminate about window subprocess if running
+    if let Ok(mut guard) = child_processes::ABOUT_CHILD.lock() {
+        if let Some(mut child) = guard.take() {
+            log::debug!("Terminating about window subprocess");
+            if let Err(e) = child.kill() {
+                log::warn!("Failed to kill about window: {e}");
+            }
+            // Wait for the process to actually exit to avoid zombies
+            let _ = child.wait();
+        }
+    }
+
+    SETTINGS_WINDOW_OPEN.store(false, Ordering::SeqCst);
+    ABOUT_WINDOW_OPEN.store(false, Ordering::SeqCst);
+}
+
+/// Close all iced windows (Windows/Linux version)
+///
+/// This is called during application shutdown to ensure clean cleanup.
 /// Note: This only resets the tracking state; the actual iced windows
 /// will close when their event loops exit.
+#[cfg(not(target_os = "macos"))]
 pub fn close_all_windows() {
     SETTINGS_WINDOW_OPEN.store(false, Ordering::SeqCst);
     ABOUT_WINDOW_OPEN.store(false, Ordering::SeqCst);
