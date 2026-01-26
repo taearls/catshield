@@ -518,18 +518,19 @@ impl SettingsWindow {
 
     /// Update settings state
     pub fn update(&mut self, message: SettingsMessage) -> Task<SettingsMessage> {
-        // Clear messages on any action
+        // Handle animation ticks first, without clearing messages
+        if let SettingsMessage::Tick(now) = &message {
+            self.cat_preview.tick(*now);
+            return Task::none();
+        }
+
+        // Clear messages on any user action (but not animation ticks)
         self.error_message = None;
         self.success_message = None;
 
         match message {
-            // Animation tick
-            SettingsMessage::Tick(now) => {
-                // Update cat animation for preview
-                self.cat_preview.tick(now);
-                // Don't clear messages for ticks
-                return Task::none();
-            }
+            // Animation tick already handled above
+            SettingsMessage::Tick(_) => unreachable!(),
 
             // Overlay section
             SettingsMessage::OpacityChanged(value) => {
