@@ -413,7 +413,7 @@ impl SettingsWindow {
 
             show_cat: config.show_cat(),
             cat_position: CatPosition::from_config_string(config.cat_position()),
-            cat_preview: CatCompanion::with_settings(config.show_cat(), CatPosition::default()),
+            cat_preview: CatCompanion::with_settings(config.show_cat(), CatPosition::from_config_string(config.cat_position())),
 
             current_section: SettingsSection::Overlay,
             has_changes: false,

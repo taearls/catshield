@@ -213,7 +213,11 @@ impl AboutWindow {
     ///
     /// Provides periodic ticks at ~30 FPS for smooth cat animation.
     pub fn subscription(&self) -> Subscription<AboutMessage> {
-        time::every(Duration::from_millis(33)).map(AboutMessage::Tick)
+        if self.cat.visible {
+            time::every(Duration::from_millis(33)).map(AboutMessage::Tick)
+        } else {
+            Subscription::none()
+        }
     }
 
     /// Run the about window application
