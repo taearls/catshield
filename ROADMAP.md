@@ -5,7 +5,7 @@
 <!-- Keep under 150 lines - agents read this first -->
 
 **Current Phase**: 9 - iced UI Migration
-**Next Priority**: #164 (Performance testing)
+**Next Priority**: #179 (Theme-aware light mode colors)
 **Blocking Issues**: None
 
 ### Open Issues by Priority
@@ -16,8 +16,9 @@
 | 164 | Performance testing | 🔵 Low | ~1-2 days | #156 | 9 |
 | 165 | Animated cat companion overlay | 🔵 Low | ~2-3 days | None | 9 |
 | 166 | Documentation update | 🔵 Low | ~1 day | All others | 9 |
+| 179 | Theme-aware light mode colors | 🔵 Low | ~1 day | None | 9 |
 
-**Summary**: 4 open issues (0 Critical, 1 High, 0 Medium, 3 Low)
+**Summary**: 5 open issues (0 Critical, 1 High, 0 Medium, 4 Low)
 
 ### Completed This Session
 
@@ -46,9 +47,10 @@
 
 ### Recommended Next Issues
 
-1. **#164** - Performance testing (unblocked)
-2. **#165** - Animated cat companion overlay (unblocked)
-3. **#166** - Documentation update (after all others)
+1. **#179** - Theme-aware light mode colors (follow-up from #163)
+2. **#164** - Performance testing (unblocked)
+3. **#165** - Animated cat companion overlay (unblocked)
+4. **#166** - Documentation update (after all others)
 
 ---
 
@@ -72,6 +74,7 @@
 | 📋 | #164 | Performance testing | #156 |
 | 📋 | #165 | Animated cat companion overlay | None |
 | 📋 | #166 | Documentation update | All |
+| 📋 | #179 | Theme-aware light mode colors | None |
 
 ---
 
@@ -140,9 +143,11 @@ Phase 9 (iced Migration):
     └─► #162 (Linux) ✅ ksni StatusNotifierItem + iced windows via thread spawn
                             │
     ├─► #163 (Polish) ✅ ◄──┤ Enhanced theme, widget styles, dark/light mode
-    │                       │
-    ├─► #164 (Performance)  │
-    │                       │
+    │       │
+    │       └─► #179 (Light Mode Colors)
+    │
+    ├─► #164 (Performance)
+    │
     └─► #165 (Cat Animation)
                 │
                 ▼
@@ -217,3 +222,12 @@ Potential future enhancements (not yet tracked as issues):
 | #112 | Cross-platform CI | 2026-01-14 |
 
 *For full changelog, see [CHANGELOG.md](CHANGELOG.md)*
+
+---
+
+## Changelog
+
+### 2026-01-25
+- Added #179: Theme-aware light mode colors (follow-up from PR #178 CodeRabbit review)
+- Updated open issues summary (6 total: 1 High, 5 Low)
+- Updated critical path diagram to show #179 dependency on #163
