@@ -69,16 +69,22 @@ Add the following snippet to your shell configuration file (`~/.bashrc`, `~/.zsh
 
 ```bash
 # Start Cat Shield in the background (if not already running)
-if command -v catshield &>/dev/null && ! pgrep -x catshield &>/dev/null; then
-  catshield &>/dev/null &
-  disown
+# Only launch in graphical sessions — skip for SSH/headless environments
+if [ -n "$DISPLAY" ] || [ -n "$WAYLAND_DISPLAY" ]; then
+  if [ -z "$SSH_TTY" ] && [ -z "$SSH_CONNECTION" ]; then
+    if command -v catshield &>/dev/null && ! pgrep -x catshield &>/dev/null; then
+      catshield &>/dev/null &
+      disown
+    fi
+  fi
 fi
 ```
 
 After adding the snippet, restart your shell or source the config file:
 
 ```bash
-source ~/.bashrc   # or ~/.zshrc
+source ~/.bashrc   # for Bash
+source ~/.zshrc    # for Zsh
 ```
 
 ## Usage
