@@ -63,6 +63,24 @@ sudo chmod +x /usr/local/bin/catshield
 ./uninstall.sh
 ```
 
+### Auto-Start on Shell Startup
+
+Add the following snippet to your shell configuration file (`~/.bashrc`, `~/.zshrc`, etc.) to launch Cat Shield automatically whenever you open a new terminal. If an instance is already running, it will be skipped.
+
+```bash
+# Start Cat Shield in the background (if not already running)
+if command -v catshield &>/dev/null && ! pgrep -x catshield &>/dev/null; then
+  catshield &>/dev/null &
+  disown
+fi
+```
+
+After adding the snippet, restart your shell or source the config file:
+
+```bash
+source ~/.bashrc   # or ~/.zshrc
+```
+
 ## Usage
 
 ```bash
